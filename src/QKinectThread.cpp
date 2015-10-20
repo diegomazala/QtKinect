@@ -12,8 +12,13 @@ QKinectThread::QKinectThread(QObject *parent)
 	running(false),
 	m_pKinectSensor(NULL),
 	m_pColorFrameReader(NULL),
-	m_pColorRGBX(NULL)
+	colorBuffer(cColorWidth, cColorHeight),
+	depthBuffer(cDepthWidth, cDepthHeight)
 {
+	
+	for (int i = 0; i < 256; ++i)
+		colorTable.push_back(qRgb(i, i, i));
+
 }
 
 
@@ -51,15 +56,31 @@ void QKinectThread::run()
 		//mutex.lock();
 		//mutex.unlock();
 
-		//QImage colorImg;
-		//if (updateColor(colorImg))
-		//{
-		//	emit colorImage(colorImg);
-		//}
-
-		QImage depthImg;
-		if (updateDepth(depthImg))
+		
+		if (updateColor())
 		{
+			emit colorImage(QImage(colorBuffer.data.data(), colorBuffer.width, colorBuffer.height, QImage::Format_ARGB32));
+		}
+
+		
+		if (updateDepth())
+		{
+			// create depth image
+			QImage depthImg = QImage(cDepthWidth, cDepthHeight, QImage::Format::Format_Indexed8);
+			depthImg.setColorTable(colorTable);
+
+			std::vector<unsigned char> depthImgBuffer(depthBuffer.data.size());
+
+			// casting from unsigned short (2 bytes precision) to unsigned char (1 byte precision)
+			std::transform(
+				depthBuffer.data.begin(),
+				depthBuffer.data.end(),
+				depthImgBuffer.begin(),
+				[=](const unsigned short d) { return static_cast<unsigned char>((float)d / (float)depthBuffer.depthMaxDistance * 255.f); });
+
+			// set pixels to depth image
+			for (int y = 0; y<depthImg.height(); y++)
+				memcpy(depthImg.scanLine(y), depthImgBuffer.data() + y * depthImg.width(), depthImg.width());
 			emit depthImage(depthImg);
 		}
 
@@ -141,24 +162,6 @@ bool QKinectThread::initializeSensor()
 		return false;
 	}
 
-	// create heap storage for color pixel data in RGBX format
-	if (m_pColorRGBX)
-	{
-		delete[] m_pColorRGBX;
-		m_pColorRGBX = NULL;
-	}
-	m_pColorRGBX = new RGBQUAD[cColorWidth * cColorHeight];
-
-
-	// create heap storage for depth pixel data in RGBX format
-	if (m_pDepthRGBX)
-	{
-		delete[] m_pDepthRGBX;
-		m_pDepthRGBX = NULL;
-	}
-	m_pDepthRGBX = new RGBQUAD[cDepthWidth * cDepthHeight];
-
-
 	return true;
 }
 
@@ -166,17 +169,6 @@ bool QKinectThread::initializeSensor()
 
 void QKinectThread::uninitializeSensor()
 {
-	if (m_pColorRGBX)
-	{
-		delete[] m_pColorRGBX;
-		m_pColorRGBX = NULL;
-	}
-
-	if (m_pDepthRGBX)
-	{
-		delete[] m_pDepthRGBX;
-		m_pDepthRGBX = NULL;
-	}
 
 	// done with color frame reader
 	SafeRelease(m_pColorFrameReader);
@@ -195,7 +187,7 @@ void QKinectThread::uninitializeSensor()
 /// <summary>
 /// Get color frame from kinect
 /// </summary>
-bool QKinectThread::updateColor(QImage& colorImg)
+bool QKinectThread::updateColor()
 {
 	if (!m_pColorFrameReader)
 	{
@@ -213,6 +205,8 @@ bool QKinectThread::updateColor(QImage& colorImg)
 		int frameWidth = 0;
 		int frameHeight = 0;
 		ColorImageFormat imageFormat = ColorImageFormat_None;
+		BYTE *pBuffer = NULL;
+		
 		
 
 		hr = pColorFrame->get_RelativeTime(&nTime);
@@ -225,11 +219,13 @@ bool QKinectThread::updateColor(QImage& colorImg)
 		if (SUCCEEDED(hr))
 		{
 			hr = pFrameDescription->get_Width(&frameWidth);
+			colorBuffer.width = frameWidth;
 		}
 
 		if (SUCCEEDED(hr))
 		{
 			hr = pFrameDescription->get_Height(&frameHeight);
+			colorBuffer.height = frameHeight;
 		}
 
 		if (SUCCEEDED(hr))
@@ -239,27 +235,21 @@ bool QKinectThread::updateColor(QImage& colorImg)
 
 		if (SUCCEEDED(hr))
 		{
-			colorImg = QImage(frameWidth, frameHeight, QImage::Format_ARGB32);
-
 			if (imageFormat == ColorImageFormat_Bgra)
 			{
 				UINT bufferSize;
-				hr = pColorFrame->AccessRawUnderlyingBuffer(&bufferSize, reinterpret_cast<BYTE**>(colorImg.bits()));
+				hr = pColorFrame->AccessRawUnderlyingBuffer(&bufferSize, reinterpret_cast<BYTE**>(pBuffer));
+
+				// copy data to color buffer
+				if (SUCCEEDED(hr))
+					std::copy(reinterpret_cast<unsigned char*>(pBuffer), pBuffer + bufferSize, colorBuffer.data.begin());
 			}
-			else if (m_pColorRGBX)
+			else 
 			{
-				hr = pColorFrame->CopyConvertedFrameDataToArray(colorImg.byteCount(), reinterpret_cast<BYTE*>(colorImg.bits()), ColorImageFormat_Bgra);
-			}
-			else
-			{
-				hr = E_FAIL;
+				hr = pColorFrame->CopyConvertedFrameDataToArray(colorBuffer.data.size(), reinterpret_cast<BYTE*>(colorBuffer.data.data()), ColorImageFormat_Bgra);
+				
 			}
 		}
-
-		//if (SUCCEEDED(hr))
-		//{
-		//	setPixmap(QPixmap::fromImage(imageColor).scaled(width(), height(), Qt::KeepAspectRatio));
-		//}
 
 		SafeRelease(pFrameDescription);
 	}
@@ -276,7 +266,7 @@ bool QKinectThread::updateColor(QImage& colorImg)
 /// <summary>
 /// Get depth frame from kinect
 /// </summary>
-bool QKinectThread::updateDepth(QImage& depthImg)
+bool QKinectThread::updateDepth()
 {
 	if (!m_pDepthFrameReader)
 	{
@@ -291,8 +281,8 @@ bool QKinectThread::updateDepth(QImage& depthImg)
 	{
 		INT64 nTime = 0;
 		IFrameDescription* pFrameDescription = NULL;
-		int nWidth = 0;
-		int nHeight = 0;
+		int frameWidth = 0;
+		int frameHeight = 0;
 		USHORT nDepthMinReliableDistance = 0;
 		USHORT nDepthMaxDistance = 0;
 		UINT nBufferSize = 0;
@@ -307,68 +297,43 @@ bool QKinectThread::updateDepth(QImage& depthImg)
 
 		if (SUCCEEDED(hr))
 		{
-			hr = pFrameDescription->get_Width(&nWidth);
+			hr = pFrameDescription->get_Width(&frameWidth);
 		}
 
 		if (SUCCEEDED(hr))
 		{
-			hr = pFrameDescription->get_Height(&nHeight);
+			hr = pFrameDescription->get_Height(&frameHeight);
 		}
 
 		if (SUCCEEDED(hr))
 		{
 			hr = pDepthFrame->get_DepthMinReliableDistance(&nDepthMinReliableDistance);
+			depthBuffer.depthMinReliableDistance = nDepthMinReliableDistance;
 		}
 
 		if (SUCCEEDED(hr))
 		{
 			// In order to see the full range of depth (including the less reliable far field depth)
 			// we are setting nDepthMaxDistance to the extreme potential depth threshold
-			nDepthMaxDistance = USHRT_MAX;
+			//nDepthMaxDistance = USHRT_MAX;
 
 			// Note:  If you wish to filter by reliable depth distance, uncomment the following line.
 			hr = pDepthFrame->get_DepthMaxReliableDistance(&nDepthMaxDistance);
+			depthBuffer.depthMaxDistance = nDepthMaxDistance;
 		}
-
-		
 
 		if (SUCCEEDED(hr))
 		{
 			hr = pDepthFrame->AccessUnderlyingBuffer(&nBufferSize, &pBuffer);
 		}
+		
 
 		if (SUCCEEDED(hr))
-		{
-			std::vector<uchar> depthBuffer;
-			QVector<QRgb>  colorTable;
-			for (int i = 0; i < 256; ++i)
-				colorTable.push_back(qRgb(i, i, i));
-
-			depthImg = QImage(nWidth, nHeight, QImage::Format::Format_Indexed8);
-			depthImg.setColorTable(colorTable);
-
-			int i = 0;
-			for (int y = 0; y < depthImg.height(); ++y)
-			{
-				for (int x = 0; x < depthImg.width(); ++x)
-				{
-					//USHORT depth = pBuffer[i];
-					//int intensity = static_cast<int>((depth >= nDepthMinReliableDistance) && (depth <= nDepthMaxDistance) ? (depth % 256) : 0);
-
-					float depth = pBuffer[i];
-					uchar intensity = static_cast<uchar>(depth / nDepthMaxDistance * 255.0f);
-					depthImg.setPixel(x, y, qGray(intensity, intensity, intensity));
-
-#if 0
-					//int intensity = int(byte(pBuffer[i] & 0xFF00));// heigh byte
-					int intensity = int(byte(pBuffer[i] & 0x00FF));	// low byte
-					depthImg.setPixel(x, y, qGray(intensity, intensity, intensity));
-#endif
-					
-					++i;
-				}
-			}
+		{			
+			// copy data to depth buffer
+			std::copy(reinterpret_cast<unsigned short*>(pBuffer), pBuffer + nBufferSize, depthBuffer.data.begin());
 		}
+
 		SafeRelease(pFrameDescription);
 	}
 	SafeRelease(pDepthFrame);

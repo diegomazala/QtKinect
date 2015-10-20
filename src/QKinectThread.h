@@ -46,17 +46,40 @@ inline void SafeRelease(Interface *& pInterfaceToRelease)
 #include <QSize>
 #include <QThread>
 #include <QWaitCondition>
+#include <QImage>
+#include <array>
 
-class QImage;
+struct KinectColorBuffer
+{
+	KinectColorBuffer(unsigned short w, unsigned short h) : 
+		width(w),
+		height(h), 
+		data(w * h * channels)
+	{}
+
+	unsigned short width;
+	unsigned short height;
+	const unsigned short channels = 4;
+	std::vector<unsigned char> data;
+};
+
+struct KinectDepthBuffer
+{
+	KinectDepthBuffer(unsigned short w, unsigned short h) :
+		width(w),
+		height(h),
+		data(w * h)
+	{}
+
+	unsigned short width;
+	unsigned short height;
+	std::vector<unsigned short> data;
+	unsigned short depthMinReliableDistance;
+	unsigned short depthMaxDistance;
+};
 
 class QKinectThread : public QThread
 {
-
-	static const int        cColorWidth = 1920;
-	static const int        cColorHeight = 1080;
-	static const int        cDepthWidth = 512;
-	static const int        cDepthHeight = 424;
-
 	Q_OBJECT
 
 public:
@@ -77,8 +100,8 @@ protected:
 private:
 
 	bool initializeSensor();
-	bool updateColor(QImage& colorImage);
-	bool updateDepth(QImage& depthImage);
+	bool updateColor();
+	bool updateDepth();
 	bool updateInfrared(QImage& infraredImage);
 	void uninitializeSensor();
 
@@ -98,10 +121,15 @@ private:
 	// Infrared reader
 	IInfraredFrameReader*   m_pInfraredFrameReader;
 
-	// Direct2D
-	RGBQUAD*                m_pColorRGBX;
-	RGBQUAD*				m_pDepthRGBX;
+	KinectColorBuffer colorBuffer;
+	KinectDepthBuffer depthBuffer;
 
+	static const int        cColorWidth = 1920;
+	static const int        cColorHeight = 1080;
+	static const int        cDepthWidth = 512;
+	static const int        cDepthHeight = 424;
+
+	QVector<QRgb>  colorTable;
 };
 
 

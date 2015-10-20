@@ -4,6 +4,8 @@
 #include "QKinectThread.h"
 #include <iostream>
 
+
+
 int main(int argc, char **argv)
 {
 	QApplication app(argc, argv);
@@ -30,3 +32,4 @@ int main(int argc, char **argv)
 	k.stop();
 	return app_exit;
 }
+
