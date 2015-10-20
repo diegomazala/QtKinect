@@ -51,11 +51,11 @@ void QKinectThread::run()
 		//mutex.lock();
 		//mutex.unlock();
 
-		QImage colorImg;
-		if (updateColor(colorImg))
-		{
-			emit colorImage(colorImg);
-		}
+		//QImage colorImg;
+		//if (updateColor(colorImg))
+		//{
+		//	emit colorImage(colorImg);
+		//}
 
 		QImage depthImg;
 		if (updateDepth(depthImg))
@@ -352,21 +352,22 @@ bool QKinectThread::updateDepth(QImage& depthImg)
 			{
 				for (int x = 0; x < depthImg.width(); ++x)
 				{
-					USHORT depth = pBuffer[i];
-					int intensity = static_cast<int>((depth >= nDepthMinReliableDistance) && (depth <= nDepthMaxDistance) ? (depth % 256) : 0);
-					
+					//USHORT depth = pBuffer[i];
+					//int intensity = static_cast<int>((depth >= nDepthMinReliableDistance) && (depth <= nDepthMaxDistance) ? (depth % 256) : 0);
+
+					float depth = pBuffer[i];
+					uchar intensity = static_cast<uchar>(depth / nDepthMaxDistance * 255.0f);
 					depthImg.setPixel(x, y, qGray(intensity, intensity, intensity));
+
+#if 0
+					//int intensity = int(byte(pBuffer[i] & 0xFF00));// heigh byte
+					int intensity = int(byte(pBuffer[i] & 0x00FF));	// low byte
+					depthImg.setPixel(x, y, qGray(intensity, intensity, intensity));
+#endif
+					
 					++i;
 				}
 			}
-#if 0
-			for (int i = 0; i<nBufferSize; ++i)
-			{
-				USHORT depth = pBuffer[i];
-				depthBuffer.push_back(static_cast<uchar>((depth >= nDepthMinReliableDistance) && (depth <= nDepthMaxDistance) ? (depth % 256) : 0));
-			}
-			img_gray.loadFromData(depthBuffer.data(), nBufferSize * sizeof(uchar));
-#endif
 		}
 		SafeRelease(pFrameDescription);
 	}
