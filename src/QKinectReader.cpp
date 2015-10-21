@@ -1,15 +1,12 @@
 
 
 #include <strsafe.h>
-#include <iostream>
-#include "QKinectThread.h"
 
+#include "QKinectReader.h"
 #include <QtWidgets>
-#include <cmath>
+#include <iostream>
 
-#include <time.h>
-
-QKinectThread::QKinectThread(QObject *parent)
+QKinectReader::QKinectReader(QObject *parent)
 	: QThread(parent),
 	m_pKinectSensor(NULL),
 	m_pColorFrameReader(NULL),
@@ -28,19 +25,19 @@ QKinectThread::QKinectThread(QObject *parent)
 }
 
 
-QKinectThread::~QKinectThread()
+QKinectReader::~QKinectReader()
 {
 	stop();
 }
 
 
-void QKinectThread::enableImageSending(bool value)
+void QKinectReader::enableImageSending(bool value)
 {
 	emitImageEnabled = value;
 }
 
 
-void QKinectThread::getColorData(std::vector<unsigned char>& buffer, signed __int64& timespan)
+void QKinectReader::getColorData(std::vector<unsigned char>& buffer, signed __int64& timespan)
 {
 	mutex.lock();
 	{
@@ -51,7 +48,7 @@ void QKinectThread::getColorData(std::vector<unsigned char>& buffer, signed __in
 }
 
 
-void QKinectThread::getDepthData(std::vector<unsigned short>& buffer, signed __int64& timespan)
+void QKinectReader::getDepthData(std::vector<unsigned short>& buffer, signed __int64& timespan)
 {
 	mutex.lock();
 	{
@@ -62,7 +59,7 @@ void QKinectThread::getDepthData(std::vector<unsigned short>& buffer, signed __i
 }
 
 
-void QKinectThread::stop()
+void QKinectReader::stop()
 {
 	mutex.lock();
 	{
@@ -77,7 +74,7 @@ void QKinectThread::stop()
 
 
 
-void QKinectThread::run()
+void QKinectReader::run()
 {
 	if (!initializeSensor())
 	{
@@ -145,7 +142,7 @@ void QKinectThread::run()
 /// Initializes the default Kinect sensor
 /// </summary>
 /// <returns>indicates success or failure</returns>
-bool QKinectThread::initializeSensor()
+bool QKinectReader::initializeSensor()
 {
 	HRESULT hr;
 
@@ -212,7 +209,7 @@ bool QKinectThread::initializeSensor()
 
 
 
-void QKinectThread::uninitializeSensor()
+void QKinectReader::uninitializeSensor()
 {
 
 	// done with color frame reader
@@ -232,7 +229,7 @@ void QKinectThread::uninitializeSensor()
 /// <summary>
 /// Get color frame from kinect
 /// </summary>
-bool QKinectThread::updateColor()
+bool QKinectReader::updateColor()
 {
 	if (!m_pColorFrameReader)
 	{
@@ -338,7 +335,7 @@ bool QKinectThread::updateColor()
 /// <summary>
 /// Get depth frame from kinect
 /// </summary>
-bool QKinectThread::updateDepth()
+bool QKinectReader::updateDepth()
 {
 	if (!m_pDepthFrameReader)
 	{
@@ -433,7 +430,7 @@ bool QKinectThread::updateDepth()
 /// <summary>
 /// Get infrared frame from kinect
 /// </summary>
-bool QKinectThread::updateInfrared(QImage& infraredImg)
+bool QKinectReader::updateInfrared(QImage& infraredImg)
 {
 	if (!m_pInfraredFrameReader)
 	{

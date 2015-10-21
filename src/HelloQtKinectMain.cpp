@@ -1,7 +1,7 @@
 
 #include <QApplication>
 #include "QImageWidget.h"
-#include "QKinectThread.h"
+#include "QKinectReader.h"
 #include <iostream>
 
 
@@ -10,7 +10,7 @@ int main(int argc, char **argv)
 {
 	QApplication app(argc, argv);
 
-	QKinectThread k;
+	QKinectReader k;
 	k.start();
 
 	QImageWidget colorWidget;

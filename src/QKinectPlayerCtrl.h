@@ -4,7 +4,7 @@
 #define __Q_KINECT_PLAYER_CTRL_H__
 
 #include <QObject>
-#include "QKinectThread.h"
+#include "QKinectReader.h"
 
 class MainWindow;
 class QLabel;
@@ -34,7 +34,7 @@ protected:
 
 
 private:
-	QKinectThread	kinectReader;
+	QKinectReader	kinectReader;
 	MainWindow*		view;
 };
 
