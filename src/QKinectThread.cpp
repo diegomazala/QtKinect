@@ -89,10 +89,8 @@ void QKinectThread::run()
 
 	while (running)
 	{
-		
 		bool colorUpdated = updateColor();
 		bool depthUpdated = updateDepth();
-
 
 		// If send image is enabled, emit signal with the color image
 		if (colorUpdated && emitImageEnabled)

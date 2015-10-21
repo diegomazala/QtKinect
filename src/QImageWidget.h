@@ -1,7 +1,7 @@
 
 
-#ifndef QImageWidget_H
-#define QImageWidget_H
+#ifndef _Q_IMAGE_WIDGET_H
+#define _Q_IMAGE_WIDGET_H
 
 #include <QLabel>
 
@@ -23,4 +23,4 @@ protected:
 	virtual void keyReleaseEvent(QKeyEvent *);
 };
 
-#endif
+#endif	// _Q_IMAGE_WIDGET_H
