@@ -60,6 +60,9 @@ public:
 
 	void enableImageSending(bool value);
 
+	void getColorData(std::vector<unsigned char>& buffer, signed __int64& timespan);
+	void getDepthData(std::vector<unsigned short>& buffer, signed __int64& timespan);
+
 
 public slots:
 	void stop();

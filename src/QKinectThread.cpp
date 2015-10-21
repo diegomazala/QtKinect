@@ -40,6 +40,27 @@ void QKinectThread::enableImageSending(bool value)
 }
 
 
+void QKinectThread::getColorData(std::vector<unsigned char>& buffer, signed __int64& timespan)
+{
+	mutex.lock();
+	{
+		buffer = colorBuffer;
+		timespan = colorFrameTime;
+	}
+	mutex.unlock();
+}
+
+
+void QKinectThread::getDepthData(std::vector<unsigned short>& buffer, signed __int64& timespan)
+{
+	mutex.lock();
+	{
+		buffer = depthBuffer;
+		timespan = depthFrameTime;
+	}
+	mutex.unlock();
+}
+
 
 void QKinectThread::stop()
 {
