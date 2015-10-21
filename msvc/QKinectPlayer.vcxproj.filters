@@ -65,6 +65,9 @@
     <ClCompile Include="GeneratedFiles\Release\moc_QKinectReader.cpp">
       <Filter>Generated Files\Release</Filter>
     </ClCompile>
+    <ClCompile Include="GeneratedFiles\qrc_QKinectPlayer.cpp">
+      <Filter>Generated Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="..\src\MainWindow.h">
@@ -79,10 +82,42 @@
     <CustomBuild Include="..\src\QKinectReader.h">
       <Filter>Header Files</Filter>
     </CustomBuild>
+    <CustomBuild Include="..\src\QKinectPlayer.qrc">
+      <Filter>Resource Files</Filter>
+    </CustomBuild>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GeneratedFiles\ui_MainWindow.h">
       <Filter>Generated Files</Filter>
     </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="..\resources\icons\play_48x48.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\resources\icons\stop_48x48.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\resources\icons\rec_48x48.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\resources\icons\power_48x48.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\resources\icons\open_48x48.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\resources\icons\save_48x48.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\resources\icons\delete_48x48.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\resources\icons\info_48x48.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\resources\icons\help_48x48.png">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
 </Project>

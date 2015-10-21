@@ -22,15 +22,23 @@ public:
     ~MainWindow();
 
 	void setController(QKinectPlayerCtrl* ctrl);
+	
+	//void setColorBuffer(const std::vector<uchar>& colorBuffer, ushort width, ushort height, ushort channels);
+	//void setDepthBuffer(const std::vector<ushort>& depthBuffer, ushort width, ushort height);
 
 public slots:
 	void fileNew();
 	void fileOpen();
 	void fileSave();
 	void fileSaveAs();
+	void playerPlay();
+	void playerStop();
+	void playerRecord(bool triggered);
 	void aboutDialogShow();
+
 	void setColorImage(const QImage& image);
 	void setDepthImage(const QImage& image);
+		
 
 private:
 

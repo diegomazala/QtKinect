@@ -71,6 +71,7 @@ signals:
 	void colorImage(const QImage &image);
 	void depthImage(const QImage &image);
 	void infraredImage(const QImage &image);
+	void frameUpdated();
 
 protected:
 	void run() Q_DECL_OVERRIDE;
@@ -83,9 +84,6 @@ private:
 	bool updateInfrared(QImage& infraredImage);
 	void uninitializeSensor();
 
-
-	
-	
 	
 	IKinectSensor*				m_pKinectSensor;		// Current Kinect
 

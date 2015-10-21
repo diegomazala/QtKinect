@@ -6,6 +6,7 @@
 #include <QDebug>
 #include <QMessageBox>
 #include <QStandardItemModel>
+#include <iostream>
 
 
 MainWindow::MainWindow(QWidget *parent) : 
@@ -95,8 +96,28 @@ void MainWindow::fileSaveAs()
 
 
 
+void MainWindow::playerPlay()
+{
+
+}
+
+
+void MainWindow::playerStop()
+{
+
+}
+
+
+void MainWindow::playerRecord(bool triggered)
+{
+	if (triggered)
+		std::cout << "start recording" << std::endl;
+	else
+		std::cout << "stop recording" << std::endl;
+}
+
+
 void MainWindow::aboutDialogShow()
 {
 }
-
 

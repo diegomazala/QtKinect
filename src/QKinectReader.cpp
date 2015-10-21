@@ -89,6 +89,9 @@ void QKinectReader::run()
 		bool colorUpdated = updateColor();
 		bool depthUpdated = updateDepth();
 
+		if (colorUpdated || depthUpdated)
+			emit frameUpdated();
+
 		// If send image is enabled, emit signal with the color image
 		if (colorUpdated && emitImageEnabled)
 		{

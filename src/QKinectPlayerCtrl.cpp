@@ -1,5 +1,6 @@
 #include "QKinectPlayerCtrl.h"
 #include "MainWindow.h"
+#include <iostream>
 
 
 QKinectPlayerCtrl::QKinectPlayerCtrl(QObject *parent)
@@ -27,8 +28,12 @@ void QKinectPlayerCtrl::setupConnections()
 		connect(&kinectReader, SIGNAL(colorImage(QImage)), view, SLOT(setColorImage(QImage)));
 		connect(&kinectReader, SIGNAL(depthImage(QImage)), view, SLOT(setDepthImage(QImage)));
 	}
+	connect(&kinectReader, SIGNAL(frameUpdated()), this, SLOT(updateFrame()));
 }
 
+void QKinectPlayerCtrl::updateFrame()
+{
+}
 
 void QKinectPlayerCtrl::startKinect()
 {

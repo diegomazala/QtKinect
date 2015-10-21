@@ -28,6 +28,8 @@ public:
 
 public slots:
 
+	void updateFrame();
+
 signals:
 	
 protected:

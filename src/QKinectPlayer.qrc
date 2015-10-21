@@ -1,0 +1,13 @@
+<!DOCTYPE RCC><RCC version="1.0">
+<qresource prefix="/">
+  <file>../resources/icons/play_48x48.png</file>
+  <file>../resources/icons/stop_48x48.png</file>
+  <file>../resources/icons/rec_48x48.png</file>
+  <file>../resources/icons/power_48x48.png</file>
+  <file>../resources/icons/open_48x48.png</file>
+  <file>../resources/icons/save_48x48.png</file>
+  <file>../resources/icons/delete_48x48.png</file>
+  <file>../resources/icons/info_48x48.png</file>
+  <file>../resources/icons/help_48x48.png</file>
+</qresource>
+</RCC>
