@@ -47,36 +47,8 @@ inline void SafeRelease(Interface *& pInterfaceToRelease)
 #include <QThread>
 #include <QWaitCondition>
 #include <QImage>
-#include <array>
 
-struct KinectColorBuffer
-{
-	KinectColorBuffer(unsigned short w, unsigned short h) : 
-		width(w),
-		height(h), 
-		data(w * h * channels)
-	{}
 
-	unsigned short width;
-	unsigned short height;
-	const unsigned short channels = 4;
-	std::vector<unsigned char> data;
-};
-
-struct KinectDepthBuffer
-{
-	KinectDepthBuffer(unsigned short w, unsigned short h) :
-		width(w),
-		height(h),
-		data(w * h)
-	{}
-
-	unsigned short width;
-	unsigned short height;
-	std::vector<unsigned short> data;
-	unsigned short depthMinReliableDistance;
-	unsigned short depthMaxDistance;
-};
 
 class QKinectThread : public QThread
 {
@@ -85,6 +57,9 @@ class QKinectThread : public QThread
 public:
 	QKinectThread(QObject *parent = 0);
 	~QKinectThread();
+
+	void enableImageSending(bool value);
+
 
 public slots:
 	void stop();
@@ -106,30 +81,41 @@ private:
 	void uninitializeSensor();
 
 
-	QMutex mutex;
-	bool running;
 	
-	// Current Kinect
-	IKinectSensor*          m_pKinectSensor;
+	
+	
+	IKinectSensor*				m_pKinectSensor;		// Current Kinect
 
-	// Color reader
-	IColorFrameReader*      m_pColorFrameReader;
+	
+	IColorFrameReader*			m_pColorFrameReader;	// Color reader
 
-	// Depth reader
-	IDepthFrameReader*      m_pDepthFrameReader;
+	
+	IDepthFrameReader*			m_pDepthFrameReader;	// Depth reader
 
-	// Infrared reader
-	IInfraredFrameReader*   m_pInfraredFrameReader;
+	
+	IInfraredFrameReader*		m_pInfraredFrameReader;	// Infrared reader
 
-	KinectColorBuffer colorBuffer;
-	KinectDepthBuffer depthBuffer;
 
-	static const int        cColorWidth = 1920;
-	static const int        cColorHeight = 1080;
-	static const int        cDepthWidth = 512;
-	static const int        cDepthHeight = 424;
+	unsigned short				colorFrameWidth;		// = 1920;
+	unsigned short				colorFrameHeight;		// = 1080;
+	const unsigned short		colorFrameChannels;		// = 4;
+	signed __int64				colorFrameTime;			// timestamp
 
-	QVector<QRgb>  colorTable;
+	unsigned short				depthFrameWidth;		// = 512;
+	unsigned short				depthFrameHeight;		// = 424;
+	signed __int64				depthFrameTime;			// timestamp
+
+	unsigned short				depthMinReliableDistance;
+	unsigned short				depthMaxDistance;
+
+	std::vector<unsigned char>	colorBuffer;
+	std::vector<unsigned short>	depthBuffer;
+
+	bool						emitImageEnabled;
+	QVector<QRgb>				colorTable;
+
+	QMutex						mutex;
+	bool						running;
 };
 
 

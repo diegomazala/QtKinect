@@ -7,18 +7,24 @@
 #include <QtWidgets>
 #include <cmath>
 
+#include <time.h>
+
 QKinectThread::QKinectThread(QObject *parent)
 	: QThread(parent),
-	running(false),
 	m_pKinectSensor(NULL),
 	m_pColorFrameReader(NULL),
-	colorBuffer(cColorWidth, cColorHeight),
-	depthBuffer(cDepthWidth, cDepthHeight)
+	colorFrameWidth(1920),
+	colorFrameHeight(1080),
+	colorFrameChannels(4),
+	depthFrameWidth(512),
+	depthFrameHeight(424),
+	colorBuffer(colorFrameWidth * colorFrameHeight * colorFrameChannels),
+	depthBuffer(depthFrameWidth * depthFrameHeight),
+	emitImageEnabled(true),
+	running(false)
 {
-	
 	for (int i = 0; i < 256; ++i)
 		colorTable.push_back(qRgb(i, i, i));
-
 }
 
 
@@ -28,10 +34,19 @@ QKinectThread::~QKinectThread()
 }
 
 
+void QKinectThread::enableImageSending(bool value)
+{
+	emitImageEnabled = value;
+}
+
+
+
 void QKinectThread::stop()
 {
 	mutex.lock();
-	running = false;
+	{
+		running = false;
+	}
 	mutex.unlock();
 
 	wait();
@@ -53,35 +68,46 @@ void QKinectThread::run()
 
 	while (running)
 	{
-		//mutex.lock();
-		//mutex.unlock();
-
 		
-		if (updateColor())
+		bool colorUpdated = updateColor();
+		bool depthUpdated = updateDepth();
+
+
+		// If send image is enabled, emit signal with the color image
+		if (colorUpdated && emitImageEnabled)
 		{
-			emit colorImage(QImage(colorBuffer.data.data(), colorBuffer.width, colorBuffer.height, QImage::Format_ARGB32));
+			mutex.lock();
+			{
+				emit colorImage(QImage(colorBuffer.data(), colorFrameWidth, colorFrameHeight, QImage::Format_ARGB32));
+			}
+			mutex.unlock();
 		}
 
-		
-		if (updateDepth())
+		// If send image is enabled, emit signal with the depth image
+		if (depthUpdated && emitImageEnabled)
 		{
-			// create depth image
-			QImage depthImg = QImage(cDepthWidth, cDepthHeight, QImage::Format::Format_Indexed8);
-			depthImg.setColorTable(colorTable);
+			mutex.lock();
+			{
+				// create depth image
+				QImage depthImg = QImage(depthFrameWidth, depthFrameHeight, QImage::Format::Format_Indexed8);
+				depthImg.setColorTable(colorTable);
 
-			std::vector<unsigned char> depthImgBuffer(depthBuffer.data.size());
+				std::vector<unsigned char> depthImgBuffer(depthBuffer.size());
 
-			// casting from unsigned short (2 bytes precision) to unsigned char (1 byte precision)
-			std::transform(
-				depthBuffer.data.begin(),
-				depthBuffer.data.end(),
-				depthImgBuffer.begin(),
-				[=](const unsigned short d) { return static_cast<unsigned char>((float)d / (float)depthBuffer.depthMaxDistance * 255.f); });
+				// casting from unsigned short (2 bytes precision) to unsigned char (1 byte precision)
+				std::transform(
+					depthBuffer.begin(),
+					depthBuffer.end(),
+					depthImgBuffer.begin(),
+					[=](const unsigned short depth) { return static_cast<unsigned char>((float)depth / (float)depthMaxDistance * 255.f); });
 
-			// set pixels to depth image
-			for (int y = 0; y<depthImg.height(); y++)
-				memcpy(depthImg.scanLine(y), depthImgBuffer.data() + y * depthImg.width(), depthImg.width());
-			emit depthImage(depthImg);
+				// set pixels to depth image
+				for (int y = 0; y < depthImg.height(); y++)
+					memcpy(depthImg.scanLine(y), depthImgBuffer.data() + y * depthImg.width(), depthImg.width());
+
+				emit depthImage(depthImg);
+			}
+			mutex.unlock();
 		}
 
 		//QImage infraredImg;
@@ -90,7 +116,7 @@ void QKinectThread::run()
 		//	emit infraredImage(infraredImg);
 		//}
 
-		msleep(10);
+		msleep(3);
 	}
 }
 
@@ -206,8 +232,6 @@ bool QKinectThread::updateColor()
 		int frameHeight = 0;
 		ColorImageFormat imageFormat = ColorImageFormat_None;
 		BYTE *pBuffer = NULL;
-		
-		
 
 		hr = pColorFrame->get_RelativeTime(&nTime);
 
@@ -219,13 +243,11 @@ bool QKinectThread::updateColor()
 		if (SUCCEEDED(hr))
 		{
 			hr = pFrameDescription->get_Width(&frameWidth);
-			colorBuffer.width = frameWidth;
 		}
 
 		if (SUCCEEDED(hr))
 		{
 			hr = pFrameDescription->get_Height(&frameHeight);
-			colorBuffer.height = frameHeight;
 		}
 
 		if (SUCCEEDED(hr))
@@ -242,12 +264,43 @@ bool QKinectThread::updateColor()
 
 				// copy data to color buffer
 				if (SUCCEEDED(hr))
-					std::copy(reinterpret_cast<unsigned char*>(pBuffer), pBuffer + bufferSize, colorBuffer.data.begin());
+				{
+					mutex.lock();
+					{
+						std::copy(reinterpret_cast<unsigned char*>(pBuffer), pBuffer + bufferSize, colorBuffer.begin());
+						colorFrameTime = nTime;
+
+						if (colorFrameWidth != frameWidth || colorFrameHeight != frameHeight)
+						{
+							std::cerr << "<Warning>	Unexpected size for depth buffer" << std::endl;
+							colorFrameWidth = frameWidth;
+							colorFrameHeight = frameHeight;
+						}
+					}
+					mutex.unlock();
+				}
 			}
 			else 
 			{
-				hr = pColorFrame->CopyConvertedFrameDataToArray(colorBuffer.data.size(), reinterpret_cast<BYTE*>(colorBuffer.data.data()), ColorImageFormat_Bgra);
-				
+				mutex.lock();
+				{
+					hr = pColorFrame->CopyConvertedFrameDataToArray(colorBuffer.size(), reinterpret_cast<BYTE*>(colorBuffer.data()), ColorImageFormat_Bgra);
+					if (SUCCEEDED(hr))
+					{
+						colorFrameTime = nTime;
+						if (colorFrameWidth != frameWidth || colorFrameHeight != frameHeight)
+						{
+							std::cerr << "<Warning>	Unexpected size for depth buffer" << std::endl;
+							colorFrameWidth = frameWidth;
+							colorFrameHeight = frameHeight;
+						}
+					}
+					else
+					{
+						std::cerr << "<Error>	Could not convert data from color frame to color buffer" << std::endl;
+					}
+				}
+				mutex.unlock();
 			}
 		}
 
@@ -308,7 +361,6 @@ bool QKinectThread::updateDepth()
 		if (SUCCEEDED(hr))
 		{
 			hr = pDepthFrame->get_DepthMinReliableDistance(&nDepthMinReliableDistance);
-			depthBuffer.depthMinReliableDistance = nDepthMinReliableDistance;
 		}
 
 		if (SUCCEEDED(hr))
@@ -319,7 +371,6 @@ bool QKinectThread::updateDepth()
 
 			// Note:  If you wish to filter by reliable depth distance, uncomment the following line.
 			hr = pDepthFrame->get_DepthMaxReliableDistance(&nDepthMaxDistance);
-			depthBuffer.depthMaxDistance = nDepthMaxDistance;
 		}
 
 		if (SUCCEEDED(hr))
@@ -330,12 +381,27 @@ bool QKinectThread::updateDepth()
 
 		if (SUCCEEDED(hr))
 		{			
-			// copy data to depth buffer
-			std::copy(reinterpret_cast<unsigned short*>(pBuffer), pBuffer + nBufferSize, depthBuffer.data.begin());
+			mutex.lock();
+			{
+				// copy data to depth buffer
+				std::copy(reinterpret_cast<unsigned short*>(pBuffer), pBuffer + nBufferSize, depthBuffer.begin());
+				depthMinReliableDistance = nDepthMinReliableDistance;
+				depthMaxDistance = nDepthMaxDistance;
+				depthFrameTime = nTime;
+
+				if (depthFrameWidth != frameWidth || depthFrameHeight != frameHeight)
+				{
+					std::cerr << "<Warning>	Unexpected size for depth buffer" << std::endl;
+					depthFrameWidth = frameWidth;
+					depthFrameHeight = frameHeight;
+				}
+			}
+			mutex.unlock();
 		}
 
 		SafeRelease(pFrameDescription);
 	}
+	
 	SafeRelease(pDepthFrame);
 
 	if (!SUCCEEDED(hr))
