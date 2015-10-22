@@ -37,26 +37,61 @@ void QKinectReader::enableImageSending(bool value)
 }
 
 
-void QKinectReader::getColorData(std::vector<unsigned char>& buffer, signed __int64& timespan)
+void QKinectReader::getColorData(	signed __int64& timespan,
+									unsigned short& width,
+									unsigned short& height,
+									unsigned short& channels)
 {
 	mutex.lock();
 	{
-		buffer = colorBuffer;
-		timespan = colorFrameTime;
+		timespan	= colorFrameTime;
+		width		= colorFrameWidth;
+		height		= colorFrameHeight;
+		channels	= colorFrameChannels;
 	}
 	mutex.unlock();
 }
 
 
-void QKinectReader::getDepthData(std::vector<unsigned short>& buffer, signed __int64& timespan)
+
+void QKinectReader::copyColorBuffer(std::vector<unsigned char>& buffer, std::vector<unsigned char>::iterator position)
 {
 	mutex.lock();
 	{
-		buffer = depthBuffer;
-		timespan = depthFrameTime;
+		buffer.insert(position, colorBuffer.begin(), colorBuffer.end());
 	}
 	mutex.unlock();
 }
+
+
+
+void QKinectReader::getDepthData(	signed __int64& timespan,
+									unsigned short& width,
+									unsigned short& height,
+									unsigned short& minDistance,
+									unsigned short& maxDistance)
+{
+	mutex.lock();
+	{
+		timespan	= depthFrameTime;
+		width		= depthFrameWidth;
+		height		= depthFrameHeight;
+		minDistance = depthMinReliableDistance;
+		maxDistance = depthMaxDistance;
+	}
+	mutex.unlock();
+}
+
+
+void QKinectReader::copyDepthBuffer(std::vector<unsigned short>& buffer, std::vector<unsigned short>::iterator position)
+{
+	mutex.lock();
+	{
+		buffer.insert(position, depthBuffer.begin(), depthBuffer.end());
+	}
+	mutex.unlock();
+}
+
 
 
 void QKinectReader::stop()

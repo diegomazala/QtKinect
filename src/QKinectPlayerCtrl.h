@@ -5,9 +5,10 @@
 
 #include <QObject>
 #include "QKinectReader.h"
+#include "QKinectIO.h"
 
 class MainWindow;
-class QLabel;
+//class QLabel;
 
 class QKinectPlayerCtrl : public QObject
 {
@@ -26,18 +27,21 @@ public:
 
 	void setupConnections();
 
+	bool isRecording() const;
+
 public slots:
 
 	void updateFrame();
-
-signals:
-	
-protected:
+	void record(bool triggered);
+	void playStream();
+	void stopStream();
 
 
 private:
 	QKinectReader	kinectReader;
+	QKinectIO	kinectStream;
 	MainWindow*		view;
+	bool			recording;
 };
 
 

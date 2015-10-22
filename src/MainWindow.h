@@ -38,7 +38,11 @@ public slots:
 
 	void setColorImage(const QImage& image);
 	void setDepthImage(const QImage& image);
-		
+	
+signals:
+	void recordToggled(bool);
+	void play();
+	void stop();
 
 private:
 

@@ -60,8 +60,22 @@ public:
 
 	void enableImageSending(bool value);
 
-	void getColorData(std::vector<unsigned char>& buffer, signed __int64& timespan);
-	void getDepthData(std::vector<unsigned short>& buffer, signed __int64& timespan);
+	void getColorData(	signed __int64& timespan, 
+						unsigned short& width, 
+						unsigned short& height, 
+						unsigned short& channels);
+
+	void copyColorBuffer(std::vector<unsigned char>& buffer,
+						 std::vector<unsigned char>::iterator position);
+
+	void getDepthData(	signed __int64& timespan, 
+						unsigned short& width, 
+						unsigned short& height, 
+						unsigned short& minDistance, 
+						unsigned short& maxDistance);
+	
+	void copyDepthBuffer(std::vector<unsigned short>& buffer,
+						 std::vector<unsigned short>::iterator position);
 
 
 public slots:

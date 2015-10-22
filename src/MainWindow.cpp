@@ -98,26 +98,46 @@ void MainWindow::fileSaveAs()
 
 void MainWindow::playerPlay()
 {
-
+	emit play();
 }
 
 
 void MainWindow::playerStop()
 {
-
+	emit stop();
 }
 
 
 void MainWindow::playerRecord(bool triggered)
 {
+	emit recordToggled(triggered);
+#if 0
 	if (triggered)
-		std::cout << "start recording" << std::endl;
+	{
+		std::cout << "++++ START ++++" << std::endl;
+		controller->startRecord();
+	}
 	else
-		std::cout << "stop recording" << std::endl;
+	{
+		std::cout << "++++ STOP ++++" << std::endl;
+		controller->stopRecord();
+	}
+#endif
 }
 
 
 void MainWindow::aboutDialogShow()
 {
+	QString message
+		("<p>Alpha Matting algorithm using Qt and Opengl" \
+		"<p><p>" \
+		"<br>   [1] K. He, C. Rhemann, C. Rother, X. Tang, J. Sun, A Global Sampling Method for Alpha Matting, CVPR, 2011. <br>" \
+		"<br>   [2] C. Tomasi and R. Manduchi, Bilateral Filtering for Gray and Color Images, Proc.IEEE Intel Computer Vision Conference, 1998. <br>" \
+		"<br>   [3] K.He, J.Sun, and X.Tang, Guided Image Filtering,  Proc. European Conf.Computer Vision, pp. 1 - 14, 2010. <br>" \
+		"<p><p><p>" \
+		"<p>Developed by: Diego Mazala, June-2015" \
+		"<p>");
+
+	QMessageBox::about(this, tr("Alpha Matting"), message);
 }
 
