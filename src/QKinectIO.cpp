@@ -60,7 +60,7 @@ unsigned int QKinectIO::size() const
 
 void QKinectIO::appendFrame()
 {
-	if (kinectReader != nullptr)
+	if (kinectReader != nullptr && kinectReader->isRunning())
 	{
 		signed __int64 timespan;
 		unsigned short width, height, minDistance, maxDistance;
@@ -78,6 +78,9 @@ void QKinectIO::appendFrame()
 
 void QKinectIO::save(const QString& filename)
 {
+	if (depthBufferStream.size() < 1)
+		return;
+
 	signed __int64 timespan;
 	std::vector<unsigned short> info(4);
 	kinectReader->getDepthData(timespan, info[0], info[1], info[2], info[3]);

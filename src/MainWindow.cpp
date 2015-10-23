@@ -111,18 +111,13 @@ void MainWindow::playerStop()
 void MainWindow::playerRecord(bool triggered)
 {
 	emit recordToggled(triggered);
-#if 0
-	if (triggered)
-	{
-		std::cout << "++++ START ++++" << std::endl;
-		controller->startRecord();
-	}
-	else
-	{
-		std::cout << "++++ STOP ++++" << std::endl;
-		controller->stopRecord();
-	}
-#endif
+}
+
+
+
+void MainWindow::playerCapture(bool triggered)
+{
+	emit captureToggled(triggered);
 }
 
 

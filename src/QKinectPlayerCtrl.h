@@ -33,6 +33,7 @@ public slots:
 
 	void updateFrame();
 	void record(bool triggered);
+	void capture(bool triggered);
 	void playStream();
 	void stopStream();
 

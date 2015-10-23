@@ -34,6 +34,7 @@ void QKinectPlayerCtrl::setupConnections()
 		connect(&kinectReader, SIGNAL(depthImage(QImage)), view, SLOT(setDepthImage(QImage)));
 
 		connect(view, SIGNAL(recordToggled(bool)), this, SLOT(record(bool)));
+		connect(view, SIGNAL(captureToggled(bool)), this, SLOT(capture(bool)));
 		connect(view, SIGNAL(play()), this, SLOT(playStream()));
 		connect(view, SIGNAL(stop()), this, SLOT(stopStream()));
 	}
@@ -80,6 +81,14 @@ void QKinectPlayerCtrl::record(bool triggered)
 	}
 }
 
+
+void QKinectPlayerCtrl::capture(bool triggered)
+{
+	if (triggered)
+		startKinect();
+	else
+		stopKinect();
+}
 
 
 void QKinectPlayerCtrl::playStream()

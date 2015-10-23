@@ -34,6 +34,8 @@ public slots:
 	void playerPlay();
 	void playerStop();
 	void playerRecord(bool triggered);
+	void playerCapture(bool triggered);
+
 	void aboutDialogShow();
 
 	void setColorImage(const QImage& image);
@@ -41,6 +43,7 @@ public slots:
 	
 signals:
 	void recordToggled(bool);
+	void captureToggled(bool);
 	void play();
 	void stop();
 
