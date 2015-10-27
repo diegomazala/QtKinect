@@ -1,5 +1,6 @@
 #include "QKinectPlayerCtrl.h"
 #include "MainWindow.h"
+#include "GLDepthBufferRenderer.h"
 #include <QFileDialog>
 #include <iostream>
 
@@ -9,9 +10,13 @@ QKinectPlayerCtrl::QKinectPlayerCtrl(QObject *parent)
 	kinectReader(this),
 	kinectStream(),
 	view(nullptr),
-	recording(false)
+	depthRenderer(nullptr),
+	recording(false),
+	mDepthBuffer()
 {
 	kinectStream.setKinecReader(&kinectReader);
+
+	
 }
 
 
@@ -23,6 +28,13 @@ QKinectPlayerCtrl::~QKinectPlayerCtrl()
 void QKinectPlayerCtrl::setView(QWidget* viewUI)
 {
 	view = reinterpret_cast<MainWindow*>(viewUI);
+}
+
+
+void QKinectPlayerCtrl::setDepthRenderer(GLDepthBufferRenderer* depthRenderer)
+{
+	//depthRenderer = reinterpret_cast<GLDepthBufferRenderer*>(glDepthRenderer);
+	depthRenderer->setController(*this);
 }
 
 
@@ -48,8 +60,30 @@ bool QKinectPlayerCtrl::isRecording() const
 
 void QKinectPlayerCtrl::updateFrame()
 {
+	kinectReader.getDepthData(mDepthBuffer.timespan, mDepthBuffer.width, mDepthBuffer.height, mDepthBuffer.minDistance, mDepthBuffer.maxDistance);
+	mDepthBuffer.buffer.clear();
+	kinectReader.copyDepthBuffer(mDepthBuffer.buffer, mDepthBuffer.buffer.begin());
+
+//	if (depthRenderer != nullptr)
+//		depthRenderer->setDepthBuffer(mDepthBuffer.buffer, mDepthBuffer.width, mDepthBuffer.height);
+
+
+#if 0
 	if (isRecording())
 		kinectStream.appendFrame();
+
+	if (depthRenderer != nullptr)
+	{
+		signed __int64 timespan;
+		unsigned short width, height, minDistance, maxDistance;
+		kinectReader.getDepthData(timespan, width, height, minDistance, maxDistance);
+
+		std::vector<unsigned short> depthBuffer;
+		kinectReader.copyDepthBuffer(depthRenderer->getDepthBufferCloud(), depthRenderer->getDepthBufferCloud().begin());
+		//std::cout << depthBuffer.size() << std::endl;
+		//depthRenderer->setDepthBuffer(depthBuffer, width, height);
+	}
+#endif
 }
 
 

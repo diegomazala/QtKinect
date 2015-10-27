@@ -7,8 +7,16 @@
 #include "QKinectReader.h"
 #include "QKinectIO.h"
 
+
 class MainWindow;
-//class QLabel;
+class GLDepthBufferRenderer;
+
+struct DepthBuffer
+{
+	signed __int64 timespan;
+	unsigned short width, height, minDistance, maxDistance;
+	std::vector<unsigned short> buffer;
+};
 
 class QKinectPlayerCtrl : public QObject
 {
@@ -22,9 +30,7 @@ public:
 	void stopKinect();
 	
 	void setView(QWidget* viewUI);
-	//void setColorImageUI(QLabel* colorImageLabel);
-	//void setDepthImageUI(QLabel* colorImageLabel);
-
+	void setDepthRenderer(GLDepthBufferRenderer* depthRenderer);
 	void setupConnections();
 
 	bool isRecording() const;
@@ -39,10 +45,15 @@ public slots:
 
 
 private:
-	QKinectReader	kinectReader;
-	QKinectIO	kinectStream;
-	MainWindow*		view;
-	bool			recording;
+	QKinectReader			kinectReader;
+	QKinectIO				kinectStream;
+	MainWindow*				view;
+	GLDepthBufferRenderer*	depthRenderer;
+	bool					recording;
+	bool					frameUpdated;
+
+public:
+	DepthBuffer				mDepthBuffer;
 };
 
 

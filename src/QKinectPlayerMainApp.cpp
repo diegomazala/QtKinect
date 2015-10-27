@@ -15,7 +15,8 @@ int main(int argc, char **argv)
 	w.show();
 
 	QKinectPlayerCtrl controller;
-	controller.setView(&w);
+	////controller.setView(&w);
+	w.setController(&controller);
 	controller.setupConnections();
 
 	return app.exec();

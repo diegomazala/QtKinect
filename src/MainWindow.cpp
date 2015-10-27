@@ -29,6 +29,11 @@ void MainWindow::setController(QKinectPlayerCtrl* ctrl)
 {
 	controller = ctrl;
 	controller->setView(this);
+
+
+	GLWidget* glWidget = reinterpret_cast<GLWidget*> (ui->openGLWidget);
+	if (glWidget)
+		controller->setDepthRenderer(&glWidget->glDepthRenderer());
 }
 
 
