@@ -103,6 +103,7 @@
      <string>Player</string>
     </property>
     <addaction name="actionCapture"/>
+    <addaction name="actionTakeShot"/>
     <addaction name="separator"/>
     <addaction name="actionPlay"/>
     <addaction name="actionStop"/>
@@ -136,6 +137,7 @@
    <addaction name="separator"/>
    <addaction name="actionCapture"/>
    <addaction name="actionRecord"/>
+   <addaction name="actionTakeShot"/>
    <addaction name="separator"/>
    <addaction name="actionPlay"/>
    <addaction name="actionStop"/>
@@ -261,6 +263,21 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+Return</string>
+   </property>
+  </action>
+  <action name="actionTakeShot">
+   <property name="icon">
+    <iconset resource="QKinectPlayer.qrc">
+     <normaloff>:/resources/icons/screenshot_48x48.png</normaloff>:/resources/icons/screenshot_48x48.png</iconset>
+   </property>
+   <property name="text">
+    <string>Take Shot</string>
+   </property>
+   <property name="toolTip">
+    <string>Take a shot</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Space</string>
    </property>
   </action>
  </widget>
@@ -419,6 +436,22 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>actionTakeShot</sender>
+   <signal>triggered()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>playerTakeShot()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>554</x>
+     <y>322</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>fileOpen()</slot>
@@ -432,5 +465,6 @@
   <slot>playerStop()</slot>
   <slot>playerRecord(bool)</slot>
   <slot>playerCapture(bool)</slot>
+  <slot>playerTakeShot()</slot>
  </slots>
 </ui>

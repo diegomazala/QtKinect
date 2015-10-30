@@ -15,19 +15,23 @@ public:
 	
 	void setMaxSizeInMegaBytes(unsigned int size_in_Mbytes);
 
+	void copyDepthFrame(std::vector<unsigned short>& info, 
+						std::vector<unsigned short>& buffer, 
+						std::vector<unsigned short>::iterator position, 
+						unsigned int frame_index);
+
 	void appendFrame();
+	void saveFrame(const QString& filename);
 	void save(const QString& filename);
 	void load(const QString& filename);
 
+	static void save(QString filename, std::vector<unsigned short> info, std::vector<unsigned short> depthBuffer);
+	static void load(QString filename, std::vector<unsigned short>& info, std::vector<unsigned short>& depthBuffer);
+
 	void clear();
 	unsigned int size() const;
-	
 
 private:
-
-	static void saveFile(QString filename, std::vector<unsigned short> info, std::vector<unsigned short> depthBuffer);
-	static void loadFile(QString filename, std::vector<unsigned short>& info, std::vector<unsigned short>& depthBuffer);
-
 
 	QKinectReader*				kinectReader;
 	std::vector<unsigned short> depthBufferStream;

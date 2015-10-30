@@ -63,17 +63,17 @@ void GLDepthBufferRenderer::updatePoints()
 		return;
 
 	
-	const int point_count = (int)kinectCtrl->mDepthBuffer.buffer.size();
-	const int depth = kinectCtrl->mDepthBuffer.maxDistance - kinectCtrl->mDepthBuffer.minDistance;
+	const int point_count = (int)kinectCtrl->mDepthBuffer.size();
+	const int depth = kinectCtrl->mDepthBuffer.maxDistance() - kinectCtrl->mDepthBuffer.minDistance();
 
 	if (point_count < 1)
 		return;
 
 	std::vector<float> vertices;
 	int i = 0;
-	for (int y = 0; y < kinectCtrl->mDepthBuffer.height; ++y)
+	for (int y = 0; y < kinectCtrl->mDepthBuffer.height(); ++y)
 	{
-		for (int x = 0; x < kinectCtrl->mDepthBuffer.width; ++x)
+		for (int x = 0; x < kinectCtrl->mDepthBuffer.width(); ++x)
 		{
 #if 0
 			float d = static_cast<float>(kinectCtrl->mDepthBuffer.buffer[i++]) / float(depth);
@@ -91,11 +91,11 @@ void GLDepthBufferRenderer::updatePoints()
 
 			const unsigned short d = (kinectCtrl->mDepthBuffer.buffer[i++]);
 			
-			if (d < kinectCtrl->mDepthBuffer.minDistance || d > kinectCtrl->mDepthBuffer.maxDistance)
+			if (d < kinectCtrl->mDepthBuffer.minDistance() || d > kinectCtrl->mDepthBuffer.maxDistance())
 				continue;
 
-			float vx = float(x - kinectCtrl->mDepthBuffer.width * 0.5f);
-			float vy = float(y - kinectCtrl->mDepthBuffer.height * 0.5f);
+			float vx = float(x - kinectCtrl->mDepthBuffer.width() * 0.5f);
+			float vy = float(y - kinectCtrl->mDepthBuffer.height() * 0.5f);
 
 			vertices.push_back(vx);
 			vertices.push_back(-vy);
@@ -141,7 +141,6 @@ void GLDepthBufferRenderer::initCubeGeometry()
 
 void GLDepthBufferRenderer::render(QOpenGLShaderProgram *program)
 {
-	arrayBuf.bind();
 	updatePoints();
 
 	// Tell OpenGL programmable pipeline how to locate vertex position data

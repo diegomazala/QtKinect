@@ -68,11 +68,19 @@ public:
 	void copyColorBuffer(std::vector<unsigned char>& buffer,
 						 std::vector<unsigned char>::iterator position);
 
+
+	void getDepthData(	signed __int64& timespan,
+						std::vector<unsigned short>& info);
+
 	void getDepthData(	signed __int64& timespan, 
 						unsigned short& width, 
 						unsigned short& height, 
 						unsigned short& minDistance, 
 						unsigned short& maxDistance);
+
+	void getDepthBuffer(std::vector<unsigned short>& info,
+						std::vector<unsigned short>& buffer);
+
 	
 	void copyDepthBuffer(std::vector<unsigned short>& buffer,
 						 std::vector<unsigned short>::iterator position);

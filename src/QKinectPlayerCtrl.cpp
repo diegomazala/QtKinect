@@ -2,6 +2,7 @@
 #include "MainWindow.h"
 #include "GLDepthBufferRenderer.h"
 #include <QFileDialog>
+#include <QDateTime>
 #include <iostream>
 
 
@@ -15,8 +16,6 @@ QKinectPlayerCtrl::QKinectPlayerCtrl(QObject *parent)
 	mDepthBuffer()
 {
 	kinectStream.setKinecReader(&kinectReader);
-
-	
 }
 
 
@@ -33,7 +32,6 @@ void QKinectPlayerCtrl::setView(QWidget* viewUI)
 
 void QKinectPlayerCtrl::setDepthRenderer(GLDepthBufferRenderer* depthRenderer)
 {
-	//depthRenderer = reinterpret_cast<GLDepthBufferRenderer*>(glDepthRenderer);
 	depthRenderer->setController(*this);
 }
 
@@ -45,8 +43,12 @@ void QKinectPlayerCtrl::setupConnections()
 		connect(&kinectReader, SIGNAL(colorImage(QImage)), view, SLOT(setColorImage(QImage)));
 		connect(&kinectReader, SIGNAL(depthImage(QImage)), view, SLOT(setDepthImage(QImage)));
 
+		connect(view, SIGNAL(fileOpen(QString)), this, SLOT(fileOpen(QString)));
+		connect(view, SIGNAL(fileSave(QString)), this, SLOT(fileSave(QString)));
+
 		connect(view, SIGNAL(recordToggled(bool)), this, SLOT(record(bool)));
 		connect(view, SIGNAL(captureToggled(bool)), this, SLOT(capture(bool)));
+		connect(view, SIGNAL(takeShot()), this, SLOT(takeShot()));
 		connect(view, SIGNAL(play()), this, SLOT(playStream()));
 		connect(view, SIGNAL(stop()), this, SLOT(stopStream()));
 	}
@@ -60,30 +62,10 @@ bool QKinectPlayerCtrl::isRecording() const
 
 void QKinectPlayerCtrl::updateFrame()
 {
-	kinectReader.getDepthData(mDepthBuffer.timespan, mDepthBuffer.width, mDepthBuffer.height, mDepthBuffer.minDistance, mDepthBuffer.maxDistance);
+	//kinectReader.getDepthData(mDepthBuffer.timespan, mDepthBuffer.width, mDepthBuffer.height, mDepthBuffer.minDistance, mDepthBuffer.maxDistance);
+	kinectReader.getDepthData(mDepthBuffer.timespan, mDepthBuffer.info);
 	mDepthBuffer.buffer.clear();
 	kinectReader.copyDepthBuffer(mDepthBuffer.buffer, mDepthBuffer.buffer.begin());
-
-//	if (depthRenderer != nullptr)
-//		depthRenderer->setDepthBuffer(mDepthBuffer.buffer, mDepthBuffer.width, mDepthBuffer.height);
-
-
-#if 0
-	if (isRecording())
-		kinectStream.appendFrame();
-
-	if (depthRenderer != nullptr)
-	{
-		signed __int64 timespan;
-		unsigned short width, height, minDistance, maxDistance;
-		kinectReader.getDepthData(timespan, width, height, minDistance, maxDistance);
-
-		std::vector<unsigned short> depthBuffer;
-		kinectReader.copyDepthBuffer(depthRenderer->getDepthBufferCloud(), depthRenderer->getDepthBufferCloud().begin());
-		//std::cout << depthBuffer.size() << std::endl;
-		//depthRenderer->setDepthBuffer(depthBuffer, width, height);
-	}
-#endif
 }
 
 
@@ -125,6 +107,17 @@ void QKinectPlayerCtrl::capture(bool triggered)
 }
 
 
+void QKinectPlayerCtrl::takeShot()
+{
+	const QDateTime now = QDateTime::currentDateTime();
+	const QString timestamp = now.toString(QLatin1String("yyyyMMdd-hhmmsszzz"));
+	const QString filename = QDir::currentPath() + QString::fromLatin1("/KinectDepth-%1.knt").arg(timestamp);
+
+	kinectStream.saveFrame(filename);
+}
+
+
+
 void QKinectPlayerCtrl::playStream()
 {
 	//kinectStream.appendFrame();
@@ -135,3 +128,21 @@ void QKinectPlayerCtrl::stopStream()
 	//kinectStream.save("C:/temp/test.knt");
 }
 
+
+void QKinectPlayerCtrl::fileOpen(QString filename)
+{
+	kinectStream.load(filename);
+
+	mDepthBuffer.buffer.clear();
+	//kinectStream.copyDepthFrame(mDepthBuffer.info, mDepthBuffer.buffer, mDepthBuffer.buffer.begin(), 0);
+	kinectStream.load(filename, mDepthBuffer.info, mDepthBuffer.buffer);
+
+	std::cout << mDepthBuffer.info[0] << ", " << mDepthBuffer.info[1] << ", " << mDepthBuffer.size() << std::endl;
+
+}
+
+
+void QKinectPlayerCtrl::fileSave(QString filename)
+{
+	std::cout << "QKinectPlayerCtrl::fileSave: " << filename.toStdString() << std::endl;
+}

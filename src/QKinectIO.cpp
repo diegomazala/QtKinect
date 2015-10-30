@@ -58,6 +58,25 @@ unsigned int QKinectIO::size() const
 }
 
 
+void QKinectIO::copyDepthFrame(	std::vector<unsigned short>& info, 
+								std::vector<unsigned short>& buffer, 
+								std::vector<unsigned short>::iterator position, 
+								unsigned int frame_index)
+{
+	info.clear();
+	info.resize(4);
+		
+	signed __int64 timespan;
+	kinectReader->getDepthData(timespan, info[0], info[1], info[2], info[3]);
+
+	const unsigned int frame_size = info[0] * info[1];	// width * height
+	std::vector<unsigned short>::iterator begin = depthBufferStream.begin() + frame_index * frame_size;
+	std::vector<unsigned short>::iterator end = begin + frame_size;
+
+	buffer.insert(position, begin, end);
+}
+
+
 void QKinectIO::appendFrame()
 {
 	if (kinectReader != nullptr && kinectReader->isRunning())
@@ -76,6 +95,21 @@ void QKinectIO::appendFrame()
 }
 
 
+void QKinectIO::saveFrame(const QString& filename)
+{
+	if (kinectReader == nullptr || !kinectReader->isRunning())	// kinect is not running
+		return;
+	
+	std::vector<unsigned short> buffer;
+	signed __int64 timespan;
+	std::vector<unsigned short> info(4);
+	kinectReader->getDepthData(timespan, info[0], info[1], info[2], info[3]);
+	kinectReader->copyDepthBuffer(buffer, buffer.begin());
+	
+	QtConcurrent::run(save, filename, info, buffer);
+}
+
+
 void QKinectIO::save(const QString& filename)
 {
 	if (depthBufferStream.size() < 1)
@@ -86,15 +120,14 @@ void QKinectIO::save(const QString& filename)
 	kinectReader->getDepthData(timespan, info[0], info[1], info[2], info[3]);
 
 	//QFuture<void> f = 
-		QtConcurrent::run(saveFile, filename, info, depthBufferStream);
+	QtConcurrent::run(save, filename, info, depthBufferStream);
 	//f.waitForFinished();
 }
 
 
 
 
-
-void QKinectIO::saveFile(QString filename, std::vector<unsigned short> info, std::vector<unsigned short> depthBuffer)
+void QKinectIO::save(QString filename, std::vector<unsigned short> info, std::vector<unsigned short> depthBuffer)
 {
 	std::ofstream out;
 	out.open(filename.toStdString(), std::ofstream::out | std::ofstream::binary);
@@ -110,15 +143,17 @@ void QKinectIO::saveFile(QString filename, std::vector<unsigned short> info, std
 }
 
 
+
 void QKinectIO::load(const QString& filename)
 {
 	std::vector<unsigned short> info;
 	depthBufferStream.clear();
-	loadFile(filename, info, depthBufferStream);
+	load(filename, info, depthBufferStream);
 }
 
 
-void QKinectIO::loadFile(QString filename, std::vector<unsigned short>& info, std::vector<unsigned short>& depthBuffer)
+
+void QKinectIO::load(QString filename, std::vector<unsigned short>& info, std::vector<unsigned short>& depthBuffer)
 {
 	std::ifstream in_file;
 	in_file.open(filename.toStdString(), std::ios::in | std::ios::binary);

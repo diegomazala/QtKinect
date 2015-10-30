@@ -2,8 +2,8 @@
 #include <QApplication>
 #include "QImageWidget.h"
 #include "QKinectReader.h"
+#include "QKinectIO.h"
 #include <iostream>
-
 
 
 int main(int argc, char **argv)
@@ -31,5 +31,6 @@ int main(int argc, char **argv)
 	int app_exit = app.exec();
 	k.stop();
 	return app_exit;
+
 }
 

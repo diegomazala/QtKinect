@@ -14,8 +14,17 @@ class GLDepthBufferRenderer;
 struct DepthBuffer
 {
 	signed __int64 timespan;
-	unsigned short width, height, minDistance, maxDistance;
+	std::vector<unsigned short> info;
 	std::vector<unsigned short> buffer;
+
+	DepthBuffer() :info(4){}
+
+	unsigned short width() const { return info[0]; }
+	unsigned short height() const { return info[1]; }
+	unsigned short minDistance() const { return info[2]; }
+	unsigned short maxDistance() const { return info[3]; }
+	std::size_t size() const { return buffer.size(); }
+
 };
 
 class QKinectPlayerCtrl : public QObject
@@ -37,9 +46,13 @@ public:
 
 public slots:
 
+	void fileOpen(QString);
+	void fileSave(QString);
+
 	void updateFrame();
 	void record(bool triggered);
 	void capture(bool triggered);
+	void takeShot();
 	void playStream();
 	void stopStream();
 

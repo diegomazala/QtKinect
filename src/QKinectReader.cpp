@@ -65,6 +65,22 @@ void QKinectReader::copyColorBuffer(std::vector<unsigned char>& buffer, std::vec
 
 
 
+void QKinectReader::getDepthData(signed __int64& timespan,
+								std::vector<unsigned short>& info)
+{
+	info.clear();
+	info.resize(4, 0);
+	mutex.lock();
+	{
+		timespan = depthFrameTime;
+		info[0] = depthFrameWidth;
+		info[1] = depthFrameHeight;
+		info[2] = depthMinReliableDistance;
+		info[3] = depthMaxDistance;
+	}
+	mutex.unlock();
+}
+
 void QKinectReader::getDepthData(	signed __int64& timespan,
 									unsigned short& width,
 									unsigned short& height,
@@ -81,6 +97,24 @@ void QKinectReader::getDepthData(	signed __int64& timespan,
 	}
 	mutex.unlock();
 }
+
+
+void QKinectReader::getDepthBuffer(	std::vector<unsigned short>& info,
+									std::vector<unsigned short>& buffer)
+{
+	info.clear();
+	info.resize(4, 0);
+	mutex.lock();
+	{
+		info[0] = depthFrameWidth;
+		info[1] = depthFrameHeight;
+		info[2] = depthMinReliableDistance;
+		info[3] = depthMaxDistance;
+		buffer = depthBuffer;
+	}
+	mutex.unlock();
+}
+
 
 
 void QKinectReader::copyDepthBuffer(std::vector<unsigned short>& buffer, std::vector<unsigned short>::iterator position)

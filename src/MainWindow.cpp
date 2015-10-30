@@ -68,6 +68,7 @@ void MainWindow::fileOpen()
 	if (!fileName.isEmpty())
 	{
 		currentFileName = fileName;
+		emit fileOpen(currentFileName);
 	}
 }
 
@@ -78,6 +79,7 @@ void MainWindow::fileSave()
 {
 	if (!currentFileName.isEmpty())
 	{
+		emit fileSave(currentFileName);
 	}
 	else
 	{
@@ -123,6 +125,11 @@ void MainWindow::playerRecord(bool triggered)
 void MainWindow::playerCapture(bool triggered)
 {
 	emit captureToggled(triggered);
+}
+
+void MainWindow::playerTakeShot()
+{
+	emit takeShot();
 }
 
 

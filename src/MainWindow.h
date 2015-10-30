@@ -35,6 +35,7 @@ public slots:
 	void playerStop();
 	void playerRecord(bool triggered);
 	void playerCapture(bool triggered);
+	void playerTakeShot();
 
 	void aboutDialogShow();
 
@@ -42,8 +43,11 @@ public slots:
 	void setDepthImage(const QImage& image);
 	
 signals:
+	void fileOpen(QString);
+	void fileSave(QString);
 	void recordToggled(bool);
 	void captureToggled(bool);
+	void takeShot();
 	void play();
 	void stop();
 
