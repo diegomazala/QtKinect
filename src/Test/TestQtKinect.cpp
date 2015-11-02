@@ -57,7 +57,7 @@ namespace TestQtKinect
 			QKinectReader kinectCapture;
 			kinectCapture.start();
 
-			Timer::sleep_ms(2000);
+			Timer::sleep_ms(3000);
 
 			Assert::IsTrue(kinectCapture.isRunning(), L"\n<Kinect is not running>\n", LINE_INFO());
 
@@ -83,6 +83,22 @@ namespace TestQtKinect
 
 			Assert::IsTrue(info_are_equal, L"\n<Info captured from kinect and info loaded from file are not equal>\n", LINE_INFO());
 			Assert::IsTrue(buffer_are_equal, L"\n<Buffer captured from kinect and buffer loaded from file are not equal>\n", LINE_INFO());
+		}
+
+
+
+		TEST_METHOD(TestKinectOBJ)
+		{
+			QString filenameKnt("TestKinectIO.knt");
+			QString filenameObj("TestKinectIO.obj");
+
+			std::vector<unsigned short> info_loaded;
+			std::vector<unsigned short> buffer_loaded;
+
+			QKinectIO::load(filenameKnt, info_loaded, buffer_loaded);
+			QKinectIO::exportObj(filenameObj, info_loaded, buffer_loaded);
+			
+			Assert::IsTrue(true);
 		}
 
 	};

@@ -25,11 +25,15 @@ public:
 	void save(const QString& filename);
 	void load(const QString& filename);
 
-	static void save(QString filename, std::vector<unsigned short> info, std::vector<unsigned short> depthBuffer);
-	static void load(QString filename, std::vector<unsigned short>& info, std::vector<unsigned short>& depthBuffer);
+	
 
 	void clear();
 	unsigned int size() const;
+
+	static void save(QString filename, std::vector<unsigned short> info, std::vector<unsigned short> depthBuffer);
+	static void load(QString filename, std::vector<unsigned short>& info, std::vector<unsigned short>& depthBuffer);
+	
+	static void exportObj(QString filename, std::vector<unsigned short> info, std::vector<unsigned short> depthBuffer);
 
 private:
 

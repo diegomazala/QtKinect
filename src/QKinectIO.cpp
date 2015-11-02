@@ -162,3 +162,35 @@ void QKinectIO::load(QString filename, std::vector<unsigned short>& info, std::v
 	in_file.close();
 }
 
+
+void QKinectIO::exportObj(QString filename, std::vector<unsigned short> info, std::vector<unsigned short> depthBuffer)
+{
+	std::ofstream out;
+	out.open(filename.toStdString(), std::ofstream::out);
+
+	const unsigned int sample_size = info[0] * info[1] * sizeof(unsigned short);	// width * height * ushort
+	const unsigned int total_size = depthBuffer.size() * sizeof(unsigned short);
+	const unsigned int frame_count = total_size / sample_size;
+
+	out << "# w " << info[0] << " h " << info[1] << " minDist " << info[2] << " maxDist " << info[3] << std::endl;
+
+	for (int i = 0; i < depthBuffer.size(); ++i)
+	{
+		const unsigned short z = depthBuffer[i];
+
+		if (z < info[2] || z > info[3])
+			continue;
+
+		const unsigned short x = i % info[0];
+		const unsigned short y = i / info[0];
+
+		const float fx = (static_cast<float>(x) - static_cast<float>(info[0]) * 0.5f) / static_cast<float>(info[0]);
+		const float fy = (static_cast<float>(y) - static_cast<float>(info[1]) * 0.5f) / static_cast<float>(info[1]);
+		//const float fz = static_cast<float>(z) / static_cast<float>(info[3] - );
+		const float fz = static_cast<float>(z - info[2]) / static_cast<float>(info[3] - info[2]);
+		
+		out << "v " << fx << ' ' << fy << ' ' << fz << std::endl;
+	}
+
+	out.close();
+}
