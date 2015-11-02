@@ -5,13 +5,15 @@ precision mediump float;
 precision mediump short;
 #endif
 
-uniform mat4 mvp_matrix;
 
 attribute vec3 a_position;
 attribute vec2 a_texcoord;
 
-varying vec2 v_texcoord;
+uniform mat4 mvp_matrix;
+uniform float farPlane;
 
+varying vec2 v_texcoord;
+varying float depth;
 
 void main()
 {
@@ -22,4 +24,6 @@ void main()
     // Pass texture coordinate to fragment shader
     // Value will be automatically interpolated to fragments inside polygon faces
     v_texcoord = a_texcoord;
+
+	depth = gl_Position.z / farPlane; // do not divide by w
 }

@@ -5,13 +5,16 @@ precision mediump float;
 #endif
 
 uniform sampler2D texture;
-
 varying vec2 v_texcoord;
+
+varying float depth;
 
 
 void main()
 {
+	gl_FragColor = vec4(depth);
+
     // Set fragment color from texture
-    gl_FragColor = texture2D(texture, v_texcoord);
+    //gl_FragColor = texture2D(texture, v_texcoord);
 }
 

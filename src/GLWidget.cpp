@@ -90,13 +90,15 @@ void GLWidget::initTextures()
 void GLWidget::resizeGL(int w, int h)
 {
 	float aspect = float(w) / float(h ? h : 1);
-	const float zNear = 0.1f, zFar = 10240.0f, fov = 60.0f;
+	const float zNear = 0.1f, zFar = 5120.0f, fov = 30.0f;
 
     // Reset projection
     projection.setToIdentity();
 
     // Set perspective projection
     projection.perspective(fov, aspect, zNear, zFar);
+
+	program.setUniformValue("farPlane", zFar);
 }
 
 
