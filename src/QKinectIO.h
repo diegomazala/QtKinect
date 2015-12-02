@@ -35,6 +35,13 @@ public:
 	
 	static void exportObj(QString filename, std::vector<unsigned short> info, std::vector<unsigned short> depthBuffer);
 
+
+	static void loadFrame(const std::string& filename, KinectFrameBuffer& frame);
+
+	static void saveFrame(const std::string& filename, const KinectFrameBuffer& frame);
+
+	static void save(QString filename, std::vector<unsigned short> info, std::vector<unsigned char> color_buffer, std::vector<unsigned short> depthBuffer);
+
 private:
 
 	QKinectGrabber*				kinectReader;

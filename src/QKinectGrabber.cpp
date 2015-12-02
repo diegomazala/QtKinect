@@ -37,6 +37,25 @@ void QKinectGrabber::enableImageSending(bool value)
 }
 
 
+void QKinectGrabber::copyFrameBuffer(KinectFrameBuffer& frame)
+{
+	mutex.lock();
+	{
+		frame.clear();
+		frame.info.push_back(colorFrameWidth);
+		frame.info.push_back(colorFrameHeight);
+		frame.info.push_back(colorFrameChannels);
+		frame.info.push_back(depthFrameWidth);
+		frame.info.push_back(depthFrameHeight);
+		frame.info.push_back(depthMinReliableDistance);
+		frame.info.push_back(depthMaxDistance);
+		frame.color = colorBuffer;
+		frame.depth = depthBuffer;
+	}
+	mutex.unlock();
+}
+
+
 void QKinectGrabber::getColorData(	signed __int64& timespan,
 									unsigned short& width,
 									unsigned short& height,
