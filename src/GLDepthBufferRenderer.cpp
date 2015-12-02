@@ -1,6 +1,6 @@
 
 #include "GLDepthBufferRenderer.h"
-#include "QKinectReader.h"
+#include "QKinectGrabber.h"
 #include "QKinectPlayerCtrl.h"
 #include <QVector2D>
 #include <QVector3D>
@@ -51,7 +51,7 @@ void GLDepthBufferRenderer::setController(QKinectPlayerCtrl& kinect_ctrl)
 	this->kinectCtrl = &kinect_ctrl;
 }
 
-void GLDepthBufferRenderer::setKinectReader(QKinectReader& kinect_reader)
+void GLDepthBufferRenderer::setKinectReader(QKinectGrabber& kinect_reader)
 {
 	kinectReader = kinectReader;
 }

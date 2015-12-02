@@ -7,7 +7,7 @@
 #include <QOpenGLBuffer>
 
 
-class QKinectReader;
+class QKinectGrabber;
 class QKinectPlayerCtrl;
 
 
@@ -31,7 +31,7 @@ public:
     void render(QOpenGLShaderProgram *program);
 
 	void setController(QKinectPlayerCtrl& kinect_ctrl);
-	void setKinectReader(QKinectReader& kinect_reader);
+	void setKinectReader(QKinectGrabber& kinect_reader);
 	void setDepthBuffer(const std::vector<unsigned short>& depthBuffer, unsigned short width, unsigned short height);
 
 	std::vector<unsigned short>& getDepthBufferCloud() { return depthBufferCloud; };
@@ -54,7 +54,7 @@ private:
 
 	float mVertexData[512];
 
-	QKinectReader*			kinectReader;
+	QKinectGrabber*			kinectReader;
 	QKinectPlayerCtrl*		kinectCtrl;
 };
 

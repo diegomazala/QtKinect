@@ -1,7 +1,7 @@
 
 
-#ifndef __KINECT_READER_H__
-#define __KINECT_READER_H__
+#ifndef __KINECT_GRABBER_H__
+#define __KINECT_GRABBER_H__
 
 
 #ifndef WIN32_LEAN_AND_MEAN
@@ -50,13 +50,13 @@ inline void SafeRelease(Interface *& pInterfaceToRelease)
 
 
 
-class QKinectReader : public QThread
+class QKinectGrabber : public QThread
 {
 	Q_OBJECT
 
 public:
-	QKinectReader(QObject *parent = 0);
-	~QKinectReader();
+	QKinectGrabber(QObject *parent = 0);
+	~QKinectGrabber();
 
 	void enableImageSending(bool value);
 
@@ -144,4 +144,4 @@ private:
 
 
 
-#endif	//__KINECT_READER_H__
+#endif	//__KINECT_GRABBER_H__

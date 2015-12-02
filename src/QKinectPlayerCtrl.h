@@ -4,7 +4,7 @@
 #define __Q_KINECT_PLAYER_CTRL_H__
 
 #include <QObject>
-#include "QKinectReader.h"
+#include "QKinectGrabber.h"
 #include "QKinectIO.h"
 
 
@@ -58,7 +58,7 @@ public slots:
 
 
 private:
-	QKinectReader			kinectReader;
+	QKinectGrabber			kinectReader;
 	QKinectIO				kinectStream;
 	MainWindow*				view;
 	GLDepthBufferRenderer*	depthRenderer;

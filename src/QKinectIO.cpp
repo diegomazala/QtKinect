@@ -34,7 +34,7 @@ QKinectIO::~QKinectIO()
 }
 
 
-void QKinectIO::setKinecReader(QKinectReader* kinect)
+void QKinectIO::setKinecReader(QKinectGrabber* kinect)
 {
 	kinectReader = kinect;
 }

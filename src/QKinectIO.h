@@ -2,7 +2,7 @@
 #define __Q_KINECT_STREAM_H__
 
 #include <QObject>
-#include "QKinectReader.h"
+#include "QKinectGrabber.h"
 
 class QKinectIO
 {
@@ -11,7 +11,7 @@ public:
 	QKinectIO();
 	virtual ~QKinectIO();
 
-	void setKinecReader(QKinectReader* kinect);
+	void setKinecReader(QKinectGrabber* kinect);
 	
 	void setMaxSizeInMegaBytes(unsigned int size_in_Mbytes);
 
@@ -37,7 +37,7 @@ public:
 
 private:
 
-	QKinectReader*				kinectReader;
+	QKinectGrabber*				kinectReader;
 	std::vector<unsigned short> depthBufferStream;
 	unsigned int				maxSizeInMegaBytes;
 };

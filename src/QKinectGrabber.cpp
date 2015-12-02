@@ -2,11 +2,11 @@
 
 #include <strsafe.h>
 
-#include "QKinectReader.h"
+#include "QKinectGrabber.h"
 #include <QtWidgets>
 #include <iostream>
 
-QKinectReader::QKinectReader(QObject *parent)
+QKinectGrabber::QKinectGrabber(QObject *parent)
 	: QThread(parent),
 	m_pKinectSensor(NULL),
 	m_pColorFrameReader(NULL),
@@ -25,19 +25,19 @@ QKinectReader::QKinectReader(QObject *parent)
 }
 
 
-QKinectReader::~QKinectReader()
+QKinectGrabber::~QKinectGrabber()
 {
 	stop();
 }
 
 
-void QKinectReader::enableImageSending(bool value)
+void QKinectGrabber::enableImageSending(bool value)
 {
 	emitImageEnabled = value;
 }
 
 
-void QKinectReader::getColorData(	signed __int64& timespan,
+void QKinectGrabber::getColorData(	signed __int64& timespan,
 									unsigned short& width,
 									unsigned short& height,
 									unsigned short& channels)
@@ -54,7 +54,7 @@ void QKinectReader::getColorData(	signed __int64& timespan,
 
 
 
-void QKinectReader::copyColorBuffer(std::vector<unsigned char>& buffer, std::vector<unsigned char>::iterator position)
+void QKinectGrabber::copyColorBuffer(std::vector<unsigned char>& buffer, std::vector<unsigned char>::iterator position)
 {
 	mutex.lock();
 	{
@@ -65,7 +65,7 @@ void QKinectReader::copyColorBuffer(std::vector<unsigned char>& buffer, std::vec
 
 
 
-void QKinectReader::getDepthData(signed __int64& timespan,
+void QKinectGrabber::getDepthData(signed __int64& timespan,
 								std::vector<unsigned short>& info)
 {
 	info.clear();
@@ -81,7 +81,7 @@ void QKinectReader::getDepthData(signed __int64& timespan,
 	mutex.unlock();
 }
 
-void QKinectReader::getDepthData(	signed __int64& timespan,
+void QKinectGrabber::getDepthData(	signed __int64& timespan,
 									unsigned short& width,
 									unsigned short& height,
 									unsigned short& minDistance,
@@ -99,7 +99,7 @@ void QKinectReader::getDepthData(	signed __int64& timespan,
 }
 
 
-void QKinectReader::getDepthBuffer(	std::vector<unsigned short>& info,
+void QKinectGrabber::getDepthBuffer(	std::vector<unsigned short>& info,
 									std::vector<unsigned short>& buffer)
 {
 	info.clear();
@@ -117,7 +117,7 @@ void QKinectReader::getDepthBuffer(	std::vector<unsigned short>& info,
 
 
 
-void QKinectReader::copyDepthBuffer(std::vector<unsigned short>& buffer, std::vector<unsigned short>::iterator position)
+void QKinectGrabber::copyDepthBuffer(std::vector<unsigned short>& buffer, std::vector<unsigned short>::iterator position)
 {
 	mutex.lock();
 	{
@@ -128,7 +128,7 @@ void QKinectReader::copyDepthBuffer(std::vector<unsigned short>& buffer, std::ve
 
 
 
-void QKinectReader::stop()
+void QKinectGrabber::stop()
 {
 	mutex.lock();
 	{
@@ -143,7 +143,7 @@ void QKinectReader::stop()
 
 
 
-void QKinectReader::run()
+void QKinectGrabber::run()
 {
 	if (!initializeSensor())
 	{
@@ -214,7 +214,7 @@ void QKinectReader::run()
 /// Initializes the default Kinect sensor
 /// </summary>
 /// <returns>indicates success or failure</returns>
-bool QKinectReader::initializeSensor()
+bool QKinectGrabber::initializeSensor()
 {
 	HRESULT hr;
 
@@ -281,7 +281,7 @@ bool QKinectReader::initializeSensor()
 
 
 
-void QKinectReader::uninitializeSensor()
+void QKinectGrabber::uninitializeSensor()
 {
 
 	// done with color frame reader
@@ -301,7 +301,7 @@ void QKinectReader::uninitializeSensor()
 /// <summary>
 /// Get color frame from kinect
 /// </summary>
-bool QKinectReader::updateColor()
+bool QKinectGrabber::updateColor()
 {
 	if (!m_pColorFrameReader)
 	{
@@ -407,7 +407,7 @@ bool QKinectReader::updateColor()
 /// <summary>
 /// Get depth frame from kinect
 /// </summary>
-bool QKinectReader::updateDepth()
+bool QKinectGrabber::updateDepth()
 {
 	if (!m_pDepthFrameReader)
 	{
@@ -502,7 +502,7 @@ bool QKinectReader::updateDepth()
 /// <summary>
 /// Get infrared frame from kinect
 /// </summary>
-bool QKinectReader::updateInfrared(QImage& infraredImg)
+bool QKinectGrabber::updateInfrared(QImage& infraredImg)
 {
 	if (!m_pInfraredFrameReader)
 	{

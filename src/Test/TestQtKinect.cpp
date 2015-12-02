@@ -11,7 +11,7 @@ using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 #include <QApplication>
 #include <QTimer>
 #include "QImageWidget.h"
-#include "QKinectReader.h"
+#include "QKinectGrabber.h"
 #include "QKinectIO.h"
 #include "Timer.h"
 
@@ -31,7 +31,7 @@ namespace TestQtKinect
 			timer->start(5000);
 			QApplication::connect(timer, SIGNAL(timeout()), &app, SLOT(quit()));
 
-			QKinectReader k;
+			QKinectGrabber k;
 			k.start();
 
 			Assert::IsTrue(k.isRunning(), L"\n<Kinect is not running>\n", LINE_INFO());
@@ -54,7 +54,7 @@ namespace TestQtKinect
 
 		TEST_METHOD(TestKinectIO)
 		{
-			QKinectReader kinectCapture;
+			QKinectGrabber kinectCapture;
 			kinectCapture.start();
 
 			Timer::sleep_ms(3000);
