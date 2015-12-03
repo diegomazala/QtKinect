@@ -8,8 +8,8 @@
 class Timer
 {
 public:
-    Timer(){}
-    ~Timer(){}
+	Timer(){}
+	~Timer(){}
 
 	void start()
 	{
@@ -20,7 +20,7 @@ public:
 	{
 		return std::chrono::duration<double>(interval_ns()).count();
 	}
-	
+
 	std::chrono::seconds interval_sec()
 	{
 		return std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - startTime);
@@ -40,7 +40,7 @@ public:
 	{
 		return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - startTime);
 	}
-	
+
 	static std::chrono::seconds interval_sec(const std::chrono::steady_clock::time_point& t1, const std::chrono::steady_clock::time_point& t0)
 	{
 		return std::chrono::duration_cast<std::chrono::seconds>(t1 - t0);
@@ -60,7 +60,7 @@ public:
 	{
 		return std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0);
 	}
-    
+
 	static void sleep_ms(unsigned int ms)
 	{
 		auto t0 = std::chrono::steady_clock::now();
@@ -103,7 +103,7 @@ public:
 	}
 
 private:
-	
+
 	std::chrono::steady_clock::time_point startTime;
 
 };
