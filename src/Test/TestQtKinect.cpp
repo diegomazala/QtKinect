@@ -18,6 +18,8 @@ using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 #include "Timer.h"
 #include "Eigen/Eigen"
 
+#define DegToRad(angle_degrees) (angle_degrees * M_PI / 180.0)		// Converts degrees to radians.
+#define RadToDeg(angle_radians) (angle_radians * 180.0 / M_PI)		// Converts radians to degrees.
 
 static bool import_obj(const std::string& filename, std::vector<float>& points3d, int max_point_count = INT_MAX)
 {
@@ -68,6 +70,51 @@ static bool import_obj(const std::string& filename, std::vector<float>& points3d
 	return true;
 }
 
+
+static bool import_obj(const std::string& filename, std::vector<Eigen::Vector3f>& points3d, int max_point_count = INT_MAX)
+{
+	std::ifstream inFile;
+	inFile.open(filename);
+
+	if (!inFile.is_open())
+	{
+		std::cerr << "Error: Could not open obj input file: " << filename << std::endl;
+		return false;
+	}
+
+	points3d.clear();
+
+	int i = 0;
+	while (inFile)
+	{
+		std::string str;
+
+		if (!std::getline(inFile, str))
+		{
+			if (inFile.eof())
+				return true;
+
+			std::cerr << "Error: Problems when reading obj file: " << filename << std::endl;
+			return false;
+		}
+
+		std::stringstream ss(str);
+		std::vector <std::string> record;
+
+		char c;
+		float x, y, z;
+		ss >> c >> x >> y >> z;
+
+		Eigen::Vector3f p(x, y, z);
+		points3d.push_back(p);
+
+		if (i++ > max_point_count)
+			break;
+	}
+
+	inFile.close();
+	return true;
+}
 
 
 static Eigen::Matrix4f perspective_matrix(float fovy, float aspect_ratio, float near_plane, float far_plane)
@@ -337,5 +384,67 @@ namespace TestQtKinect
 
 			Assert::IsTrue(p3d_out.isApprox(p3d, 0.01f));
 		}
+
+		TEST_METHOD(TestProjectToImage)
+		{
+			float window_width = 512.0f;
+			float window_height = 424.0f;
+			float near_plane = 0.1f;
+			float far_plane = 100.0f;
+			float fovy = 70.0f;
+			float aspect_ratio = window_width / window_height;
+			float y_scale = (float)1.0 / tan((fovy / 2.0)*(M_PI / 180.0));
+			float x_scale = y_scale / aspect_ratio;
+			float depth_length = far_plane - near_plane;
+
+			Eigen::Affine3f Mdv = Eigen::Affine3f::Identity();
+			Mdv.translate(Eigen::Vector3f(0, 0, -105));
+			Mdv.rotate(Eigen::AngleAxisf(DegToRad(90.0), Eigen::Vector3f::UnitY()));		// 90º
+
+			Eigen::Matrix4f Proj = perspective_matrix(fovy, aspect_ratio, near_plane, far_plane);
+
+			QImage depth(window_width, window_height, QImage::Format_RGB888);
+			depth.fill(Qt::white);
+			QImage color(window_width, window_height, QImage::Format_RGB888);
+			color.fill(Qt::white);
+
+			std::string filename("../../data/monkey/monkey.obj");
+
+			std::vector<Eigen::Vector3f> points3d;
+			import_obj(filename, points3d);
+
+			float max_z = -99999;
+			float min_z = FLT_MAX;
+
+			for (const Eigen::Vector3f p3d : points3d)
+			{
+				if (p3d.z() < min_z)
+					min_z = p3d.z();
+				if (p3d.z() > max_z)
+					max_z = p3d.z();
+			}
+
+			for (const Eigen::Vector3f p3d : points3d)
+			{
+				Eigen::Vector4f p_clip = Proj * Mdv.matrix() * p3d.homogeneous();
+				Eigen::Vector3f p_ndc = (p_clip / p_clip.w()).head<3>();
+
+				Eigen::Vector3f p_window;
+				p_window.x() = window_width / 2.0f * p_ndc.x() + window_width / 2.0f;
+				p_window.y() = window_height / 2.0f * p_ndc.y() + window_height / 2.0f;
+				p_window.z() = (far_plane - near_plane) / 2.0f * p_ndc.z() + (far_plane + near_plane) / 2.0f;
+
+				int d = ((p3d.z() + min_z) / (max_z - min_z) * 255);
+
+				if (p_window.x() > 0 && p_window.x() < window_width && p_window.y() > 0 && p_window.y() < window_height)
+				{
+					color.setPixel(QPoint(p_window.x(), window_height - p_window.y()), qRgb(255, 0, 0));
+					depth.setPixel(QPoint(p_window.x(), window_height - p_window.y()), qRgb(0, 0, d));
+				}
+			}
+
+			Assert::IsTrue(color.save("monkey_color.png") && depth.save("monkey_depth.png"));
+		}
+
 	};
 }
