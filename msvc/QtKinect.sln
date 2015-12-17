@@ -21,6 +21,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "QtKinectLoad", "QtKinectLoa
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "QtKinectSave", "QtKinectSave.vcxproj", "{169D6F36-A787-4E74-9FEA-6A9C97F52054}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Volumetric", "Volumetric.vcxproj", "{DD064BAB-8752-4DC8-B17A-5F12C6259D36}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -51,6 +53,10 @@ Global
 		{169D6F36-A787-4E74-9FEA-6A9C97F52054}.Debug|x64.Build.0 = Debug|x64
 		{169D6F36-A787-4E74-9FEA-6A9C97F52054}.Release|x64.ActiveCfg = Release|x64
 		{169D6F36-A787-4E74-9FEA-6A9C97F52054}.Release|x64.Build.0 = Release|x64
+		{DD064BAB-8752-4DC8-B17A-5F12C6259D36}.Debug|x64.ActiveCfg = Debug|x64
+		{DD064BAB-8752-4DC8-B17A-5F12C6259D36}.Debug|x64.Build.0 = Debug|x64
+		{DD064BAB-8752-4DC8-B17A-5F12C6259D36}.Release|x64.ActiveCfg = Release|x64
+		{DD064BAB-8752-4DC8-B17A-5F12C6259D36}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
