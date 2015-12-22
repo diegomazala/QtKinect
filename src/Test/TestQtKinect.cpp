@@ -16,10 +16,24 @@ using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 #include "QKinectGrabber.h"
 #include "QKinectIO.h"
 #include "Timer.h"
+#include "RayBox.h"
 #include "Eigen/Eigen"
 
 #define DegToRad(angle_degrees) (angle_degrees * M_PI / 180.0)		// Converts degrees to radians.
 #define RadToDeg(angle_radians) (angle_radians * 180.0 / M_PI)		// Converts radians to degrees.
+
+template<typename Type>
+struct Voxel
+{
+	Eigen::Matrix<Type, 3, 1> point;
+	Eigen::Matrix<Type, 3, 1> rgb;
+	Type tsdf;
+	Type weight;
+
+	Voxel() :tsdf(FLT_MAX), weight(0.0){}
+};
+typedef Voxel<double> Voxeld;
+typedef Voxel<float> Voxelf;
 
 static bool import_obj(const std::string& filename, std::vector<float>& points3d, int max_point_count = INT_MAX)
 {
@@ -444,6 +458,96 @@ namespace TestQtKinect
 			}
 
 			Assert::IsTrue(color.save("monkey_color.png") && depth.save("monkey_depth.png"));
+		}
+
+
+		TEST_METHOD(TestGridIntersection)
+		{
+
+			const int expected_intersections_count_case_1 = 17;
+			const int expected_intersections_count_case_2 = 4;
+			int vol_size = 16;
+			int vx_size = 1;
+
+			const Eigen::Vector3d volume_size(vol_size, vol_size, vol_size);
+			const Eigen::Vector3d voxel_size(vx_size, vx_size, vx_size);
+			
+			
+			// Creating volume
+			Eigen::Vector3i voxel_count(volume_size.x() / voxel_size.x(), volume_size.y() / voxel_size.y(), volume_size.z() / voxel_size.z());
+			std::size_t slice_size = (voxel_count.x() + 1) * (voxel_count.y() + 1);
+			std::vector<Voxeld> volume((voxel_count.x() + 1) * (voxel_count.y() + 1) * (voxel_count.z() + 1));
+			
+			Eigen::Matrix4d volume_transformation = Eigen::Matrix4d::Identity();
+			volume_transformation.col(3) << -(volume_size.x() / 2.0), -(volume_size.y() / 2.0), -(volume_size.z() / 2.0), 1.0;	// set translate
+
+
+			int i = 0;
+			for (int z = 0; z <= volume_size.z(); z += voxel_size.z())
+			{
+				for (int y = 0; y <= volume_size.y(); y += voxel_size.y())
+				{
+					for (int x = 0; x <= volume_size.x(); x += voxel_size.x(), i++)
+					{
+						volume[i].point = Eigen::Vector3d(x, y, z);
+						volume[i].rgb = Eigen::Vector3d(0, 0, 0);
+						volume[i].weight = i;
+					}
+				}
+			}
+			Eigen::Vector3d half_voxel(vx_size * 0.5, vx_size * 0.5, vx_size * 0.5);
+
+			float t0 = 0.0f;
+			float t1 = 256.0f;
+
+			Eigen::Vector3d cube(0, 0, 0);
+
+			Eigen::Vector3d origin(0, 0, -32);
+			Eigen::Vector3d target(0, 0, -20);
+			Eigen::Vector3d direction = (target - origin).normalized();
+
+			int count = 0;
+			for (const Voxeld v : volume)
+			{
+				Eigen::Vector3d corner_min = (volume_transformation * (v.point - half_voxel).homogeneous()).head<3>();
+				Eigen::Vector3d corner_max = (volume_transformation * (v.point + half_voxel).homogeneous()).head<3>();
+
+				Box box(corner_min, corner_max);
+				Ray ray(origin, direction);
+				
+				if (box.intersect(ray, t0, t1))
+				{
+					std::cout << "Box Intersected: " << v.point.transpose() << std::endl;
+					count++;
+				}
+
+			}
+			std::cout << "Intersections Count: " << count << std::endl;
+			Assert::IsTrue(count == expected_intersections_count_case_1);
+
+
+			origin = Eigen::Vector3d(0, 0, -32);
+			target = Eigen::Vector3d(4.0, 3.6, -20);
+			direction = (target - origin).normalized();
+			count = 0;
+			for (const Voxeld v : volume)
+			{
+				Eigen::Vector3d corner_min = (volume_transformation * (v.point - half_voxel).homogeneous()).head<3>();
+				Eigen::Vector3d corner_max = (volume_transformation * (v.point + half_voxel).homogeneous()).head<3>();
+
+				Box box(corner_min, corner_max);
+				Ray ray(origin, direction);
+
+				if (box.intersect(ray, t0, t1))
+				{
+					std::cout << "Box Intersected: " << v.point.transpose() << std::endl;
+					count++;
+				}
+
+			}
+			std::cout << "Intersections Count: " << count << std::endl;
+
+			Assert::IsTrue(count == expected_intersections_count_case_2);
 		}
 
 	};
