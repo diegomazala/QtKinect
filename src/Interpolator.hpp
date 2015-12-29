@@ -1,7 +1,6 @@
 #ifndef __INTERPOLATOR_HPP__
 #define __INTERPOLATOR_HPP__
 
-#include <Eigen/Dense>
 
 
 template<class T> class Interpolator

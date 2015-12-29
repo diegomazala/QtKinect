@@ -19,6 +19,7 @@ using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 #include "RayBox.h"
 #include "Grid.h"
 #include "Projection.h"
+#include "RayIntersection.h"
 #include "Eigen/Eigen"
 
 #define DegToRad(angle_degrees) (angle_degrees * M_PI / 180.0)		// Converts degrees to radians.
@@ -680,6 +681,86 @@ namespace TestQtKinect
 			index_3d = Eigen::Vector3i(16, 0, 16);
 			voxel_index = grid.index_array_from_3d_index(index_3d);
 			Assert::IsTrue((voxel_index == voxel_index_expected), L"\n<Unexpected index array found>\n", LINE_INFO());
+		}
+
+		TEST_METHOD(TestRayTriangleIntersection)
+		{
+			const Eigen::Vector3f target(0, 0, 3);
+			Eigen::Vector3f origin;
+			Eigen::Vector3f direction;
+
+			struct Triangle
+			{
+				Eigen::Vector3f vertices[3];
+				Eigen::Vector3f normal;
+			};
+
+			Triangle triangle[2];
+			triangle[0].vertices[0] = Eigen::Vector3f(-0.5f, -0.5f, 0.0f);
+			triangle[0].vertices[1] = Eigen::Vector3f(-0.5f, 0.5f, 0.0f);
+			triangle[0].vertices[2] = Eigen::Vector3f(0.5f, -0.5f, 0.0f);
+
+			triangle[1].vertices[0] = Eigen::Vector3f(0.5f, -0.5f, 0.0f);
+			triangle[1].vertices[1] = Eigen::Vector3f(-0.5f, 0.5f, 0.0f);
+			triangle[1].vertices[2] = Eigen::Vector3f(0.5f, 0.5f, 0.0f);
+
+			Eigen::Vector3f hit[2];
+
+			origin = Eigen::Vector3f(-0.5f, 0, -3);
+			direction = (target - origin).normalized();
+			const bool t0 = triangle_intersection(origin, direction, triangle[0].vertices[0], triangle[0].vertices[1], triangle[0].vertices[2], hit[0]);
+			Assert::IsTrue(t0, L"\n<Intersection missed>\n", LINE_INFO());
+
+			origin = Eigen::Vector3f(0.5f, 0, -3);
+			direction = (target - origin).normalized();
+			const bool t1 = triangle_intersection(origin, direction, triangle[1].vertices[0], triangle[1].vertices[1], triangle[1].vertices[2], hit[1]);
+			Assert::IsTrue(t1, L"\n<Intersection missed>\n", LINE_INFO());
+			
+			//std::cout << std::fixed
+			//	<< "t0: " << (t0 ? "hit  " : "fail  ") << hit[0].transpose() << std::endl
+			//	<< "t1: " << (t1 ? "hit  " : "fail  ") << hit[1].transpose() << std::endl;
+		}
+
+		TEST_METHOD(TestRayPlaneIntersection)
+		{
+			const Eigen::Vector3f target(0, 0, 3);
+			Eigen::Vector3f origin;
+			Eigen::Vector3f direction;
+
+			struct Triangle
+			{
+				Eigen::Vector3f vertices[3];
+				Eigen::Vector3f normal;
+			};
+
+			Triangle triangle[2];
+			triangle[0].vertices[0] = Eigen::Vector3f(-0.5f, -0.5f, 0.0f);
+			triangle[0].vertices[1] = Eigen::Vector3f(-0.5f, 0.5f, 0.0f);
+			triangle[0].vertices[2] = Eigen::Vector3f(0.5f, -0.5f, 0.0f);
+
+			triangle[1].vertices[0] = Eigen::Vector3f(0.5f, -0.5f, 0.0f);
+			triangle[1].vertices[1] = Eigen::Vector3f(-0.5f, 0.5f, 0.0f);
+			triangle[1].vertices[2] = Eigen::Vector3f(0.5f, 0.5f, 0.0f);
+
+			Eigen::Vector3f hit[3];
+
+			origin = Eigen::Vector3f(-0.5f, 0, -3);
+			direction = (target - origin).normalized();
+			const bool p0 = plane_intersection(origin, direction, triangle[0].vertices[0], triangle[0].vertices[1], triangle[0].vertices[2], hit[0]);
+			Assert::IsTrue(p0, L"\n<Intersection missed>\n", LINE_INFO());
+
+			origin = Eigen::Vector3f(0.5f, 0, -3);
+			direction = (target - origin).normalized();
+			const bool p1 = plane_intersection(origin, direction, triangle[1].vertices[0], triangle[1].vertices[1], triangle[1].vertices[2], hit[1]);
+			Assert::IsTrue(p1, L"\n<Intersection missed>\n", LINE_INFO());
+
+			bool p2 = plane_intersection(origin, direction, Eigen::Vector3f(0.0f, 0.0f, 0.0f), Eigen::Vector3f(0.0f, 0.0f, -1.0f), hit[2]);
+			Assert::IsTrue(p2, L"\n<Intersection missed>\n", LINE_INFO());
+
+			//std::cout << std::fixed
+			//	<< "p0: " << (p0 ? "hit  " : "fail  ") << hit[0].transpose() << std::endl
+			//	<< "p1: " << (p1 ? "hit  " : "fail  ") << hit[1].transpose() << std::endl
+			//	<< "p2: " << (p2 ? "hit  " : "fail  ") << hit[2].transpose() << std::endl;
 		}
 	};
 }
