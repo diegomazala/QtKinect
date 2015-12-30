@@ -13,6 +13,9 @@
   <ItemGroup>
     <ClCompile Include="..\src\Raycasting.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\src\Grid.h" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{0EB87B31-E8A9-47D9-A830-C71D0D38B2D8}</ProjectGuid>
     <Keyword>Qt4VSv1.0</Keyword>
