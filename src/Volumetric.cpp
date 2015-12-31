@@ -5,39 +5,28 @@
 #include "QImageWidget.h"
 #include "QKinectGrabber.h"
 #include "QKinectIO.h"
+#include "Grid.h"
 #include <iostream>
 #include <chrono>
 #include <sstream>
 #include <fstream>
 #include <Eigen/Dense>
+#include "Timer.h"
+#include "Projection.h"
 
 
 #define DegToRad(angle_degrees) (angle_degrees * M_PI / 180.0)		// Converts degrees to radians.
 #define RadToDeg(angle_radians) (angle_radians * 180.0 / M_PI)		// Converts radians to degrees.
 
-const float fov_y = 70.0f;
-const float window_width = 512.0f;
-const float window_height = 424.0f;
-const float near_plane = 0.1f; // 0.1f;
-const float far_plane = 512.0f; // 10240.0f;
-const float aspect_ratio = window_width / window_height;
+const double fov_y = 70.0f;
+const double window_width = 512.0f;
+const double window_height = 424.0f;
+const double near_plane = 0.1f; // 0.1f;
+const double far_plane = 512.0f; // 10240.0f;
+const double aspect_ratio = window_width / window_height;
 Eigen::Matrix4d	K(Eigen::Matrix4d::Zero());
 std::pair<Eigen::Matrix4d, Eigen::Matrix4d>	T(Eigen::Matrix4d::Zero(), Eigen::Matrix4d::Zero());
 
-
-
-template<typename Type>
-struct Voxel
-{
-	Eigen::Matrix<Type, 3, 1> point;
-	Eigen::Matrix<Type, 3, 1> rgb;
-	Type tsdf;
-	Type weight;
-
-	Voxel() :tsdf(FLT_MAX), weight(0.0){}
-};
-typedef Voxel<double> Voxeld;
-typedef Voxel<float> Voxelf;
 
 
 static bool import_obj(const std::string& filename, std::vector<Eigen::Vector3d>& points3D, int max_point_count = INT_MAX)
@@ -94,11 +83,30 @@ static void export_obj(const std::string& filename, const std::vector<Eigen::Vec
 	file.open(filename);
 	for (const auto X : points3D)
 	{
-		file << std::fixed << "v " << X.transpose() << std::endl;
+		if (!X.isApprox(Eigen::Vector3d(0,0,0)))
+			file << std::fixed << "v " << X.transpose() << std::endl;
 	}
 	file.close();
 }
 
+
+static void export_obj(const std::string& filename, const std::vector<Eigen::Vector3d>& points3D, const Eigen::Matrix4d& proj, const Eigen::Matrix4d& view)
+{
+	std::ofstream file;
+	file.open(filename);
+	for (const auto X : points3D)
+	{
+		Eigen::Vector4d clip = proj * view * X.homogeneous();
+		const Eigen::Vector3d ndc = (clip / clip.w()).head<3>();
+		Eigen::Vector3f pixel;
+		pixel.x() = window_width / 2.0f * ndc.x() + window_width / 2.0f;
+		pixel.y() = window_height / 2.0f * ndc.y() + window_height / 2.0f;
+		pixel.z() = 0.0; // (far_plane - near_plane) / 2.0f * ndc.z() + (far_plane + near_plane) / 2.0f;
+
+		file << std::fixed << "v " << pixel.transpose() << std::endl;
+	}
+	file.close();
+}
 
 
 static void export_volume(const std::string& filename, const std::vector<Voxeld>& volume, const Eigen::Matrix4d& transformation = Eigen::Matrix4d::Identity())
@@ -113,96 +121,88 @@ static void export_volume(const std::string& filename, const std::vector<Voxeld>
 		//rotation.rotate(Eigen::AngleAxisd(DegToRad(v.tsdf * 180.0), Eigen::Vector3d::UnitZ()));		// 90º
 		//rgb = rotation.matrix() * (-Eigen::Vector4d::UnitX());
 		//if (v.tsdf > -0.1 && v.tsdf < 0.1)
+		//int r = v.rgb.x();
+		//int b = v.rgb.z();
+		//if (r != 255 && b != 255)
 		file << std::fixed << "v " << (transformation * v.point.homogeneous()).head<3>().transpose() << ' ' << v.rgb.transpose() << std::endl;
 	}
 	file.close();
 }
 
 
-static Eigen::Matrix4d perspective_matrix(double fovy, double aspect_ratio, double near_plane, double far_plane)
+
+static void export_depth_buffer(const std::string& filename, const std::vector<double>& depth_buffer)
 {
-	Eigen::Matrix4d out = Eigen::Matrix4d::Zero();
-
-	const double	y_scale = 1.0 / tan((fovy / 2.0)*(M_PI / 180.0));
-	const double	x_scale = y_scale / aspect_ratio;
-	const double	depth_length = far_plane - near_plane;
-
-	out(0, 0) = x_scale;
-	out(1, 1) = y_scale;
-	out(2, 2) = -((far_plane + near_plane) / depth_length);
-	out(3, 2) = -1.0;
-	out(2, 3) = -((2 * near_plane * far_plane) / depth_length);
-
-	return out;
+	std::ofstream file;
+	file.open(filename);
+	int i = 0;
+	for (int y = 0; y < window_height; ++y)
+	{
+		for (int x = 0; x < window_width; ++x)
+		{
+			file << std::fixed << "v " << x << ' ' << y << ' ' << depth_buffer.at(i) << std::endl;
+			++i;
+		}
+	}
+	file.close();
 }
 
 
-static Eigen::Matrix4d perspective_matrix_inverse(double fovy, double aspect_ratio, double near_plane, double far_plane)
+void create_depth_buffer(std::vector<double>& depth_buffer, const std::vector<Eigen::Vector3d>& points3D, const Eigen::Matrix4d& proj, const Eigen::Matrix4d& view, std::vector<Eigen::Vector3d>& depth_buffer_3d)
 {
-	Eigen::Matrix4d out = Eigen::Matrix4d::Zero();
+	// Creating depth buffer
+	depth_buffer.clear();
+	depth_buffer.resize(int(window_width * window_height), -1.0);
 
-	const double	y_scale = 1.0 / tan((fovy / 2.0)*(M_PI / 180.0));
-	const double	x_scale = y_scale / aspect_ratio;
-	const double	depth_length = far_plane - near_plane;
 
-	out(0, 0) = 1.0 / x_scale;
-	out(1, 1) = 1.0 / y_scale;
-	out(2, 3) = -1.0;
-	out(3, 2) = -1.0 / ((2 * near_plane * far_plane) / depth_length);
-	out(3, 3) = ((far_plane + near_plane) / depth_length) / ((2 * near_plane * far_plane) / depth_length);
+	for (const Eigen::Vector3d p3d : points3D)
+	{
+		Eigen::Vector4d v = view * p3d.homogeneous();
+		v /= v.w();
 
-	return out;
+		const Eigen::Vector4d clip = proj * view * p3d.homogeneous();
+		const Eigen::Vector3d ndc = (clip / clip.w()).head<3>();
+		if (ndc.x() < -1 || ndc.x() > 1 || ndc.y() < -1 || ndc.y() > 1 || ndc.z() < -1 || ndc.z() > 1)
+			continue;
+
+		Eigen::Vector3d pixel;
+		pixel.x() = window_width / 2.0f * ndc.x() + window_width / 2.0f;
+		pixel.y() = window_height / 2.0f * ndc.y() + window_height / 2.0f;
+		pixel.z() = (far_plane - near_plane) / 2.0f * ndc.z() + (far_plane + near_plane) / 2.0f;
+
+		if (pixel.x() > 0 && pixel.x() < window_width &&
+			pixel.y() > 0 && pixel.y() < window_height)
+		{
+			const int depth_index = (int)((int)pixel.y() * (int)window_width + (int)pixel.x());
+			depth_buffer.at(depth_index) = v.z();
+		}
+	}
 }
 
-
-
-Eigen::Vector3d vertex_to_window_coord(Eigen::Vector4d p3d, double fovy, double aspect_ratio, double near_plane, double far_plane, int window_width, int window_height)
+void create_plane(std::vector<Eigen::Vector3d>& points3D, float width, float height, float cell_size)
 {
-	const Eigen::Matrix4d proj = perspective_matrix(fovy, aspect_ratio, near_plane, far_plane);
+	points3D.clear();
+	for (float y = -height * 0.5f; y < height * 0.5f; y += cell_size)
+	{
+		for (float x = -width * 0.5f; x < width * 0.5f; x += cell_size)
+		{
+			points3D.push_back(Eigen::Vector3d(x, y, 0));
+		}
+	}
 
-	const Eigen::Vector4d clip = proj * p3d;
-
-	const Eigen::Vector3d ndc = (clip / clip.w()).head<3>();
-
-	Eigen::Vector3d pixel;
-	pixel.x() = window_width / 2.0 * ndc.x() + window_width / 2.0;
-	pixel.y() = window_height / 2.0 * ndc.y() + window_height / 2.0;
-	pixel.z() = (far_plane - near_plane) / 2.0 * ndc.z() + (far_plane + near_plane) / 2.0;
-
-	return pixel;
-}
-
-
-Eigen::Vector3d window_coord_to_3d(Eigen::Vector2d pixel, double depth, double fovy, double aspect_ratio, double near_plane, double far_plane, int window_width, int window_height)
-{
-	Eigen::Vector3d ndc;
-	ndc.x() = (pixel.x() - (window_width / 2.0)) / (window_width / 2.0);
-	ndc.y() = (pixel.y() - (window_height / 2.0)) / (window_height / 2.0);
-	ndc.z() = -1.0f;
-
-	const Eigen::Vector3d clip = ndc * depth;
-
-	const Eigen::Matrix4d proj_inv = perspective_matrix_inverse(fovy, aspect_ratio, near_plane, far_plane);
-	const Eigen::Vector4d vertex_proj_inv = proj_inv * clip.homogeneous();
-
-	Eigen::Vector3d p3d_final;
-	p3d_final.x() = -vertex_proj_inv.x();
-	p3d_final.y() = -vertex_proj_inv.y();
-	p3d_final.z() = depth;
-
-	return p3d_final;
 }
 
 
 // Usage: ./Volumetricd.exe ../../data/plane.obj 256 4
 int main(int argc, char **argv)
 {
+	Timer timer;
 	const std::string filepath = argv[1];
 	int vol_size = atoi(argv[2]);
 	int vx_size = atoi(argv[3]);
-	Eigen::Vector3i voxel_size(vx_size, vx_size, vx_size);
-	Eigen::Vector3i volume_size(vol_size, vol_size, vol_size);
-	Eigen::Vector3i voxel_count(volume_size.x() / voxel_size.x(), volume_size.y() / voxel_size.y(), volume_size.z() / voxel_size.z());
+	Eigen::Vector3d voxel_size(vx_size, vx_size, vx_size);
+	Eigen::Vector3d volume_size(vol_size, vol_size, vol_size);
+	Eigen::Vector3d voxel_count(volume_size.x() / voxel_size.x(), volume_size.y() / voxel_size.y(), volume_size.z() / voxel_size.z());
 
 	// Projection Matrix
 	Eigen::Matrix4d K = perspective_matrix(fov_y, aspect_ratio, near_plane, far_plane);
@@ -211,128 +211,171 @@ int main(int argc, char **argv)
 	Eigen::Affine3d affine = Eigen::Affine3d::Identity();
 	affine.translate(Eigen::Vector3d(0, 0, -192));
 	T.first = affine.matrix();
-	affine.rotate(Eigen::AngleAxisd(DegToRad(45.0), Eigen::Vector3d::UnitY()));		// 90º
+	affine.rotate(Eigen::AngleAxisd(DegToRad(45.0), Eigen::Vector3d::UnitY()));		// 45º
 	T.second = affine.matrix();
 
-	std::vector<Eigen::Vector3d> points3D, points3DT;
+	std::vector<Eigen::Vector3d> points3D, points3DDepth;
+	timer.start();
+	//create_plane(points3D, 128, 128, 0.5);
+	//export_obj("../../data/plane_128_128_05.obj", points3D);
 	import_obj(filepath, points3D);
+	timer.print_interval("Import .obj         : ");
+
+
+	//timer.start();
+	//export_obj("../../data/mvp.obj", points3D, K, T.first);
+	//timer.print_interval("Export mvp          : ");
+	//return 0;
 
 	// Creating depth buffer
-	std::vector<double> depth_buffer(int(window_width * window_height), -1.0);
-	for (Eigen::Vector3d p3d : points3D)
-	{
-		Eigen::Vector4d v = T.first * p3d.homogeneous();
-		v /= v.w();
+	std::vector<double> depth_buffer;
+	timer.start();
+	create_depth_buffer(depth_buffer, points3D, K, T.first, points3DDepth);
+	timer.print_interval("Create depth buffer : ");
 
-		points3DT.push_back(v.head<3>());
-
-		const Eigen::Vector4d clip = K * v;
-		const Eigen::Vector3d ndc = (clip / clip.w()).head<3>();
-
-		if (ndc.x() < -1 || ndc.x() > 1 || ndc.y() < -1 || ndc.y() > 1 || ndc.z() < -1 || ndc.z() > 1)
-			continue;
-
-		Eigen::Vector3d pixel;
-		pixel.x() = window_width / 2.0 * ndc.x() + window_width / 2.0;
-		pixel.y() = window_height / 2.0 * ndc.y() + window_height / 2.0;
-		pixel.z() = (far_plane - near_plane) / 2.0 * ndc.z() + (far_plane + near_plane) / 2.0;
+	//timer.start();
+	//export_depth_buffer("../../data/depth_buffer.obj", depth_buffer);
+	//export_obj("../../data/depth_buffer_3d.obj", points3DDepth);
+	//timer.print_interval("Export depth buffer : ");
 
 
-		if (pixel.x() > 0 && pixel.x() < window_width &&
-			pixel.y() > 0 && pixel.y() < window_height)
-		{
-			const int depth_index = (int)(pixel.y() * window_width + pixel.x());
-			depth_buffer.at(depth_index) = v.z();
-		}
-	}
 
 	// Creating volume
-	std::size_t slice_size = (voxel_count.x() + 1) * (voxel_count.y() + 1);
-	std::vector<Voxeld> tsdf_volume((voxel_count.x() + 1) * (voxel_count.y() + 1) * (voxel_count.z() + 1));
-	Eigen::Matrix4d volume_transformation = Eigen::Matrix4d::Identity();
-	volume_transformation.col(3) << -(volume_size.x() / 2.0), -(volume_size.y() / 2.0), -(volume_size.z() / 2.0), 1.0;	// set translate
+
+	Grid grid(volume_size, voxel_size);
+	//export_volume("../../data/grid_volume_clean.obj", grid.data, T.first * grid.transformation);
 
 	
-	int i = 0;
-	for (int z = 0; z <= volume_size.z(); z += voxel_size.z())
-	{
-		for (int y = 0; y <= volume_size.y(); y += voxel_size.y())
-		{
-			for (int x = 0; x <= volume_size.x(); x += voxel_size.x(), i++)
-			{
-				tsdf_volume[i].point = Eigen::Vector3d(x, y, z);
-				tsdf_volume[i].rgb = Eigen::Vector3d(0, 0, 0);
-				tsdf_volume[i].weight = i;
-			}
-		}
-	}
 
 
 	Eigen::Vector4d ti = T.first.col(3);
-
 	double half_voxel = voxel_size.x() * 0.5;
-	std::vector<Eigen::Vector3d> points3DVg, points3DV, pointsAll;
+	std::vector<Eigen::Vector3d> pointsAll;
+
+
+	
+	timer.start();
 
 	// Sweeping volume
-	for (auto it_volume = tsdf_volume.begin(); it_volume != tsdf_volume.end(); it_volume += slice_size)
+	const std::size_t slice_size = (voxel_count.x() + 1) * (voxel_count.y() + 1);
+	for (auto it_volume = grid.data.begin(); it_volume != grid.data.end(); it_volume += slice_size)
 	{
 		auto z_slice_begin = it_volume;
 		auto z_slice_end = it_volume + slice_size;
 
 		for (auto it = z_slice_begin; it != z_slice_end; ++it)
 		{
-
 			// to world space
-			Eigen::Vector4d vg = volume_transformation * it->point.homogeneous();	
+			Eigen::Vector4d vg = grid.transformation * it->point.homogeneous();
+
 			
 			// to camera space
 			Eigen::Vector4d v = T.first * vg;	// se for inversa não fica no clip space							
-			//Eigen::Vector4d v = vg;
 			v /= v.w();
 
 			pointsAll.push_back(v.head<3>());
 
-			// to camera space
-			Eigen::Vector3d pixel = vertex_to_window_coord(v, fov_y, window_width / window_height, near_plane, far_plane, (int)window_width, (int)window_height);
-
+			// to ndc space
 			const Eigen::Vector4d clip = K * v;
 			const Eigen::Vector3d ndc = (clip / clip.w()).head<3>();
 			
+			// check if it is out of ndc space
 			if (ndc.x() < -1 || ndc.x() > 1 || ndc.y() < -1 || ndc.y() > 1 || ndc.z() < -1 || ndc.z() > 1)
 				continue;
 
-			Eigen::Vector3d p_window;
-			p_window.x() = window_width / 2.0 * ndc.x() + window_width / 2.0;
-			p_window.y() = window_height / 2.0 * ndc.y() + window_height / 2.0;
-			p_window.z() = (far_plane - near_plane) / 2.0 * ndc.z() + (far_plane + near_plane) / 2.0;
+			// to screen space
+			Eigen::Vector3d pixel;
+			pixel.x() = window_width / 2.0 * ndc.x() + window_width / 2.0;
+			pixel.y() = window_height / 2.0 * ndc.y() + window_height / 2.0;
+			//pixel.z() = (far_plane - near_plane) / 2.0 * ndc.z() + (far_plane + near_plane) / 2.0;
 
-			//double sdf = (ti - vg).norm();
-			double sdf = v.z();
 
-			const int depth_pixel_index = (int)(p_window.y() * window_width + p_window.x());
-
+			// get depth buffer value at pixel where the current vertex has been projected
+			const int depth_pixel_index = (int)(pixel.y() * window_width + pixel.x());
 			if (depth_pixel_index > depth_buffer.size())
+			{
+				std::cout << "Depth pixel out of range: " << depth_pixel_index << " > " << pixel.transpose() << std::endl;
 				continue;
-
-
-			const double Dp = depth_buffer.at(depth_pixel_index);
-
-			double dist_v_cam = v.z();
-
-
-			it->tsdf = dist_v_cam - Dp;
+			}
+						
+			const double Dp = std::abs(depth_buffer.at(depth_pixel_index));
 			
-			if (it->tsdf > -half_voxel && it->tsdf < half_voxel)
+			//double dist_v_cam = v.z();
+			//it->tsdf = dist_v_cam - Dp;
+			//if (it->tsdf > -half_voxel && it->tsdf < half_voxel)
+			//	it->rgb = Eigen::Vector3d(0, 255, 0);
+			//else if (it->tsdf > 0)
+			//	it->rgb = Eigen::Vector3d(0, 128, 255);
+			//else
+			//	it->rgb = Eigen::Vector3d(255, 0, 0);
+
+
+			double distance_vertex_camera = (ti - vg).norm();
+			it->tsdf = distance_vertex_camera - Dp;
+
+			if (it->tsdf > voxel_size.x() && it->tsdf < voxel_size.x())
 				it->rgb = Eigen::Vector3d(0, 255, 0);
 			else if (it->tsdf > 0)
 				it->rgb = Eigen::Vector3d(0, 128, 255);
-			else
+			else if (it->tsdf < 0)
 				it->rgb = Eigen::Vector3d(255, 0, 0);
+			else
+				it->rgb = Eigen::Vector3d(128, 255, 0);
+
 		}
 
 	}
 
-	export_volume("../../data/volume.obj", tsdf_volume, T.first * volume_transformation);
+	timer.print_interval("Filling volume      : ");
+
+#if 0	
+
+	//timer.start();
+	//export_volume("../../data/volume_tsdf_wip.obj", grid.data, T.first * grid.transformation);
+	//timer.print_interval("Exporting volume    : ");
+
+	timer.start();
+
+	Eigen::Vector3d origin = T.first.col(3).head<3>();
+	Eigen::Vector3d window_coord_norm;
+
+	std::vector<Eigen::Vector3d> output_cloud;
+
+	// Sweep the volume looking for the zero crossing
+	for (int y = 0; y < window_height * 0.1; ++y)
+	{
+		std::cout << "Ray casting to image... " << (double)y / window_height * 100 << "%" << std::endl;
+
+		for (int x = 0; x < window_width * 0.1; ++x)
+		{
+			window_coord_norm.x() = ((double)x / window_width * 2.0) - 1.0;
+			window_coord_norm.y() = ((double)y / window_height * 2.0) - 1.0;
+			window_coord_norm.z() = origin.z() + near_plane;
+			Eigen::Vector3d direction = (window_coord_norm - origin).normalized();
+
+			std::vector<int> intersections = Grid::find_intersections(grid.data, volume_size, voxel_size, grid.transformation, origin, direction, near_plane, far_plane);
+			Grid::sort_intersections(intersections, grid.data, origin);
+
+			for (int i = 1; i < intersections.size(); ++i)
+			{
+				const Voxeld& prev = grid.data.at(i - 1);
+				const Voxeld& curr = grid.data.at(i);
+
+				const bool& same_sign = ((prev.tsdf < 0) == (curr.tsdf < 0));
+				
+				if (!same_sign)		// it is a zero-crossing
+				{
+					output_cloud.push_back(curr.point);
+				}
+			}
+		}
+	}
+
+	timer.print_interval("Raycasting volume   : ");
+
+
+	export_obj("../../data/output_cloud.obj", output_cloud);
+#endif
 
 	return 0;
 }

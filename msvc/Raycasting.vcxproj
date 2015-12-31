@@ -15,6 +15,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\Grid.h" />
+    <ClInclude Include="..\src\Projection.h" />
+    <ClInclude Include="..\src\RayIntersection.h" />
+    <ClInclude Include="..\src\Timer.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{0EB87B31-E8A9-47D9-A830-C71D0D38B2D8}</ProjectGuid>

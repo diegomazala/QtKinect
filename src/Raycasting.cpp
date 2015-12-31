@@ -58,6 +58,16 @@ int main(int argc, char **argv)
 	for (const auto i : intersections)
 		std::cout << i << " : " << grid.data[i].point.transpose() << std::endl;
 
+	intersections = Grid::find_intersections(grid.data, grid.volume_size, grid.voxel_size, grid.transformation, origin, direction, ray_near, ray_far);
+	std::cout << "\nIntersections Find: " << intersections.size() << std::endl;
+	for (const auto i : intersections)
+		std::cout << i << " : " << grid.data[i].point.transpose() << std::endl;
+
+	Grid::sort_intersections(intersections, grid.data, origin);
+	std::cout << "\nIntersections Find Sorted: " << intersections.size() << std::endl;
+	for (const auto i : intersections)
+		std::cout << i << " : " << grid.data[i].point.transpose() << std::endl;
+
 	return 0;
 }
 

@@ -16,27 +16,32 @@ public:
 		startTime = std::chrono::steady_clock::now();
 	}
 
-	double diff_sec()
+	double diff_sec() const
 	{
 		return std::chrono::duration<double>(interval_ns()).count();
 	}
 
-	std::chrono::seconds interval_sec()
+	void print_interval(const std::string& msg) const
+	{
+		std::cout << msg << diff_sec() << " seconds " << std::endl;
+	}
+
+	std::chrono::seconds interval_sec() const
 	{
 		return std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - startTime);
 	}
 
-	std::chrono::milliseconds interval_ms()
+	std::chrono::milliseconds interval_ms() const
 	{
 		return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - startTime);
 	}
 
-	std::chrono::microseconds interval_us()
+	std::chrono::microseconds interval_us() const
 	{
 		return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - startTime);
 	}
 
-	std::chrono::nanoseconds interval_ns()
+	std::chrono::nanoseconds interval_ns() const
 	{
 		return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - startTime);
 	}

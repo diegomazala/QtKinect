@@ -4,7 +4,7 @@
 #include <Eigen/Dense>
 #include <vector>
 #include "RayBox.h"
-
+#include "RayIntersection.h"
 
 
 template<typename Type>
@@ -180,6 +180,39 @@ public:
 		return intersections;
 	}
 
+	static std::vector<int> find_intersections(
+		const std::vector<Voxeld>& volume,
+		const Eigen::Vector3d& volume_size,
+		const Eigen::Vector3d& voxel_size,
+		const Eigen::Matrix4d& volume_transformation,
+		const Eigen::Vector3d& origin,
+		const Eigen::Vector3d& direction,
+		const double ray_near,
+		const double ray_far)
+	{
+		Eigen::Vector3d half_voxel(voxel_size.x() * 0.5, voxel_size.y() * 0.5, voxel_size.z() * 0.5);
+
+		std::vector<int> intersections;
+
+		int i = 0;
+		for (const Voxeld& v : volume)
+		{
+			Eigen::Vector3d corner_min = (volume_transformation * (v.point - half_voxel).homogeneous()).head<3>();
+			Eigen::Vector3d corner_max = (volume_transformation * (v.point + half_voxel).homogeneous()).head<3>();
+
+			Box box(corner_min, corner_max);
+			Ray ray(origin, direction);
+
+			if (box.intersect(ray, ray_near, ray_far))
+			{
+				intersections.push_back(i);
+			}
+			++i;
+		}
+
+		return intersections;
+	}
+
 
 	std::vector<int> raycast_all(
 		const Eigen::Vector3d& origin,
@@ -210,28 +243,25 @@ public:
 		return intersections;
 	}
 
-	bool intersect(
-		const int voxel_index,
+
+
+
+	std::vector<int> raycast_all_ordered(
 		const Eigen::Vector3d& origin,
 		const Eigen::Vector3d& direction,
 		const double ray_near,
 		const double ray_far) const
 	{
-		if (voxel_index < 0 || voxel_index > data.size() - 1)
-			return false;
 
-		Eigen::Vector3d half_voxel(voxel_size.x() * 0.5, voxel_size.y() * 0.5, voxel_size.z() * 0.5);
+		std::vector<int> intersections = raycast_all(origin, direction, ray_near, ray_far);
 
-		const Voxeld& v = data[voxel_index];
-		Eigen::Vector3d corner_min = (transformation * (v.point - half_voxel).homogeneous()).head<3>();
-		Eigen::Vector3d corner_max = (transformation * (v.point + half_voxel).homogeneous()).head<3>();
+		sort_intersections(intersections, data, origin);
 
-		Box box(corner_min, corner_max);
-		Ray ray(origin, direction);
-
-		return box.intersect(ray, ray_near, ray_far);
+		return intersections;
 	}
 
+
+	
 
 
 	void recursive_raycast(
@@ -272,6 +302,54 @@ public:
 		recursive_raycast(last_voxel_found, back_voxel_index, origin, direction, ray_near, ray_far, intersections);
 	}
 
+
+
+	bool intersect(
+		const int voxel_index,
+		const Eigen::Vector3d& origin,
+		const Eigen::Vector3d& direction,
+		const double ray_near,
+		const double ray_far) const
+	{
+		if (voxel_index < 0 || voxel_index > data.size() - 1)
+			return false;
+
+		Eigen::Vector3d half_voxel(voxel_size.x() * 0.5, voxel_size.y() * 0.5, voxel_size.z() * 0.5);
+
+		const Voxeld& v = data[voxel_index];
+		Eigen::Vector3d corner_min = (transformation * (v.point - half_voxel).homogeneous()).head<3>();
+		Eigen::Vector3d corner_max = (transformation * (v.point + half_voxel).homogeneous()).head<3>();
+
+		Box box(corner_min, corner_max);
+		Ray ray(origin, direction);
+
+		return box.intersect(ray, ray_near, ray_far);
+	}
+
+
+	static void sort_intersections(std::vector<int>& intersections, const std::vector<Voxeld>& volume, const Eigen::Vector3d& origin)
+	{
+		struct VoxelDistanceToOrigin
+		{
+			VoxelDistanceToOrigin(const std::vector<Voxeld>* _volume_ptr, const Eigen::Vector3d& _origin)
+				: volume_ptr(_volume_ptr)
+				, origin(_origin)
+			{}
+
+			const std::vector<Voxeld>* volume_ptr;
+			const Eigen::Vector3d origin;
+
+			bool operator()(const int& l, const int& r) const
+			{
+				const double& distance_0 = (volume_ptr->at(l).point - origin).norm();
+				const double& distance_1 = (volume_ptr->at(r).point - origin).norm();
+				return distance_0 < distance_1;
+			}
+		};
+
+		VoxelDistanceToOrigin voxel_function(&volume, origin);
+		std::sort(intersections.begin(), intersections.end(), voxel_function);
+	}
 
 
 	//Eigen::Vector3d interpolate(const Eigen::Vector3d& location)
