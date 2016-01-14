@@ -50,7 +50,7 @@ static Eigen::Matrix<Type, 4, 4> perspective_matrix_inverse(Type fovy, Type aspe
 template<typename Type>
 static Eigen::Matrix<Type, 3, 1> vertex_to_window_coord(Eigen::Matrix<Type, 4, 1> p3d, Type fovy, Type aspect_ratio, Type near_plane, Type far_plane, int window_width, int window_height)
 {
-	const Eigen::Matrix4f proj = perspective_matrix(fovy, aspect_ratio, near_plane, far_plane);
+	const Eigen::Matrix<Type, 4, 4> proj = perspective_matrix(fovy, aspect_ratio, near_plane, far_plane);
 
 	const Eigen::Matrix<Type, 4, 1> p_clip = proj * p3d;
 
@@ -63,6 +63,7 @@ static Eigen::Matrix<Type, 3, 1> vertex_to_window_coord(Eigen::Matrix<Type, 4, 1
 
 	return p_window;
 }
+
 
 template<typename Type>
 static Eigen::Matrix<Type, 3, 1> window_coord_to_3d(Eigen::Matrix<Type, 2, 1> pixel, Type depth, Type fovy, Type aspect_ratio, Type near_plane, Type far_plane, int window_width, int window_height)

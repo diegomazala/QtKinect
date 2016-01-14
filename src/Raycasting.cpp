@@ -29,7 +29,7 @@ int main(int argc, char **argv)
 	Eigen::Vector3d volume_size(vol_size, vol_size, vol_size);
 	Eigen::Vector3d voxel_size(vx_size, vx_size, vx_size);
 
-	Grid grid(volume_size, voxel_size);
+	Grid grid(volume_size, voxel_size, Eigen::Matrix4d::Identity());
 	
 	Eigen::Vector3d half_voxel(vx_size * 0.5, vx_size * 0.5, vx_size * 0.5);
 	
@@ -58,7 +58,8 @@ int main(int argc, char **argv)
 	for (const auto i : intersections)
 		std::cout << i << " : " << grid.data[i].point.transpose() << std::endl;
 
-	intersections = Grid::find_intersections(grid.data, grid.volume_size, grid.voxel_size, grid.transformation, origin, direction, ray_near, ray_far);
+	//intersections = Grid::find_intersections(grid.data, grid.volume_size, grid.voxel_size, grid.transformation, origin, direction, ray_near, ray_far);
+	intersections = Grid::find_intersections(grid.data, grid.volume_size, grid.voxel_size, Eigen::Matrix4d::Identity(), origin, direction, ray_near, ray_far);
 	std::cout << "\nIntersections Find: " << intersections.size() << std::endl;
 	for (const auto i : intersections)
 		std::cout << i << " : " << grid.data[i].point.transpose() << std::endl;

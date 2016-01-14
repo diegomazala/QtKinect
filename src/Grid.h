@@ -26,9 +26,9 @@ class Grid
 
 public:
 
-	Grid(const Eigen::Vector3d& _volume_size, const Eigen::Vector3d& _voxel_size)
+	Grid(const Eigen::Vector3d& _volume_size, const Eigen::Vector3d& _voxel_size, const Eigen::Matrix4d& _transformation)
 	{
-		this->reset(_volume_size, _voxel_size);
+		this->reset(_volume_size, _voxel_size, _transformation);
 	}
 	
 	~Grid() 
@@ -36,15 +36,15 @@ public:
 	}
 
 
-	void reset(const Eigen::Vector3d& _volume_size, const Eigen::Vector3d& _voxel_size)
+	void reset(const Eigen::Vector3d& _volume_size, const Eigen::Vector3d& _voxel_size, const Eigen::Matrix4d& _transformation)
 	{
 		this->volume_size = _volume_size;
 		this->voxel_size = _voxel_size;
 		this->voxel_count = Eigen::Vector3i(volume_size.x() / voxel_size.x(), volume_size.y() / voxel_size.y(), volume_size.z() / voxel_size.z());
 		this->data.resize((voxel_count.x() + 1) * (voxel_count.y() + 1) * (voxel_count.z() + 1));
 
-		this->transformation = Eigen::Matrix4d::Identity();
-		this->transformation.col(3) << -(volume_size.x() / 2.0), -(volume_size.y() / 2.0), -(volume_size.z() / 2.0), 1.0;	// set translate
+		Eigen::Matrix4d to_origin = Eigen::Matrix4d::Identity();
+		to_origin.col(3) << -(volume_size.x() / 2.0), -(volume_size.y() / 2.0), -(volume_size.z() / 2.0), 1.0;	// set translate
 
 		int i = 0;
 		for (int z = 0; z <= volume_size.z(); z += voxel_size.z())
@@ -53,7 +53,10 @@ public:
 			{
 				for (int x = 0; x <= volume_size.x(); x += voxel_size.x(), i++)
 				{
-					data[i].point = Eigen::Vector3d(x, y, z);
+					Eigen::Vector4d p = _transformation * to_origin * Eigen::Vector4d(x, y, z, 1);
+					p /= p.w();
+
+					data[i].point = p.head<3>();
 					data[i].rgb = Eigen::Vector3d(0, 0, 0);
 					data[i].weight = i;
 				}
@@ -133,7 +136,8 @@ public:
 	{
 		std::vector<int>& neighbours = neighbour_eight(voxel_index);
 		//neighbours.push_back(voxel_index);
-		return find_intersections(neighbours, data, volume_size, voxel_size, transformation, origin, direction, ray_near, ray_far);
+		//return find_intersections(neighbours, data, volume_size, voxel_size, transformation, origin, direction, ray_near, ray_far);
+		return find_intersections(neighbours, data, volume_size, voxel_size, Eigen::Matrix4d::Identity(), origin, direction, ray_near, ray_far);
 	}
 
 	std::vector<int> find_intersections_in_neighbours(
@@ -143,7 +147,7 @@ public:
 		const double ray_near,
 		const double ray_far) const
 	{
-		return find_intersections(neighbours, data, volume_size, voxel_size, transformation, origin, direction, ray_near, ray_far);
+		return find_intersections(neighbours, data, volume_size, voxel_size, Eigen::Matrix4d::Identity(), origin, direction, ray_near, ray_far);
 	}
 
 
@@ -227,8 +231,10 @@ public:
 		int voxel_index = 0;
 		for (const Voxeld v : data)
 		{
-			Eigen::Vector3d corner_min = (transformation * (v.point - half_voxel).homogeneous()).head<3>();
-			Eigen::Vector3d corner_max = (transformation * (v.point + half_voxel).homogeneous()).head<3>();
+			//Eigen::Vector3d corner_min = (transformation * (v.point - half_voxel).homogeneous()).head<3>();
+			//Eigen::Vector3d corner_max = (transformation * (v.point + half_voxel).homogeneous()).head<3>();
+			Eigen::Vector3d corner_min = (v.point - half_voxel).homogeneous().head<3>();
+			Eigen::Vector3d corner_max = (v.point + half_voxel).homogeneous().head<3>();
 
 			Box box(corner_min, corner_max);
 			Ray ray(origin, direction);
@@ -317,8 +323,12 @@ public:
 		Eigen::Vector3d half_voxel(voxel_size.x() * 0.5, voxel_size.y() * 0.5, voxel_size.z() * 0.5);
 
 		const Voxeld& v = data[voxel_index];
-		Eigen::Vector3d corner_min = (transformation * (v.point - half_voxel).homogeneous()).head<3>();
-		Eigen::Vector3d corner_max = (transformation * (v.point + half_voxel).homogeneous()).head<3>();
+		
+		//Eigen::Vector3d corner_min = (transformation * (v.point - half_voxel).homogeneous()).head<3>();
+		//Eigen::Vector3d corner_max = (transformation * (v.point + half_voxel).homogeneous()).head<3>();
+
+		Eigen::Vector3d corner_min = (v.point - half_voxel).homogeneous().head<3>();
+		Eigen::Vector3d corner_max = (v.point + half_voxel).homogeneous().head<3>();
 
 		Box box(corner_min, corner_max);
 		Ray ray(origin, direction);
@@ -361,7 +371,7 @@ public:
 	Eigen::Vector3d voxel_size;				// size of voxels
 	Eigen::Vector3i voxel_count;			// count of voxels
 	std::vector<Voxeld> data;				// array of voxels
-	Eigen::Matrix4d transformation;			// volume transformation matrix
+	//Eigen::Matrix4d transformation;			// volume transformation matrix
 };
 
 

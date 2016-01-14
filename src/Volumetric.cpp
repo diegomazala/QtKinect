@@ -28,6 +28,53 @@ Eigen::Matrix4d	K(Eigen::Matrix4d::Zero());
 std::pair<Eigen::Matrix4d, Eigen::Matrix4d>	T(Eigen::Matrix4d::Zero(), Eigen::Matrix4d::Zero());
 
 
+#if 0
+void raycast_volume()
+{
+	timer.start();
+
+	Eigen::Vector3d origin = T.first.col(3).head<3>();
+	Eigen::Vector3d window_coord_norm;
+
+	std::vector<Eigen::Vector3d> output_cloud;
+
+	// Sweep the volume looking for the zero crossing
+	for (int y = 0; y < window_height * 0.1; ++y)
+	{
+		std::cout << "Ray casting to image... " << (double)y / window_height * 100 << "%" << std::endl;
+
+		for (int x = 0; x < window_width * 0.1; ++x)
+		{
+			window_coord_norm.x() = ((double)x / window_width * 2.0) - 1.0;
+			window_coord_norm.y() = ((double)y / window_height * 2.0) - 1.0;
+			window_coord_norm.z() = origin.z() + near_plane;
+			Eigen::Vector3d direction = (window_coord_norm - origin).normalized();
+
+			std::vector<int> intersections = Grid::find_intersections(grid.data, volume_size, voxel_size, grid.transformation, origin, direction, near_plane, far_plane);
+			Grid::sort_intersections(intersections, grid.data, origin);
+
+			for (int i = 1; i < intersections.size(); ++i)
+			{
+				const Voxeld& prev = grid.data.at(i - 1);
+				const Voxeld& curr = grid.data.at(i);
+
+				const bool& same_sign = ((prev.tsdf < 0) == (curr.tsdf < 0));
+
+				if (!same_sign)		// it is a zero-crossing
+				{
+					output_cloud.push_back(curr.point);
+				}
+			}
+		}
+	}
+
+	timer.print_interval("Raycasting volume   : ");
+
+
+	export_obj("../../data/output_cloud.obj", output_cloud);
+}
+#endif
+
 
 static bool import_obj(const std::string& filename, std::vector<Eigen::Vector3d>& points3D, int max_point_count = INT_MAX)
 {
@@ -131,7 +178,6 @@ static void export_volume(const std::string& filename, const std::vector<Voxeld>
 		else if (v.tsdf < 1)
 			rgb = Eigen::Vector3i(255, 0, 0);
 		
-
 		file << std::fixed << "v " << (transformation * v.point.homogeneous()).head<3>().transpose() << ' ' << rgb.transpose() << std::endl;
 	}
 	file.close();
@@ -139,7 +185,7 @@ static void export_volume(const std::string& filename, const std::vector<Voxeld>
 
 
 
-static void export_depth_buffer(const std::string& filename, const std::vector<double>& depth_buffer)
+static void export_depth_buffer(const std::string& filename, const std::vector<double>& depth_buffer, Eigen::Vector3i rgb = Eigen::Vector3i::Zero())
 {
 	std::ofstream file;
 	file.open(filename);
@@ -148,14 +194,45 @@ static void export_depth_buffer(const std::string& filename, const std::vector<d
 	{
 		for (int x = 0; x < window_width; ++x)
 		{
-			file << std::fixed << "v " << x << ' ' << y << ' ' << depth_buffer.at(i) << std::endl;
+			file << std::fixed << "v " << x << ' ' << y << ' ' << depth_buffer.at(i) << ' ' << rgb.transpose() << std::endl;
 			++i;
 		}
 	}
 	file.close();
 }
 
+static void export_image_from_depth_buffer(const std::string& filename, const std::vector<double>& depth_buffer)
+{
+	QImage depth(window_width, window_height, QImage::Format_RGB888);
+	depth.fill(Qt::white);
 
+	int x = 0;
+	int y = 0;
+	int i = 0;
+	for (double d : depth_buffer)
+	{
+		int gray = 255 - (d / far_plane * 255.0);
+		x = i % (int)window_width;
+		y = i / (int)window_width;
+		depth.setPixel(QPoint(x, window_height - y - 1), qRgb(gray, gray, gray));
+		++i;
+	}
+
+	depth.save(filename.c_str());
+}
+
+void create_plane(std::vector<Eigen::Vector3d>& points3D, float width, float height, float z, float cell_size)
+{
+	points3D.clear();
+	for (float y = -height * 0.5f; y <= height * 0.5f; y += cell_size)
+	{
+		for (float x = -width * 0.5f; x <= width * 0.5f; x += cell_size)
+		{
+			points3D.push_back(Eigen::Vector3d(x, y, z));
+		}
+	}
+
+}
 void create_depth_buffer(std::vector<double>& depth_buffer, const std::vector<Eigen::Vector3d>& points3D, const Eigen::Matrix4d& proj, const Eigen::Matrix4d& view, double far_plane)
 {
 	// Creating depth buffer
@@ -178,6 +255,7 @@ void create_depth_buffer(std::vector<double>& depth_buffer, const std::vector<Ei
 		pixel.y() = window_height / 2.0f * ndc.y() + window_height / 2.0f;
 		//pixel.z() = (far_plane - near_plane) / 2.0f * ndc.z() + (far_plane + near_plane) / 2.0f;
 
+#if 0
 		if (pixel.x() > 0 && pixel.x() < window_width &&
 			pixel.y() > 0 && pixel.y() < window_height)
 		{
@@ -187,20 +265,108 @@ void create_depth_buffer(std::vector<double>& depth_buffer, const std::vector<Ei
 			if (new_depth < curr_depth) 
 				depth_buffer.at(depth_index) = new_depth;
 		}
+#else
+		const int depth_index = (int)pixel.y() * (int)window_width + (int)pixel.x();
+		if (depth_index > 0 && depth_index < depth_buffer.size())
+		{
+			const double& curr_depth = std::abs(depth_buffer.at(depth_index));
+			const double& new_depth = std::abs(v.z());
+			if (new_depth < curr_depth)
+				depth_buffer.at(depth_index) = new_depth;
+		}
+
+#endif
 	}
 }
 
-void create_plane(std::vector<Eigen::Vector3d>& points3D, float width, float height, float cell_size)
+double compute_tsdf(const Eigen::Vector3d& pt, std::vector<double>& depth_buffer, const Eigen::Matrix4d& view)
 {
-	points3D.clear();
-	for (float y = -height * 0.5f; y < height * 0.5f; y += cell_size)
+	Eigen::Vector4d vg = pt.homogeneous();
+	Eigen::Vector4d v = view * vg;	// se for inversa não fica no clip space		
+	v /= v.w();
+
+	// to screen space
+	const Eigen::Vector3i pixel = vertex_to_window_coord(v, fov_y, aspect_ratio, near_plane, far_plane, (int)window_width, (int)window_height).cast<int>();
+	
+
+	// get depth buffer value at pixel where the current vertex has been projected
+	const int depth_pixel_index = pixel.y() * int(window_width) + pixel.x();
+		
+
+	if (depth_pixel_index < 0 || depth_pixel_index > depth_buffer.size())
 	{
-		for (float x = -width * 0.5f; x < width * 0.5f; x += cell_size)
-		{
-			points3D.push_back(Eigen::Vector3d(x, y, 0));
-		}
+		//std::cout << "Depth pixel out of range: " << depth_pixel_index << " > " << pixel.transpose() << std::endl;
+		return -far_plane;
 	}
 
+	const double Dp = depth_buffer.at(depth_pixel_index);
+	double distance_vertex_camera = std::abs(v.z());
+
+	std::cout << std::endl << pixel.x() << ' ' << pixel.y() << " ---> " << depth_pixel_index << " : " << Dp << std::endl;
+
+
+
+	int xx = depth_pixel_index % int(window_width);
+	int yy = depth_pixel_index / int(window_width);
+	std::cout << xx << ' ' << yy << " : " << yy * window_width + xx << std::endl;
+
+
+
+
+
+	std::cout << std::endl << distance_vertex_camera << " - " << Dp << " = " << distance_vertex_camera - Dp << std::endl;
+	
+	return distance_vertex_camera - Dp;
+}
+
+
+void update_volume(Grid& grid, std::vector<Eigen::Vector3d>& points3DGrid, std::vector<double>& depth_buffer, const Eigen::Matrix4d& proj, const Eigen::Matrix4d& view)
+{
+	const Eigen::Vector4d& ti = view.col(3);
+
+	//
+	// Sweeping volume
+	//
+	const std::size_t slice_size = (grid.voxel_count.x() + 1) * (grid.voxel_count.y() + 1);
+	for (auto it_volume = grid.data.begin(); it_volume != grid.data.end(); it_volume += slice_size)
+	{
+		auto z_slice_begin = it_volume;
+		auto z_slice_end = it_volume + slice_size;
+
+		for (auto it = z_slice_begin; it != z_slice_end; ++it)
+		{
+			// to world space
+			//Eigen::Vector4d vg = grid.transformation * it->point.homogeneous();
+			Eigen::Vector4d vg = it->point.homogeneous();
+
+			// to camera space
+			Eigen::Vector4d v = view * vg;	// se for inversa não fica no clip space		
+			v /= v.w();
+
+			points3DGrid.push_back(v.head<3>());
+
+			// to screen space
+			const Eigen::Vector3i pixel = vertex_to_window_coord(v, fov_y, aspect_ratio, near_plane, far_plane, (int)window_width, (int)window_height).cast<int>();
+
+			// get depth buffer value at pixel where the current vertex has been projected
+			const int depth_pixel_index = pixel.y() * int(window_width) + pixel.x();
+			if (depth_pixel_index < 0 || depth_pixel_index > depth_buffer.size())
+			{
+				//std::cout << "Depth pixel out of range: " << depth_pixel_index << " > " << pixel.transpose() << std::endl;
+				continue;
+			}
+
+			const double Dp = std::abs(depth_buffer.at(depth_pixel_index));
+
+			//double distance_vertex_camera = (ti - v).norm();
+			double distance_vertex_camera = std::abs(v.z());
+			//it->tsdf = distance_vertex_camera - Dp;
+			it->tsdf = Dp - distance_vertex_camera;
+
+			//std::cout << it->point.transpose() << " : " << it->tsdf << std::endl;
+		}
+
+	}
 }
 
 
@@ -215,122 +381,117 @@ int main(int argc, char **argv)
 	Eigen::Vector3d volume_size(vol_size, vol_size, vol_size);
 	Eigen::Vector3d voxel_count(volume_size.x() / voxel_size.x(), volume_size.y() / voxel_size.y(), volume_size.z() / voxel_size.z());
 
+
+	//
 	// Projection Matrix
+	//
 	Eigen::Matrix4d K = perspective_matrix(fov_y, aspect_ratio, near_plane, far_plane);
-
+	//
 	// Modelview Matrix
+	//
 	Eigen::Affine3d affine = Eigen::Affine3d::Identity();
-	affine.translate(Eigen::Vector3d(0, 0, -192));
+	//affine.translate(Eigen::Vector3d(0, 0, -192));
 	T.first = affine.matrix();
-	affine.rotate(Eigen::AngleAxisd(DegToRad(45.0), Eigen::Vector3d::UnitY()));		// 45º
+	affine.rotate(Eigen::AngleAxisd(DegToRad(30.0), Eigen::Vector3d::UnitY()));		// 45º
 	T.second = affine.matrix();
+	T.first = affine.matrix();
 
+
+	//
+	// Import .obj
+	//
 	std::vector<Eigen::Vector3d> points3D, points3DGrid;
 	timer.start();
 	//create_plane(points3D, 128, 128, 0.5);
 	//export_obj("../../data/plane_128_128_05.obj", points3D);
-	import_obj(filepath, points3D);
-	//create_plane(points3D, 64, 64, 1);
-	timer.print_interval("Import .obj         : ");
+	//import_obj(filepath, points3D);
+	//timer.print_interval("Import .obj         : ");
+	create_plane(points3D, 128, 128, -256, 0.5);
+	//export_obj("../../data/plane_128_128_-256_01.obj", points3D);
+	
 
 
-
+	//
 	// Creating depth buffer
+	//
 	std::vector<double> depth_buffer;
-	timer.start();
-	create_depth_buffer(depth_buffer, points3D, K, T.first, far_plane);
-	timer.print_interval("Create depth buffer : ");
+	//timer.start();
+	//create_depth_buffer(depth_buffer, points3D, K, T.first, far_plane);
+	//timer.print_interval("Create depth buffer : ");
+
+
+	//Eigen::Vector3d pt(atof(argv[4]), atof(argv[5]), atof(argv[6]));
+	//std::cout << std::fixed
+	//	<< "tsdf (" << pt.transpose() << ") = "
+	//	<< compute_tsdf(pt, depth_buffer, T.first)
+	//	<< std::endl;
+
+	//return 0;
+
 
 	//timer.start();
 	//export_depth_buffer("../../data/depth_buffer.obj", depth_buffer);
+	//export_image_from_depth_buffer("../../data/depth_buffer.png", depth_buffer);
 	////export_obj("../../data/depth_buffer_3d.obj", points3DDepth);
 	//timer.print_interval("Export depth buffer : ");
 	//return 0;
 
 
+	//
 	// Creating volume
-
-	Grid grid(volume_size, voxel_size);
-	//export_volume("../../data/grid_volume_clean.obj", grid.data, T.first * grid.transformation);
-
-
-
-
-	Eigen::Vector4d ti = T.first.col(3);
-	double half_voxel = voxel_size.x() * 0.5;
-
-
+	//
+	Eigen::Affine3d grid_affine = Eigen::Affine3d::Identity();
+	grid_affine.translate(Eigen::Vector3d(0, 0, -256));
+	grid_affine.scale(Eigen::Vector3d(1, 1, -1));	// z is negative inside of screen
 	
+	
+	Grid grid(volume_size, voxel_size, grid_affine.matrix());
+	//Grid grid(volume_size, voxel_size, Eigen::Matrix4d::Identity());
+	//export_volume("../../data/grid_volume_clean.obj", grid.data);
+	//return 0;
+
 	timer.start();
-
-	// Sweeping volume
-	const std::size_t slice_size = (voxel_count.x() + 1) * (voxel_count.y() + 1);
-	for (auto it_volume = grid.data.begin(); it_volume != grid.data.end(); it_volume += slice_size)
 	{
-		auto z_slice_begin = it_volume;
-		auto z_slice_end = it_volume + slice_size;
-
-		for (auto it = z_slice_begin; it != z_slice_end; ++it)
+		for (int i = 10; i < 30; i+=2)
 		{
-			// to world space
-			Eigen::Vector4d vg = grid.transformation * it->point.homogeneous();
-			
-			// to camera space
-			Eigen::Vector4d v = T.first * vg;	// se for inversa não fica no clip space		
-			v /= v.w();
+			std::cout << std::endl << i << std::endl;
+			Eigen::Affine3d affine = Eigen::Affine3d::Identity();
+			affine.rotate(Eigen::AngleAxisd(DegToRad(i), Eigen::Vector3d::UnitY()));		// 45º
+			T.first = affine.matrix();
 
+			timer.start();
+			create_depth_buffer(depth_buffer, points3D, K, T.first, far_plane);
+			std::stringstream ss;
+			ss << "../../data/depth_buffer_00" << i << ".png";
+			export_image_from_depth_buffer(ss.str(), depth_buffer);
+			timer.print_interval("Create depth buffer : ");
 
-			points3DGrid.push_back(v.head<3>());
-
-			// to ndc space
-			const Eigen::Vector4d clip = K * v;
-			const Eigen::Vector3d ndc = (clip / clip.w()).head<3>();
-			
-			// check if it is out of ndc space
-			if (ndc.x() < -1 || ndc.x() > 1 || ndc.y() < -1 || ndc.y() > 1 || ndc.z() < -1 || ndc.z() > 1)
-			{
-				//std::cout << "out of ndc " << vg.transpose() << "  " << v.transpose() << std::endl;
-				continue;
-			}
-
-			// to screen space
-			Eigen::Vector3d pixel;
-			pixel.x() = window_width / 2.0 * ndc.x() + window_width / 2.0;
-			pixel.y() = window_height / 2.0 * ndc.y() + window_height / 2.0;
-			//pixel.z() = (far_plane - near_plane) / 2.0 * ndc.z() + (far_plane + near_plane) / 2.0;
-
-
-			// get depth buffer value at pixel where the current vertex has been projected
-			const int depth_pixel_index = (int)(pixel.y() * window_width + pixel.x());
-			if (depth_pixel_index > depth_buffer.size())
-			{
-				std::cout << "Depth pixel out of range: " << depth_pixel_index << " > " << pixel.transpose() << std::endl;
-				continue;
-			}
-						
-			const double Dp = std::abs(depth_buffer.at(depth_pixel_index));
-			
-			double distance_vertex_camera = (ti - v).norm();
-			it->tsdf = distance_vertex_camera - Dp;
-
-			//std::cout << "** " << v.transpose() << "    -->    " << distance_vertex_camera << "    -->    " << Dp << std::endl;
-
+			timer.start();
+			update_volume(grid, points3DGrid, depth_buffer, K, T.first);
+			timer.print_interval("Update volume       : ");
 		}
-
 	}
-
 	timer.print_interval("Filling volume      : ");
+
+
+	export_volume("../../data/grid_volume.obj", grid.data);
+	return 0;
+
+
 
 	
 	std::vector<double> grid_depth_buffer;
 	timer.start();
-	create_depth_buffer(grid_depth_buffer, points3DGrid, K, T.first, far_plane);
+	{
+		create_depth_buffer(grid_depth_buffer, points3DGrid, K, T.first, far_plane);
+	}
 	timer.print_interval("Grid depth buffer   : ");
-	//export_depth_buffer("../../data/grid_depth_buffer.obj", grid_depth_buffer);
+	//export_depth_buffer("../../data/grid_depth_buffer.obj", grid_depth_buffer, Eigen::Vector3i(255, 0, 0));
 	//return 0;
 
 
-
+	timer.start();
+	Eigen::Vector3i rgb(0, 255, 0);
 	std::ofstream file;
 	file.open("../../data/diff_depth_buffer.obj");
 	int i = 0;
@@ -339,72 +500,32 @@ int main(int argc, char **argv)
 		for (int x = 0; x < window_width; ++x)
 		{
 			const double diff = depth_buffer.at(i) - grid_depth_buffer.at(i);
-#if 0
+#if 1
 			Eigen::Vector3i rgb(255, 255, 255);
 			if (diff > 1)
 				rgb = Eigen::Vector3i(0, 255, 0);
 			else if (diff < 1)
 				rgb = Eigen::Vector3i(255, 0, 0);
 
-			file << std::fixed << "v " << x << ' ' << y << ' ' << grid_depth_buffer.at(i) << ' ' << rgb.transpose() << std::endl;
+			if (grid_depth_buffer.at(i) < far_plane)
+				file << std::fixed << "v " << x << ' ' << y << ' ' << grid_depth_buffer.at(i) << ' ' << rgb.transpose() << std::endl;
 #else
 			if (diff < 1 && grid_depth_buffer.at(i) < far_plane)
-				file << std::fixed << "v " << x << ' ' << y << ' ' << grid_depth_buffer.at(i) << std::endl;
+				file << std::fixed << "v " << x << ' ' << y << ' ' << grid_depth_buffer.at(i) << ' ' << rgb.transpose() << std::endl;
 #endif
 			++i;
 		}
 	}
 	file.close();
+	timer.print_interval("Exporting Diff Buffer ");
 
-	//timer.start();
-	//export_volume("../../data/volume_tsdf_wip.obj", grid.data, T.first * grid.transformation);
-	////export_volume("../../data/volume_tsdf_wip.obj", grid.data, grid.transformation);
-	//timer.print_interval("Exporting volume    : ");
-
-
-#if 0
 	timer.start();
-
-	Eigen::Vector3d origin = T.first.col(3).head<3>();
-	Eigen::Vector3d window_coord_norm;
-
-	std::vector<Eigen::Vector3d> output_cloud;
-
-	// Sweep the volume looking for the zero crossing
-	for (int y = 0; y < window_height * 0.1; ++y)
-	{
-		std::cout << "Ray casting to image... " << (double)y / window_height * 100 << "%" << std::endl;
-
-		for (int x = 0; x < window_width * 0.1; ++x)
-		{
-			window_coord_norm.x() = ((double)x / window_width * 2.0) - 1.0;
-			window_coord_norm.y() = ((double)y / window_height * 2.0) - 1.0;
-			window_coord_norm.z() = origin.z() + near_plane;
-			Eigen::Vector3d direction = (window_coord_norm - origin).normalized();
-
-			std::vector<int> intersections = Grid::find_intersections(grid.data, volume_size, voxel_size, grid.transformation, origin, direction, near_plane, far_plane);
-			Grid::sort_intersections(intersections, grid.data, origin);
-
-			for (int i = 1; i < intersections.size(); ++i)
-			{
-				const Voxeld& prev = grid.data.at(i - 1);
-				const Voxeld& curr = grid.data.at(i);
-
-				const bool& same_sign = ((prev.tsdf < 0) == (curr.tsdf < 0));
-				
-				if (!same_sign)		// it is a zero-crossing
-				{
-					output_cloud.push_back(curr.point);
-				}
-			}
-		}
-	}
-
-	timer.print_interval("Raycasting volume   : ");
+	//export_volume("../../data/volume_tsdf_wip.obj", grid.data, T.first * grid.transformation);
+	//export_volume("../../data/volume_tsdf_wip.obj", grid.data, grid.transformation);
+	//export_volume("../../data/volume_tsdf_wip.obj", grid.data);
+	timer.print_interval("Exporting volume    : ");
 
 
-	export_obj("../../data/output_cloud.obj", output_cloud);
-#endif
 
 	return 0;
 }
