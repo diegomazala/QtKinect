@@ -18,6 +18,10 @@
 #define DegToRad(angle_degrees) (angle_degrees * M_PI / 180.0)		// Converts degrees to radians.
 #define RadToDeg(angle_radians) (angle_radians * 180.0 / M_PI)		// Converts radians to degrees.
 
+const double MinTruncation = 0.5;
+const double MaxTruncation =  1.1;
+const double MaxWeight = 5.0;
+
 const double fov_y = 70.0f;
 const double window_width = 512.0f;
 const double window_height = 424.0f;
@@ -26,6 +30,10 @@ const double far_plane = 512.0f; // 10240.0f;
 const double aspect_ratio = window_width / window_height;
 Eigen::Matrix4d	K(Eigen::Matrix4d::Zero());
 std::pair<Eigen::Matrix4d, Eigen::Matrix4d>	T(Eigen::Matrix4d::Zero(), Eigen::Matrix4d::Zero());
+
+typedef std::vector<Eigen::Vector3d> PointCloud;
+std::vector<PointCloud> cloud_array_points;
+std::vector<Eigen::Matrix4d> cloud_array_matrix;
 
 
 #if 0
@@ -173,9 +181,9 @@ static void export_volume(const std::string& filename, const std::vector<Voxeld>
 		//if (r != 255 && b != 255)
 
 		Eigen::Vector3i rgb(255, 255, 255);
-		if (v.tsdf > 1)
+		if (v.tsdf > 0.1)
 			rgb = Eigen::Vector3i(0, 255, 0);
-		else if (v.tsdf < 1)
+		else if (v.tsdf < -0.1)
 			rgb = Eigen::Vector3i(255, 0, 0);
 		
 		file << std::fixed << "v " << (transformation * v.point.homogeneous()).head<3>().transpose() << ' ' << rgb.transpose() << std::endl;
@@ -233,6 +241,54 @@ void create_plane(std::vector<Eigen::Vector3d>& points3D, float width, float hei
 	}
 
 }
+
+void build_cloud_array_points_of_planes(int count, float rotation_interval, float width, float height, float z, float cell_size)
+{
+	std::vector<Eigen::Vector3d> points3D;
+	for (float y = -height * 0.5f; y <= height * 0.5f; y += cell_size)
+	{
+		for (float x = -width * 0.5f; x <= width * 0.5f; x += cell_size)
+		{
+			points3D.push_back(Eigen::Vector3d(x, y, z));
+		}
+	}
+
+	// inserting first cloud
+	cloud_array_points.push_back(points3D);
+	cloud_array_matrix.push_back(Eigen::Matrix4d::Identity());
+
+	for (int i = 1; i < count; ++i)
+	{
+		Eigen::Affine3d affine = Eigen::Affine3d::Identity();
+		affine.translate(Eigen::Vector3d(0, 0, z));
+		affine.rotate(Eigen::AngleAxisd(DegToRad(i * rotation_interval), Eigen::Vector3d::UnitY()));
+		affine.translate(Eigen::Vector3d(0, 0, -z));
+
+		std::vector<Eigen::Vector3d> points3DRot;
+
+		for (const Eigen::Vector3d p3d : points3D)
+		{
+			Eigen::Vector4d rot = affine.matrix() * p3d.homogeneous();
+			rot /= rot.w();
+
+			points3DRot.push_back(rot.head<3>());
+		}
+
+		// inserting clouds rotated
+		cloud_array_points.push_back(points3DRot);
+		cloud_array_matrix.push_back(affine.matrix());
+	}
+
+	//int cc = 0;
+	//for (auto c : cloud_array_points)
+	//{
+	//	std::stringstream ss;
+	//	ss << "../../data/cloud_10_0" << cc << ".obj";
+	//	export_obj(ss.str(), c);
+	//	cc++;
+	//}
+}
+
 void create_depth_buffer(std::vector<double>& depth_buffer, const std::vector<Eigen::Vector3d>& points3D, const Eigen::Matrix4d& proj, const Eigen::Matrix4d& view, double far_plane)
 {
 	// Creating depth buffer
@@ -336,14 +392,11 @@ void update_volume(Grid& grid, std::vector<Eigen::Vector3d>& points3DGrid, std::
 		for (auto it = z_slice_begin; it != z_slice_end; ++it)
 		{
 			// to world space
-			//Eigen::Vector4d vg = grid.transformation * it->point.homogeneous();
 			Eigen::Vector4d vg = it->point.homogeneous();
 
 			// to camera space
-			Eigen::Vector4d v = view * vg;	// se for inversa não fica no clip space		
+			Eigen::Vector4d v = view.inverse() * vg;	// se for inversa não fica no clip space		
 			v /= v.w();
-
-			points3DGrid.push_back(v.head<3>());
 
 			// to screen space
 			const Eigen::Vector3i pixel = vertex_to_window_coord(v, fov_y, aspect_ratio, near_plane, far_plane, (int)window_width, (int)window_height).cast<int>();
@@ -352,18 +405,40 @@ void update_volume(Grid& grid, std::vector<Eigen::Vector3d>& points3DGrid, std::
 			const int depth_pixel_index = pixel.y() * int(window_width) + pixel.x();
 			if (depth_pixel_index < 0 || depth_pixel_index > depth_buffer.size())
 			{
-				//std::cout << "Depth pixel out of range: " << depth_pixel_index << " > " << pixel.transpose() << std::endl;
+				// default values for voxels out of frustum
+				it->weight = MaxWeight;
+				it->tsdf = MaxTruncation;
 				continue;
 			}
 
 			const double Dp = std::abs(depth_buffer.at(depth_pixel_index));
 
-			//double distance_vertex_camera = (ti - v).norm();
-			double distance_vertex_camera = std::abs(v.z());
-			//it->tsdf = distance_vertex_camera - Dp;
-			it->tsdf = Dp - distance_vertex_camera;
+			double distance_vertex_camera = (ti - vg).norm();
 
-			//std::cout << it->point.transpose() << " : " << it->tsdf << std::endl;
+			const double sdf = Dp - distance_vertex_camera;
+			
+			const double prev_weight = it->weight;
+			const double prev_tsdf = it->tsdf;
+			double tsdf = sdf;
+
+			if (sdf > 0)
+			{
+				tsdf = std::fmin(1.0, sdf / MaxTruncation);
+			}
+			else
+			{
+				tsdf = std::fmax(-1.0, sdf / MinTruncation);
+			}
+
+			const double weight = std::fmin(MaxWeight, prev_weight + 1);
+			const double tsdf_avg = (prev_tsdf * prev_weight + tsdf * weight) / (prev_weight + weight);
+
+			it->weight = weight;
+			it->tsdf = tsdf_avg;
+
+			//std::cout << it->point.transpose() << " : " << it->tsdf << " : " << tsdf << " : " << it->weight << std::endl;
+
+			points3DGrid.push_back(v.head<3>());
 		}
 
 	}
@@ -373,10 +448,20 @@ void update_volume(Grid& grid, std::vector<Eigen::Vector3d>& points3DGrid, std::
 // Usage: ./Volumetricd.exe ../../data/plane.obj 256 4
 int main(int argc, char **argv)
 {
+	if (argc < 6)
+	{
+		std::cerr << "Missing parameters. Abort." 
+			<< std::endl
+			<< "Usage:  ./Volumetricd.exe ../../data/monkey.obj 256 5 5 10"
+			<< std::endl;
+		return EXIT_FAILURE;
+	}
 	Timer timer;
 	const std::string filepath = argv[1];
-	int vol_size = atoi(argv[2]);
-	int vx_size = atoi(argv[3]);
+	const int vol_size = atoi(argv[2]);
+	const int vx_size = atoi(argv[3]);
+	const int cloud_count = atoi(argv[4]);
+	const int rot_interval = atoi(argv[5]);
 	Eigen::Vector3d voxel_size(vx_size, vx_size, vx_size);
 	Eigen::Vector3d volume_size(vol_size, vol_size, vol_size);
 	Eigen::Vector3d voxel_count(volume_size.x() / voxel_size.x(), volume_size.y() / voxel_size.y(), volume_size.z() / voxel_size.z());
@@ -392,22 +477,30 @@ int main(int argc, char **argv)
 	Eigen::Affine3d affine = Eigen::Affine3d::Identity();
 	//affine.translate(Eigen::Vector3d(0, 0, -192));
 	T.first = affine.matrix();
-	affine.rotate(Eigen::AngleAxisd(DegToRad(30.0), Eigen::Vector3d::UnitY()));		// 45º
+	affine.rotate(Eigen::AngleAxisd(DegToRad(30.0), Eigen::Vector3d::UnitY()));
 	T.second = affine.matrix();
-	T.first = affine.matrix();
+	
 
 
 	//
 	// Import .obj
 	//
-	std::vector<Eigen::Vector3d> points3D, points3DGrid;
-	timer.start();
+	std::vector<Eigen::Vector3d> points3DGrid;
+	//timer.start();
 	//create_plane(points3D, 128, 128, 0.5);
 	//export_obj("../../data/plane_128_128_05.obj", points3D);
 	//import_obj(filepath, points3D);
 	//timer.print_interval("Import .obj         : ");
-	create_plane(points3D, 128, 128, -256, 0.5);
+	//create_plane(points3D, 128, 128, -256, 0.5);
 	//export_obj("../../data/plane_128_128_-256_01.obj", points3D);
+	//
+	timer.start();
+	build_cloud_array_points_of_planes(cloud_count, rot_interval, 128, 128, -256, 1);
+	timer.print_interval("Create cloud array  : ");
+
+
+	std::vector<Eigen::Vector3d>& points3D = cloud_array_points.at(0);
+
 	
 
 
@@ -425,7 +518,6 @@ int main(int argc, char **argv)
 	//	<< "tsdf (" << pt.transpose() << ") = "
 	//	<< compute_tsdf(pt, depth_buffer, T.first)
 	//	<< std::endl;
-
 	//return 0;
 
 
@@ -452,26 +544,59 @@ int main(int argc, char **argv)
 
 	timer.start();
 	{
-		for (int i = 10; i < 30; i+=2)
+#if 1
+		int i = atoi(argv[5]);
+		for (int j = 0; j < cloud_count; ++j)
 		{
 			std::cout << std::endl << i << std::endl;
 			Eigen::Affine3d affine = Eigen::Affine3d::Identity();
-			affine.rotate(Eigen::AngleAxisd(DegToRad(i), Eigen::Vector3d::UnitY()));		// 45º
+			affine.rotate(Eigen::AngleAxisd(DegToRad(i), Eigen::Vector3d::UnitY()));
 			T.first = affine.matrix();
 
 			timer.start();
 			create_depth_buffer(depth_buffer, points3D, K, T.first, far_plane);
-			std::stringstream ss;
-			ss << "../../data/depth_buffer_00" << i << ".png";
-			export_image_from_depth_buffer(ss.str(), depth_buffer);
+
+			//std::stringstream ss;
+			//ss << "../../data/depth_buffer_00" << i << ".png";
+			//export_image_from_depth_buffer(ss.str(), depth_buffer);
 			timer.print_interval("Create depth buffer : ");
 
 			timer.start();
-			update_volume(grid, points3DGrid, depth_buffer, K, T.first);
+			update_volume(grid, points3DGrid, depth_buffer, K, T.first.inverse());
 			timer.print_interval("Update volume       : ");
 		}
+#else
+
+		for (int i = 0; i < cloud_count; ++i)
+		{
+			std::cout << std::endl << i << std::endl;
+
+			const Eigen::Matrix4d& mat = cloud_array_matrix[i];
+
+			std::cout << std::endl << mat << std::endl << std::endl;
+
+			timer.start();
+			create_depth_buffer(depth_buffer, points3D, K, mat, far_plane);
+
+			//std::stringstream ss;
+			//ss << "../../data/depth_buffer_00" << i << ".png";
+			//export_image_from_depth_buffer(ss.str(), depth_buffer);
+			timer.print_interval("Create depth buffer : ");
+
+			timer.start();
+			update_volume(grid, points3DGrid, depth_buffer, K, mat.inverse());
+			timer.print_interval("Update volume       : ");
+		}
+
+#endif
+		
 	}
 	timer.print_interval("Filling volume      : ");
+
+	//for (auto v : grid.data)
+	//{
+	//	std::cout << v.point.transpose() << " : " << v.tsdf << " : " << v.weight << std::endl;
+	//}
 
 
 	export_volume("../../data/grid_volume.obj", grid.data);

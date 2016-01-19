@@ -15,7 +15,7 @@ struct Voxel
 	Type tsdf;
 	Type weight;
 
-	Voxel() :tsdf(FLT_MAX), weight(0.0){}
+	Voxel() :tsdf(0), weight(0.0){}
 };
 typedef Voxel<double> Voxeld;
 typedef Voxel<float> Voxelf;
