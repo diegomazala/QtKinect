@@ -10,12 +10,15 @@
 template<typename Type>
 struct Voxel
 {
+	int index;
 	Eigen::Matrix<Type, 3, 1> point;
 	Eigen::Matrix<Type, 3, 1> rgb;
 	Type tsdf;
+	Type tsdf_raw;
+	Type sdf;
 	Type weight;
 
-	Voxel() :tsdf(0), weight(0.0){}
+	Voxel() :index(0), tsdf(-1), tsdf_raw(-1), sdf(-1), weight(1.0){}
 };
 typedef Voxel<double> Voxeld;
 typedef Voxel<float> Voxelf;
@@ -58,7 +61,11 @@ public:
 
 					data[i].point = p.head<3>();
 					data[i].rgb = Eigen::Vector3d(0, 0, 0);
-					data[i].weight = i;
+					data[i].weight = 1.0;
+					data[i].index = i;
+					data[i].tsdf = -1;
+					data[i].tsdf_raw = -1;
+					data[i].sdf = -1;
 				}
 			}
 		}

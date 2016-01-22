@@ -20,7 +20,7 @@
 
 const double MinTruncation = 0.5;
 const double MaxTruncation =  1.1;
-const double MaxWeight = 5.0;
+const double MaxWeight = 10.0;
 
 const double fov_y = 70.0f;
 const double window_width = 512.0f;
@@ -28,13 +28,14 @@ const double window_height = 424.0f;
 const double near_plane = 0.1f; // 0.1f;
 const double far_plane = 512.0f; // 10240.0f;
 const double aspect_ratio = window_width / window_height;
-Eigen::Matrix4d	K(Eigen::Matrix4d::Zero());
-std::pair<Eigen::Matrix4d, Eigen::Matrix4d>	T(Eigen::Matrix4d::Zero(), Eigen::Matrix4d::Zero());
+//Eigen::Matrix4d	K(Eigen::Matrix4d::Zero());
+//std::pair<Eigen::Matrix4d, Eigen::Matrix4d>	T(Eigen::Matrix4d::Zero(), Eigen::Matrix4d::Zero());
 
 typedef std::vector<Eigen::Vector3d> PointCloud;
 std::vector<PointCloud> cloud_array_points;
 std::vector<Eigen::Matrix4d> cloud_array_matrix;
 
+int g_index = 449;
 
 #if 0
 void raycast_volume()
@@ -83,6 +84,74 @@ void raycast_volume()
 }
 #endif
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/// \fn	static bool ComputeRigidTransform(const std::vector<Eigen::Vector3d>& src, const std::vector<Eigen::Vector3d>& dst, Eigen::Matrix3d& R, Eigen::Vector3d& t);
+///
+/// \brief	Compute the rotation and translation that transform a source point set to a target point set
+///
+/// \author	Diego
+/// \date	07/10/2015
+///
+/// \param	src		   		The source point set.
+/// \param	dst		   		The target point set.
+/// \param [in,out]	pts_dst	The rotation matrix.
+/// \param [in,out]	pts_dst	The translation vector.
+/// \return	True if found the transformation, false otherwise.
+////////////////////////////////////////////////////////////////////////////////////////////////////
+static bool ComputeRigidTransform(const std::vector<Eigen::Vector3d>& src, const std::vector<Eigen::Vector3d>& dst, Eigen::Matrix3d& R, Eigen::Vector3d& t)
+{
+	//
+	// Verify if the sizes of point arrays are the same 
+	//
+	assert(src.size() == dst.size());
+	int pairSize = (int)src.size();
+	Eigen::Vector3d center_src(0, 0, 0), center_dst(0, 0, 0);
+
+	// 
+	// Compute centroid
+	//
+	for (int i = 0; i<pairSize; ++i)
+	{
+		center_src += src[i];
+		center_dst += dst[i];
+	}
+	center_src /= (double)pairSize;
+	center_dst /= (double)pairSize;
+
+
+	Eigen::MatrixXd S(pairSize, 3), D(pairSize, 3);
+	for (int i = 0; i<pairSize; ++i)
+	{
+		for (int j = 0; j<3; ++j)
+			S(i, j) = src[i][j] - center_src[j];
+		for (int j = 0; j<3; ++j)
+			D(i, j) = dst[i][j] - center_dst[j];
+	}
+	Eigen::MatrixXd Dt = D.transpose();
+	Eigen::Matrix3d H = Dt * S;
+	Eigen::Matrix3d W, U, V;
+
+	//
+	// Compute SVD
+	//
+	Eigen::JacobiSVD<Eigen::MatrixXd> svd;
+	svd.compute(H, Eigen::ComputeThinU | Eigen::ComputeThinV);
+
+	if (!svd.computeU() || !svd.computeV())
+	{
+		std::cerr << "<Error> Decomposition error" << std::endl;
+		return false;
+	}
+
+	//
+	// Compute rotation matrix and translation vector
+	// 
+	Eigen::Matrix3d Vt = svd.matrixV().transpose();
+	R = svd.matrixU() * Vt;
+	t = center_dst - R * center_src;
+
+	return true;
+}
 
 static bool import_obj(const std::string& filename, std::vector<Eigen::Vector3d>& points3D, int max_point_count = INT_MAX)
 {
@@ -187,6 +256,7 @@ static void export_volume(const std::string& filename, const std::vector<Voxeld>
 			rgb = Eigen::Vector3i(255, 0, 0);
 		
 		file << std::fixed << "v " << (transformation * v.point.homogeneous()).head<3>().transpose() << ' ' << rgb.transpose() << std::endl;
+		
 	}
 	file.close();
 }
@@ -395,7 +465,7 @@ void update_volume(Grid& grid, std::vector<Eigen::Vector3d>& points3DGrid, std::
 			Eigen::Vector4d vg = it->point.homogeneous();
 
 			// to camera space
-			Eigen::Vector4d v = view.inverse() * vg;	// se for inversa não fica no clip space		
+			Eigen::Vector4d v = view.inverse() * vg;	
 			v /= v.w();
 
 			// to screen space
@@ -403,15 +473,18 @@ void update_volume(Grid& grid, std::vector<Eigen::Vector3d>& points3DGrid, std::
 
 			// get depth buffer value at pixel where the current vertex has been projected
 			const int depth_pixel_index = pixel.y() * int(window_width) + pixel.x();
-			if (depth_pixel_index < 0 || depth_pixel_index > depth_buffer.size())
+			if (depth_pixel_index < 0 || depth_pixel_index > depth_buffer.size() - 1)
 			{
-				// default values for voxels out of frustum
-				it->weight = MaxWeight;
-				it->tsdf = MaxTruncation;
 				continue;
 			}
 
 			const double Dp = std::abs(depth_buffer.at(depth_pixel_index));
+
+			//if (it->index == g_index)
+			//{
+			//	std::cout << std::fixed << std::endl << "-->  " << it->point.transpose() << " : " << it->sdf << " : " << it->tsdf_raw << " : " << it->tsdf << " : " << it->weight << std::endl;
+			//	std::cout << Dp << std::endl;
+			//}
 
 			double distance_vertex_camera = (ti - vg).norm();
 
@@ -430,18 +503,181 @@ void update_volume(Grid& grid, std::vector<Eigen::Vector3d>& points3DGrid, std::
 				tsdf = std::fmax(-1.0, sdf / MinTruncation);
 			}
 
+#if 1	// Izadi
 			const double weight = std::fmin(MaxWeight, prev_weight + 1);
 			const double tsdf_avg = (prev_tsdf * prev_weight + tsdf * weight) / (prev_weight + weight);
+#else	// Open Fusion
+			const double weight = std::fmin(MaxWeight, prev_weight + 1);
+			const double tsdf_avg = (prev_tsdf * prev_weight + tsdf * 1) / (prev_weight + 1);
+#endif
 
 			it->weight = weight;
 			it->tsdf = tsdf_avg;
 
-			//std::cout << it->point.transpose() << " : " << it->tsdf << " : " << tsdf << " : " << it->weight << std::endl;
+			it->sdf = sdf;
+			it->tsdf_raw = tsdf;
+
+			//std::cout << it->index << " = " << it->point.transpose() << " : " << it->tsdf << " : " << tsdf << " : " << it->weight << std::endl;
 
 			points3DGrid.push_back(v.head<3>());
 		}
 
 	}
+}
+
+
+void monkey_test(int vol_size, int vx_size, int iterations = 2)
+{
+	Timer timer;
+
+	//
+	// Importing monkey obj
+	//
+	timer.start();
+	std::vector<Eigen::Vector3d> points3DOrig, pointsTmp;
+	import_obj("../../data/monkey.obj", points3DOrig);
+	timer.print_interval("Importing monkey    : ");
+	std::cout << "Monkey point count  : " << points3DOrig.size() << std::endl;
+
+	// 
+	// Translating and rotating monkey point cloud 
+	std::pair<std::vector<Eigen::Vector3d>, std::vector<Eigen::Vector3d>> cloud;
+	//
+	Eigen::Affine3d translate = Eigen::Affine3d::Identity();
+	translate.translate(Eigen::Vector3d(0, 0, -256));
+	//
+	Eigen::Affine3d rotate = Eigen::Affine3d::Identity();
+	rotate.rotate(Eigen::AngleAxisd(DegToRad(90.0), Eigen::Vector3d::UnitY()));
+	//
+	for (Eigen::Vector3d p3d : points3DOrig)
+	{
+		Eigen::Vector4d trans = translate.matrix() * p3d.homogeneous();
+		trans /= trans.w();
+
+		Eigen::Vector4d rot = translate.matrix() * rotate.matrix() * p3d.homogeneous();
+		rot /= rot.w();
+
+		cloud.first.push_back(trans.head<3>());
+		cloud.second.push_back(rot.head<3>());
+	}
+	//export_obj("../../data/monkey_translated.obj", cloud.first);
+	//export_obj("../../data/monkey_translated_rotated.obj", cloud.second);
+
+	Eigen::Matrix3d R;
+	Eigen::Vector3d t;
+	timer.start();
+	ComputeRigidTransform(cloud.first, cloud.second, R, t);
+	timer.print_interval("Compute rigid transf: ");
+
+
+	
+
+	Eigen::Matrix4d icp_mat;
+	icp_mat.block(0, 0, 3, 3) = R;
+	icp_mat.col(3) = t.homogeneous();
+
+	
+
+	//std::vector<Eigen::Vector3d> out_icp, out_icp_inv;
+	//for (Eigen::Vector3d p3d : cloud.first)
+	//{
+	//	Eigen::Vector4d p = icp_mat * p3d.homogeneous();
+	//	p /= p.w();
+	//	out_icp.push_back(p.head<3>());
+	//}
+
+	//for (Eigen::Vector3d p3d : cloud.second)
+	//{
+	//	Eigen::Vector4d p = icp_mat.inverse() * p3d.homogeneous();
+	//	p /= p.w();
+	//	out_icp_inv.push_back(p.head<3>());
+	//}
+
+	//export_obj("../../data/monkey_out_icp.obj", out_icp);
+	//export_obj("../../data/monkey_out_icp_inv.obj", out_icp_inv);
+
+	//
+	// Projection Matrix
+	//
+	Eigen::Matrix4d K = perspective_matrix(fov_y, aspect_ratio, near_plane, far_plane);
+	//
+	// Setup T matrix : transformation between clouds
+	//
+	std::pair<Eigen::Matrix4d, Eigen::Matrix4d>	T;
+	T.first = Eigen::Matrix4d::Identity();
+	T.second = icp_mat;
+
+	//std::cout << std::fixed << std::endl << "K : \n" << K << std::endl;
+	//std::cout << std::fixed << std::endl << "icp : \n" << icp_mat << std::endl;
+	//return;
+
+	
+	//
+	// Creating volume
+	//
+	Eigen::Vector3d voxel_size(vx_size, vx_size, vx_size);
+	Eigen::Vector3d volume_size(vol_size, vol_size, vol_size);
+	Eigen::Vector3d voxel_count(volume_size.x() / voxel_size.x(), volume_size.y() / voxel_size.y(), volume_size.z() / voxel_size.z());
+	//
+	Eigen::Affine3d grid_affine = Eigen::Affine3d::Identity();
+	grid_affine.translate(Eigen::Vector3d(0, 0, -256));
+	grid_affine.scale(Eigen::Vector3d(1, 1, -1));	// z is negative inside of screen
+	Grid grid(volume_size, voxel_size, grid_affine.matrix());
+	
+
+	//
+	// Creating depth buffer for input clouds
+	//
+	std::pair<std::vector<double>, std::vector<double>> depth_buffer;
+	timer.start();
+	create_depth_buffer(depth_buffer.first, cloud.first, K, Eigen::Matrix4d::Identity(), far_plane);
+	create_depth_buffer(depth_buffer.second, cloud.second, K, Eigen::Matrix4d::Identity(), far_plane);
+	timer.print_interval("Create depth buffer : ");
+	//std::stringstream ss;
+	//ss << "../../data/depth_buffer_00" << i << ".png";
+	//export_image_from_depth_buffer("../../data/depth_buffer_translated.png", depth_buffer.first);
+	//export_image_from_depth_buffer("../../data/depth_buffer_translated_rotated.png", depth_buffer.second);
+	
+
+#if 0
+	std::pair<Grid, Grid> grid2(Grid(volume_size, voxel_size, grid_affine.matrix()), Grid(volume_size, voxel_size, grid_affine.matrix()));
+	timer.start();
+	update_volume(grid2.first, pointsTmp, depth_buffer.first, K, T.first.inverse());
+	update_volume(grid2.first, pointsTmp, depth_buffer.first, K, T.first.inverse());
+	timer.print_interval("Update volume 1     : ");
+	timer.start();
+	update_volume(grid2.second, pointsTmp, depth_buffer.second, K, T.second.inverse());
+	update_volume(grid2.second, pointsTmp, depth_buffer.second, K, T.second.inverse());
+	timer.print_interval("Update volume 2     : ");
+
+	timer.start();
+	export_volume("../../data/grid_volume_1.obj", grid2.first.data);
+	export_volume("../../data/grid_volume_2.obj", grid2.second.data);
+	timer.print_interval("Exporting volume    : ");
+
+#else
+
+	//std::cout << std::fixed << "===> " << grid.data[g_index].point.transpose() << " : " << grid.data[g_index].sdf << " : " << grid.data[g_index].tsdf_raw << " : " << grid.data[g_index].tsdf << " : " << grid.data[g_index].weight << std::endl << std::endl;
+
+	for (int i = 0; i < iterations; ++i)
+	{
+		update_volume(grid, pointsTmp, depth_buffer.first, K, T.first.inverse());
+		//std::cout << std::fixed << "===> " << grid.data[g_index].point.transpose() << " : " << grid.data[g_index].sdf << " : " << grid.data[g_index].tsdf_raw << " : " << grid.data[g_index].tsdf << " : " << grid.data[g_index].weight << std::endl;
+	}
+
+	export_volume("../../data/grid_volume_1.obj", grid.data);
+
+	std::cout << std::endl;
+
+	for (int i = 0; i < iterations; ++i)
+	{
+		update_volume(grid, pointsTmp, depth_buffer.second, K, T.second.inverse());
+		//std::cout << std::fixed << "===> " << grid.data[g_index].point.transpose() << " : " << grid.data[g_index].sdf << " : " << grid.data[g_index].tsdf_raw << " : " << grid.data[g_index].tsdf << " : " << grid.data[g_index].weight << std::endl;
+	}
+
+	export_volume("../../data/grid_volume_2.obj", grid.data);
+#endif
+	return;
 }
 
 
@@ -466,6 +702,11 @@ int main(int argc, char **argv)
 	Eigen::Vector3d volume_size(vol_size, vol_size, vol_size);
 	Eigen::Vector3d voxel_count(volume_size.x() / voxel_size.x(), volume_size.y() / voxel_size.y(), volume_size.z() / voxel_size.z());
 
+	monkey_test(vol_size, vx_size, cloud_count);
+	return 0;
+
+
+	std::pair<Eigen::Matrix4d, Eigen::Matrix4d>	T(Eigen::Matrix4d::Zero(), Eigen::Matrix4d::Zero());
 
 	//
 	// Projection Matrix
@@ -477,8 +718,9 @@ int main(int argc, char **argv)
 	Eigen::Affine3d affine = Eigen::Affine3d::Identity();
 	//affine.translate(Eigen::Vector3d(0, 0, -192));
 	T.first = affine.matrix();
-	affine.rotate(Eigen::AngleAxisd(DegToRad(30.0), Eigen::Vector3d::UnitY()));
+	affine.rotate(Eigen::AngleAxisd(DegToRad(90.0), Eigen::Vector3d::UnitY()));
 	T.second = affine.matrix();
+	
 	
 
 
@@ -486,20 +728,36 @@ int main(int argc, char **argv)
 	// Import .obj
 	//
 	std::vector<Eigen::Vector3d> points3DGrid;
+	std::vector<Eigen::Vector3d> points3D, points3DOrig;
 	//timer.start();
 	//create_plane(points3D, 128, 128, 0.5);
 	//export_obj("../../data/plane_128_128_05.obj", points3D);
-	//import_obj(filepath, points3D);
+	import_obj(filepath, points3DOrig);
+	//export_obj("../../data/monkey_orig.obj", points3DOrig);
+	affine = Eigen::Affine3d::Identity();
+	affine.translate(Eigen::Vector3d(0, 0, -256));
+	//affine.rotate(Eigen::AngleAxisd(DegToRad(00.0), Eigen::Vector3d::UnitY()));
+	
+	T.first = affine.matrix();
+	for (Eigen::Vector3d p3d : points3DOrig)
+	{
+		Eigen::Vector4d rot = affine.matrix() * p3d.homogeneous();
+		rot /= rot.w();
+
+		points3D.push_back(rot.head<3>());
+	}
+	//export_obj("../../data/monkey_translated.obj", points3D);
+	//return 0;
 	//timer.print_interval("Import .obj         : ");
 	//create_plane(points3D, 128, 128, -256, 0.5);
 	//export_obj("../../data/plane_128_128_-256_01.obj", points3D);
 	//
-	timer.start();
-	build_cloud_array_points_of_planes(cloud_count, rot_interval, 128, 128, -256, 1);
-	timer.print_interval("Create cloud array  : ");
+	//timer.start();
+	//build_cloud_array_points_of_planes(cloud_count, rot_interval, 128, 128, -256, 1);
+	//timer.print_interval("Create cloud array  : ");
 
 
-	std::vector<Eigen::Vector3d>& points3D = cloud_array_points.at(0);
+	//std::vector<Eigen::Vector3d>& points3D = cloud_array_points.at(0);
 
 	
 
@@ -534,7 +792,7 @@ int main(int argc, char **argv)
 	//
 	Eigen::Affine3d grid_affine = Eigen::Affine3d::Identity();
 	grid_affine.translate(Eigen::Vector3d(0, 0, -256));
-	grid_affine.scale(Eigen::Vector3d(1, 1, -1));	// z is negative inside of screen
+	grid_affine.scale(Eigen::Vector3d(1, 1, -1));	// z is negative inside  of screen
 	
 	
 	Grid grid(volume_size, voxel_size, grid_affine.matrix());
@@ -549,9 +807,9 @@ int main(int argc, char **argv)
 		for (int j = 0; j < cloud_count; ++j)
 		{
 			std::cout << std::endl << i << std::endl;
-			Eigen::Affine3d affine = Eigen::Affine3d::Identity();
-			affine.rotate(Eigen::AngleAxisd(DegToRad(i), Eigen::Vector3d::UnitY()));
-			T.first = affine.matrix();
+//			Eigen::Affine3d affine = Eigen::Affine3d::Identity();
+//			affine.rotate(Eigen::AngleAxisd(DegToRad(i), Eigen::Vector3d::UnitY()));
+//			T.first = affine.matrix();
 
 			timer.start();
 			create_depth_buffer(depth_buffer, points3D, K, T.first, far_plane);
@@ -562,7 +820,7 @@ int main(int argc, char **argv)
 			timer.print_interval("Create depth buffer : ");
 
 			timer.start();
-			update_volume(grid, points3DGrid, depth_buffer, K, T.first.inverse());
+			update_volume(grid, points3DGrid, depth_buffer, K, T.first);
 			timer.print_interval("Update volume       : ");
 		}
 #else
