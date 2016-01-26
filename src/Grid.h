@@ -63,9 +63,9 @@ public:
 					data[i].rgb = Eigen::Vector3d(0, 0, 0);
 					data[i].weight = 1.0;
 					data[i].index = i;
-					data[i].tsdf = -1;
-					data[i].tsdf_raw = -1;
-					data[i].sdf = -1;
+					data[i].tsdf = 0;
+					data[i].tsdf_raw = 0;
+					data[i].sdf = 0;
 				}
 			}
 		}
