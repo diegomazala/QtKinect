@@ -14,7 +14,7 @@ static Eigen::Matrix<Type, 4, 4> perspective_matrix(Type fovy, Type aspect_ratio
 {
 	Eigen::Matrix<Type, 4, 4> out = Eigen::Matrix<Type, 4, 4>::Zero();
 
-	const float	y_scale = (float)1.0 / tan((fovy / 2.0)*(M_PI / 180.0));
+	const float	y_scale = (float)(1.0 / tan((fovy / 2.0)*(M_PI / 180.0)));
 	const float	x_scale = y_scale / aspect_ratio;
 	const float	depth_length = far_plane - near_plane;
 
@@ -33,7 +33,7 @@ static Eigen::Matrix<Type, 4, 4> perspective_matrix_inverse(Type fovy, Type aspe
 {
 	Eigen::Matrix<Type, 4, 4> out = Eigen::Matrix<Type, 4, 4>::Zero();
 
-	const float	y_scale = (float)1.0 / tan((fovy / 2.0)*(M_PI / 180.0));
+	const float	y_scale = (float)(1.0 / tan((fovy / 2.0)*(M_PI / 180.0)));
 	const float	x_scale = y_scale / aspect_ratio;
 	const float	depth_length = far_plane - near_plane;
 
@@ -60,6 +60,21 @@ static Eigen::Matrix<Type, 3, 1> vertex_to_window_coord(Eigen::Matrix<Type, 4, 1
 	p_window.x() = window_width / 2.0f * p_ndc.x() + window_width / 2.0f;
 	p_window.y() = window_height / 2.0f * p_ndc.y() + window_height / 2.0f;
 	p_window.z() = (far_plane - near_plane) / 2.0f * p_ndc.z() + (far_plane + near_plane) / 2.0f;
+
+	return p_window;
+}
+
+
+template<typename Type>
+static Eigen::Matrix<Type, 2, 1> vertex_to_window_coord(Eigen::Matrix<Type, 4, 1> p3d, const Eigen::Matrix<Type, 4, 4>& proj, int window_width, int window_height)
+{
+	const Eigen::Matrix<Type, 4, 1> p_clip = proj * p3d;
+
+	const Eigen::Matrix<Type, 3, 1> p_ndc = (p_clip / p_clip.w()).head<3>();
+
+	Eigen::Matrix<Type, 2, 1> p_window;
+	p_window.x() = window_width / 2.0f * p_ndc.x() + window_width / 2.0f;
+	p_window.y() = window_height / 2.0f * p_ndc.y() + window_height / 2.0f;
 
 	return p_window;
 }
