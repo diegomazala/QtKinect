@@ -538,7 +538,7 @@ static void update_volume(Grid& grid, std::vector<double>& depth_buffer, const E
 		auto z_slice_end = it_volume + slice_size;
 
 		for (auto it = z_slice_begin; it != z_slice_end; ++it)
-		{
+		{ 
 			// to world space
 			Eigen::Vector4d vg = it->point.homogeneous();
 

@@ -39,6 +39,32 @@ extern "C"
 	}
 
 
+	void make_identity_4x4(float *mat)
+	{
+		for (int i = 0; i < 16; ++i)
+			mat[i] = 0;
+
+
+		mat[0] = mat[5] = mat[10] = mat[15] = 1.0f;
+	}
+
+
+
+	//Print matrix A(nr_rows_A, nr_cols_A) storage in column-major format
+	void print_matrix(const float *A, int nr_rows_A, int nr_cols_A)
+	{
+		for (int i = 0; i < nr_rows_A; ++i)
+		{
+			for (int j = 0; j < nr_cols_A; ++j)
+			{
+				std::cout << A[j * nr_rows_A + i] << " ";
+			}
+			std::cout << std::endl;
+		}
+		std::cout << std::endl;
+	}
+
+
 
 	////////////////////////////////////////////////////////////////////////////////////////////////////
 	/// <summary>  Multiply the arrays A and B on GPU and save the result in C </summary>
@@ -96,6 +122,7 @@ extern "C"
 
 	__global__ void compute_pixel_depth_kernel(
 		float* in_out_depth_buffer_1f, 
+		float* out_pixel_2f,
 		const float* in_world_points_4f, 
 		const float* in_clip_points_4f, 
 		unsigned int point_count, 
@@ -148,6 +175,7 @@ extern "C"
 
 	void compute_depth_buffer(	
 			float* depth_buffer, 
+			float* window_coords_2f,
 			const float* world_points_4f, 
 			unsigned int point_count, 
 			const float* projection_mat4x4, 
@@ -163,6 +191,8 @@ extern "C"
 		thrust::device_vector<float> d_world_points(&world_points_4f[0], &world_points_4f[0] + point_count * 4);
 		thrust::device_vector<float> d_clip_points(&world_points_4f[0], &world_points_4f[0] + point_count * 4);
 		
+		thrust::device_vector<float> d_window_coords_points(&window_coords_2f[0], &window_coords_2f[0] + point_count * 2);
+
 		cublas_matrix_mul(thrust::raw_pointer_cast(&d_clip_points[0]), thrust::raw_pointer_cast(&d_projection_mat[0]), thrust::raw_pointer_cast(&d_world_points[0]), 4, 4, point_count);
 
 		unsigned int threads_per_block = 1024;
@@ -170,6 +200,7 @@ extern "C"
 
 		compute_pixel_depth_kernel <<< num_blocks, threads_per_block >>> (
 			thrust::raw_pointer_cast(&d_depth_buffer[0]),
+			thrust::raw_pointer_cast(&d_window_coords_points[0]),
 			thrust::raw_pointer_cast(&d_world_points[0]),
 			thrust::raw_pointer_cast(&d_clip_points[0]), 
 			point_count,
@@ -177,33 +208,150 @@ extern "C"
 			window_height);
 
 		thrust::copy(d_depth_buffer.begin(), d_depth_buffer.end(), &depth_buffer[0]);
+		thrust::copy(d_window_coords_points.begin(), d_window_coords_points.end(), &window_coords_2f[0]);
 	}
 
 
 
-	void make_identity_4x4(float *mat)
+	__global__ void create_grid_kernel(
+		unsigned int vol_size,
+		unsigned int vx_size,
+		float* grid_matrix,
+		float* grid_voxels_points_4f,
+		float* grid_voxels_params_2f)
 	{
-		for (int i = 0; i < 16; ++i)
-			mat[i] = 0;
+		//const unsigned long long int threadId = blockIdx.x * blockDim.x + threadIdx.x;
+		const int threadId = blockIdx.x * blockDim.x + threadIdx.x;
 
+		uint3 dim;
+		dim.x = vol_size / vx_size + 1;
+		dim.y = vol_size / vx_size + 1;
+		dim.z = vol_size / vx_size + 1;
 
-		mat[0] = mat[5] = mat[10] = mat[15] = 1.0f;
-	}
+		const int z = threadId;
 
+		const int half_vol_size = vol_size / 2;
 
-
-	//Print matrix A(nr_rows_A, nr_cols_A) storage in column-major format
-	void print_matrix(const float *A, int nr_rows_A, int nr_cols_A)
-	{
-		for (int i = 0; i < nr_rows_A; ++i)
+		for (int y = 0; y < dim.y; ++y)
 		{
-			for (int j = 0; j < nr_cols_A; ++j)
+			for (int x = 0; x < dim.x; ++x)
 			{
-				std::cout << A[j * nr_rows_A + i] << " ";
+				const int voxel_index = x + dim.x * (y + dim.z * z);
+
+				float4 v = {
+					grid_matrix[12] + float(x * half_vol_size - half_vol_size),
+					grid_matrix[13] + float(y * half_vol_size - half_vol_size),
+					grid_matrix[14] - float(z * half_vol_size - half_vol_size),
+					1.0f };
+
+
+				grid_voxels_points_4f[voxel_index * 4 + 0] = v.x;
+				grid_voxels_points_4f[voxel_index * 4 + 1] = v.y;
+				grid_voxels_points_4f[voxel_index * 4 + 2] = v.z;
+				grid_voxels_points_4f[voxel_index * 4 + 3] = v.w;
+
+				grid_voxels_params_2f[voxel_index * 2 + 0] = 0.0f;
+				grid_voxels_params_2f[voxel_index * 2 + 1] = 0.0f;
 			}
-			std::cout << std::endl;
 		}
-		std::cout << std::endl;
+
 	}
 
+
+	void create_grid(
+		unsigned int vol_size,
+		unsigned int vx_size,
+		float* grid_matrix,
+		float* grid_voxels_points_4f,
+		float* grid_voxels_params_2f)
+	{
+		const int total_voxels = (vol_size / vx_size + 1) *	(vol_size / vx_size + 1) *	(vol_size / vx_size + 1);
+
+		thrust::device_vector<float> d_grid_matrix(&grid_matrix[0], &grid_matrix[0] + 16);
+		thrust::device_vector<float> d_grid_voxels_points(&grid_voxels_points_4f[0], &grid_voxels_points_4f[0] + total_voxels * 4);
+		thrust::device_vector<float> d_grid_voxels_params(&grid_voxels_params_2f[0], &grid_voxels_params_2f[0] + total_voxels * 2);
+
+		std::cout << total_voxels << " Starting kernel: << 1, " << vol_size / vx_size + 1 << " >>" << std::endl;
+
+		create_grid_kernel << < 1, vol_size / vx_size + 1 >> >
+			(vol_size, vx_size,
+			thrust::raw_pointer_cast(&d_grid_matrix[0]),
+			thrust::raw_pointer_cast(&d_grid_voxels_points[0]),
+			thrust::raw_pointer_cast(&d_grid_voxels_params[0]));
+
+		thrust::copy(d_grid_voxels_points.begin(), d_grid_voxels_points.end(), &grid_voxels_points_4f[0]);
+		thrust::copy(d_grid_voxels_params.begin(), d_grid_voxels_params.end(), &grid_voxels_params_2f[0]);
+	}
+
+
+	__global__ void update_grid_kernel(
+		unsigned int vol_size, 
+		unsigned int vx_size, 
+		float* grid_matrix, 
+		float* grid_voxels,
+		float* depth_buffer)
+	{
+		//const unsigned long long int threadId = blockIdx.x * blockDim.x + threadIdx.x;
+		const int threadId = blockIdx.x * blockDim.x + threadIdx.x;
+
+		uint3 dim;
+		dim.x = vol_size / vx_size + 1;
+		dim.y = vol_size / vx_size + 1;
+		dim.z = vol_size / vx_size + 1;
+
+		const int z = threadId;
+
+		const int half_vol_size = vol_size / 2;
+		
+		for (int y = 0; y < dim.y; ++y)
+		{
+			for (int x = 0; x < dim.x; ++x)
+			{
+				const int voxel_index = x + dim.x * (y + dim.z * z);
+
+				float4 v = { 
+					grid_matrix[12] + float(x * half_vol_size - half_vol_size),
+					grid_matrix[13] + float(y * half_vol_size - half_vol_size),
+					grid_matrix[14] - float(z * half_vol_size - half_vol_size),
+					1.0f};
+
+
+
+				grid_voxels[voxel_index * 4 + 0] = v.x;
+				grid_voxels[voxel_index * 4 + 1] = v.y;
+				grid_voxels[voxel_index * 4 + 2] = v.z;
+				grid_voxels[voxel_index * 4 + 3] = v.w;
+			}
+		}
+
+	}
+
+	void update_grid(
+		unsigned int vol_size, 
+		unsigned int vx_size, 
+		float* grid_matrix, 
+		float* grid_voxels,
+		float* depth_buffer,
+		unsigned int window_width,
+		unsigned int window_height)
+	{
+//		dim3 threads_per_block(n_threads, 1, 1);
+		//dim3 num_blocks(n_blocks, 1, 1);
+		const int total_voxels = (vol_size / vx_size + 1) *	(vol_size / vx_size + 1) *	(vol_size / vx_size + 1);
+
+		thrust::device_vector<float> d_grid_matrix(&grid_matrix[0], &grid_matrix[0] + 16);
+		thrust::device_vector<float> d_grid_voxels(&grid_voxels[0], &grid_voxels[0] + total_voxels * 4);
+		thrust::device_vector<float> d_depth_buffer(&depth_buffer[0], &depth_buffer[0] + window_width * window_height);
+
+		std::cout << total_voxels << " Starting kernel: << 1, " << vol_size / vx_size + 1 << " >>" << std::endl;
+
+		update_grid_kernel << < 1, vol_size / vx_size + 1 >> > 
+			(vol_size, vx_size, 
+			thrust::raw_pointer_cast(&d_grid_matrix[0]),
+			thrust::raw_pointer_cast(&d_grid_voxels[0]),
+			thrust::raw_pointer_cast(&d_depth_buffer[0]));
+
+
+		thrust::copy(d_grid_voxels.begin(), d_grid_voxels.end(), &grid_voxels[0]);
+	}
 };

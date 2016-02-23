@@ -12,9 +12,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\src\cppIntegration_gold.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\src\Volumetric_gpu.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

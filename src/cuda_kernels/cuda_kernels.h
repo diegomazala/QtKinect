@@ -26,10 +26,27 @@ extern "C"
 
 	void compute_depth_buffer(
 		float* depth_buffer, 
+		float* window_coords_2f,
 		const float* world_points_4f, 
 		unsigned int point_count, 
 		const float* projection_mat4x4, 
 		unsigned int window_width, 
+		unsigned int window_height);
+
+	void create_grid(
+		unsigned int vol_size,
+		unsigned int vx_size,
+		float* grid_matrix,
+		float* grid_voxels_points_4f,
+		float* grid_voxels_params_2f);
+
+	void update_grid(
+		unsigned int vol_size, 
+		unsigned int vx_size, 
+		float* grid_matrix, 
+		float* grid_voxels, 
+		float* depth_buffer,
+		unsigned int window_width,
 		unsigned int window_height);
 };
 

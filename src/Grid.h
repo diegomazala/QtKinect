@@ -3,6 +3,7 @@
 
 #include <Eigen/Dense>
 #include <vector>
+#include <iostream>
 #include "RayBox.h"
 #include "RayIntersection.h"
 

@@ -69,6 +69,120 @@ int test_projection_gpu()
 }
 
 
+
+
+void test_grid(int argc, char **argv)
+{
+	const std::string filepath = argv[1];
+	const int vol_size = atoi(argv[2]);
+	const int vx_size = atoi(argv[3]);
+	const int cloud_count = atoi(argv[4]);
+	const int rot_interval = atoi(argv[5]);
+
+
+
+	//
+	// Creating volume
+	//
+	Eigen::Vector3d voxel_size(vx_size, vx_size, vx_size);
+	Eigen::Vector3d volume_size(vol_size, vol_size, vol_size);
+	Eigen::Vector3d voxel_count(volume_size.x() / voxel_size.x(), volume_size.y() / voxel_size.y(), volume_size.z() / voxel_size.z());
+	//
+	const int total_voxels = (volume_size.x() / voxel_size.x() + 1) *
+		(volume_size.y() / voxel_size.y() + 1) *
+		(volume_size.z() / voxel_size.z() + 1);
+
+	std::cout << "Total Voxels: ("
+		<< (volume_size.x() / voxel_size.x() + 1) << ", "
+		<< (volume_size.y() / voxel_size.y() + 1) << ", "
+		<< (volume_size.z() / voxel_size.z() + 1) << ") =  "
+		<< total_voxels	<< std::endl << std::endl;
+	//
+	Eigen::Affine3d grid_affine = Eigen::Affine3d::Identity();
+	grid_affine.translate(Eigen::Vector3d(0, 0, -256));
+	grid_affine.scale(Eigen::Vector3d(1, 1, -1));	// z is negative inside of screen
+	Grid grid(volume_size, voxel_size, grid_affine.matrix());
+
+	//std::cout << "Grid Transformation: " << std::endl << grid_affine.matrix() << std::endl;
+
+	//std::cout << std::endl << "update " << std::endl << std::endl;
+	//const std::size_t slice_size = (grid.voxel_count.x() + 1) * (grid.voxel_count.y() + 1);
+	//for (auto it_volume = grid.data.begin(); it_volume != grid.data.end(); it_volume += slice_size)
+	//{
+	//	auto z_slice_begin = it_volume;
+	//	auto z_slice_end = it_volume + slice_size;
+
+	//	for (auto it = z_slice_begin; it != z_slice_end; ++it)
+	//	{
+	//		std::cout << it->point.transpose() << std::endl;
+	//	}
+	//}
+
+	//std::cout << std::endl << std::endl;
+
+
+
+	int threadId = 0;
+	const int half_vol_size = vol_size / 2;
+
+	int voxel_step = vol_size / vx_size;
+
+	uint3 dim;
+	dim.x = vol_size / vx_size + 1;
+	dim.y = vol_size / vx_size + 1;
+	dim.z = vol_size / vx_size + 1;
+
+	const int z_slice_size = (vol_size / vx_size + 1) * (vol_size / vx_size + 1);	// x_size * y_size
+	const int z_slice_index = threadId * z_slice_size * 4;
+
+
+	std::vector<Eigen::Vector4f> grid_voxels_points(total_voxels);
+	std::vector<Eigen::Vector2f> grid_voxels_params(total_voxels);
+
+
+	//for (int z = 0; z <= voxel_step; ++z)
+	//{
+	//	for (int y = 0; y <= voxel_step; ++y)
+	//	{
+	//		printf("\nz,y=%d,%d\n", z,y);
+	//		for (int x = 0; x <= voxel_step; ++x)
+	//		{
+	//			float3 v;
+	//			v.x = float(x * half_vol_size - half_vol_size);
+	//			v.y = float(y * half_vol_size - half_vol_size);
+	//			v.z = -256.0f - float(threadId * half_vol_size - half_vol_size);
+
+	//			//int index = z * dim.z + y * dim.y + x;
+	//			int index = x + dim.x * (y + dim.z * z);
+
+	//			printf("-->%d %d : \t %f,\t %f,\t %f\n",
+	//				index, ((int)threadId), 
+	//				v.x, v.y, v.z);
+
+	//			
+
+	//			grid_voxels.at(index) = Eigen::Vector4f(v.x, v.y, v.z, 1.0f);
+	//		}
+	//	}
+	//	threadId++;
+	//}
+	//
+	//std::cout << std::endl << std::endl;
+
+	std::vector<float> depth_buffer(window_width * window_height);
+	Eigen::Matrix4f grid_matrix = grid_affine.matrix().cast<float>();
+	//update_grid(vol_size, vx_size, grid_matrix.data(), &grid_voxels[0][0], depth_buffer.data(), window_width, window_height);
+	create_grid(vol_size, vx_size, grid_matrix.data(), &grid_voxels_points[0][0], &grid_voxels_params[0][0]);
+
+	std::cout << "------- // --------" << std::endl;
+	for (const auto v : grid_voxels_points)
+	{
+		std::cout << v.transpose() << std::endl;
+	}
+	std::cout << "------- // --------" << std::endl;
+}
+
+
 ////////////////////////////////////////////////////////////////////////////////
 // Program main
 ////////////////////////////////////////////////////////////////////////////////
@@ -91,6 +205,10 @@ int main(int argc, char **argv)
 	const int vx_size = atoi(argv[3]);
 	const int cloud_count = atoi(argv[4]);
 	const int rot_interval = atoi(argv[5]);
+
+	test_grid(argc, argv);
+	return 0;
+
 
 	//
 	// Importing .obj
@@ -152,12 +270,12 @@ int main(int argc, char **argv)
 	depth_buffer.first.resize(pixel_count, far_plane);
 	depth_buffer.second.resize(pixel_count, far_plane);
 
-	
 
 	out_points.resize(points3DOrig.size());
 
 	compute_depth_buffer(
 		&depth_buffer.first.data()[0],
+		&window_coords.first[0][0],
 		&cloud.first[0][0], 
 		cloud.first.size(), 
 		K.data(), 
@@ -166,6 +284,7 @@ int main(int argc, char **argv)
 
 	compute_depth_buffer(
 		&depth_buffer.second.data()[0],
+		&window_coords.first[0][0],
 		&cloud.second[0][0],
 		cloud.second.size(),
 		K.data(),
@@ -182,8 +301,8 @@ int main(int argc, char **argv)
 
 	//export_obj("../../data/gpu_out_points.obj", out_points);
 
-	export_depth_buffer("../../data/gpu_depth_buffer_1.obj", depth_buffer.first);
-	export_depth_buffer("../../data/gpu_depth_buffer_2.obj", depth_buffer.second);
+	//export_depth_buffer("../../data/gpu_depth_buffer_1.obj", depth_buffer.first);
+	//export_depth_buffer("../../data/gpu_depth_buffer_2.obj", depth_buffer.second);
 
 	//create_depth_buffer(depth_buffer.first, cloud.first, K, Eigen::Matrix4f::Identity(), far_plane);
 	//export_depth_buffer("../../data/cpu_depth_buffer.obj", depth_buffer.first);
@@ -194,6 +313,9 @@ int main(int argc, char **argv)
 	//	file << std::fixed << depth_buffer.first.at(i) << std::endl;
 	//}
 	//file.close();
+
+
+
 
 #if 0
 	std::pair<std::vector<double>, std::vector<double>> depth_buffer;
