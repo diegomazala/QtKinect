@@ -13,27 +13,10 @@
 #include <Eigen/Dense>
 #include "Timer.h"
 #include "Projection.h"
+#include "Volumetric_helper.h"
 
 
-#define DegToRad(angle_degrees) (angle_degrees * M_PI / 180.0)		// Converts degrees to radians.
-#define RadToDeg(angle_radians) (angle_radians * 180.0 / M_PI)		// Converts radians to degrees.
 
-const double MinTruncation = 0.5;
-const double MaxTruncation =  1.1;
-const double MaxWeight = 10.0;
-
-const double fov_y = 70.0f;
-const double window_width = 512.0f;
-const double window_height = 424.0f;
-const double near_plane = 0.1f; // 0.1f;
-const double far_plane = 512.0f; // 10240.0f;
-const double aspect_ratio = window_width / window_height;
-//Eigen::Matrix4d	K(Eigen::Matrix4d::Zero());
-//std::pair<Eigen::Matrix4d, Eigen::Matrix4d>	T(Eigen::Matrix4d::Zero(), Eigen::Matrix4d::Zero());
-
-typedef std::vector<Eigen::Vector3d> PointCloud;
-std::vector<PointCloud> cloud_array_points;
-std::vector<Eigen::Matrix4d> cloud_array_matrix;
 
 int g_index = 449;
 
@@ -83,453 +66,6 @@ void raycast_volume()
 	export_obj("../../data/output_cloud.obj", output_cloud);
 }
 #endif
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
-/// \fn	static bool ComputeRigidTransform(const std::vector<Eigen::Vector3d>& src, const std::vector<Eigen::Vector3d>& dst, Eigen::Matrix3d& R, Eigen::Vector3d& t);
-///
-/// \brief	Compute the rotation and translation that transform a source point set to a target point set
-///
-/// \author	Diego
-/// \date	07/10/2015
-///
-/// \param	src		   		The source point set.
-/// \param	dst		   		The target point set.
-/// \param [in,out]	pts_dst	The rotation matrix.
-/// \param [in,out]	pts_dst	The translation vector.
-/// \return	True if found the transformation, false otherwise.
-////////////////////////////////////////////////////////////////////////////////////////////////////
-static bool ComputeRigidTransform(const std::vector<Eigen::Vector3d>& src, const std::vector<Eigen::Vector3d>& dst, Eigen::Matrix3d& R, Eigen::Vector3d& t)
-{
-	//
-	// Verify if the sizes of point arrays are the same 
-	//
-	assert(src.size() == dst.size());
-	int pairSize = (int)src.size();
-	Eigen::Vector3d center_src(0, 0, 0), center_dst(0, 0, 0);
-
-	// 
-	// Compute centroid
-	//
-	for (int i = 0; i<pairSize; ++i)
-	{
-		center_src += src[i];
-		center_dst += dst[i];
-	}
-	center_src /= (double)pairSize;
-	center_dst /= (double)pairSize;
-
-
-	Eigen::MatrixXd S(pairSize, 3), D(pairSize, 3);
-	for (int i = 0; i<pairSize; ++i)
-	{
-		for (int j = 0; j<3; ++j)
-			S(i, j) = src[i][j] - center_src[j];
-		for (int j = 0; j<3; ++j)
-			D(i, j) = dst[i][j] - center_dst[j];
-	}
-	Eigen::MatrixXd Dt = D.transpose();
-	Eigen::Matrix3d H = Dt * S;
-	Eigen::Matrix3d W, U, V;
-
-	//
-	// Compute SVD
-	//
-	Eigen::JacobiSVD<Eigen::MatrixXd> svd;
-	svd.compute(H, Eigen::ComputeThinU | Eigen::ComputeThinV);
-
-	if (!svd.computeU() || !svd.computeV())
-	{
-		std::cerr << "<Error> Decomposition error" << std::endl;
-		return false;
-	}
-
-	//
-	// Compute rotation matrix and translation vector
-	// 
-	Eigen::Matrix3d Vt = svd.matrixV().transpose();
-	R = svd.matrixU() * Vt;
-	t = center_dst - R * center_src;
-
-	return true;
-}
-
-
-static bool ComputeRigidTransform(const std::vector<Eigen::Vector3d>& src, const std::vector<Eigen::Vector3d>& dst, Eigen::Matrix4d& mat)
-{
-	Eigen::Matrix3d R;
-	Eigen::Vector3d t;
-	if (ComputeRigidTransform(src, dst, R, t))
-	{
-		mat.block(0, 0, 3, 3) = R;
-		mat.col(3) = t.homogeneous();
-		return true;
-	}
-	return false;
-}
-
-static bool import_obj(const std::string& filename, std::vector<Eigen::Vector3d>& points3D, int max_point_count = INT_MAX)
-{
-	std::ifstream inFile;
-	inFile.open(filename);
-
-	if (!inFile.is_open())
-	{
-		std::cerr << "Error: Could not open obj input file: " << filename << std::endl;
-		return false;
-	}
-
-	points3D.clear();
-
-	int i = 0;
-	while (inFile)
-	{
-		std::string str;
-
-		if (!std::getline(inFile, str))
-		{
-			if (inFile.eof())
-				return true;
-
-			std::cerr << "Error: Problems when reading obj file: " << filename << std::endl;
-			return false;
-		}
-
-		if (str[0] == 'v')
-		{
-			std::stringstream ss(str);
-			std::vector <std::string> record;
-
-			char c;
-			double x, y, z;
-			ss >> c >> x >> y >> z;
-
-			Eigen::Vector3d p(x, y, z);
-			points3D.push_back(p);
-		}
-
-		if (i++ > max_point_count)
-			break;
-	}
-
-	inFile.close();
-	return true;
-}
-
-static void export_obj(const std::string& filename, const std::vector<Eigen::Vector3d>& points3D)
-{
-	std::ofstream file;
-	file.open(filename);
-	for (const auto X : points3D)
-	{
-		if (!X.isApprox(Eigen::Vector3d(0,0,0)))
-			file << std::fixed << "v " << X.transpose() << std::endl;
-	}
-	file.close();
-}
-
-
-static void export_obj(const std::string& filename, const std::vector<Eigen::Vector3d>& points3D, const Eigen::Matrix4d& proj, const Eigen::Matrix4d& view)
-{
-	std::ofstream file;
-	file.open(filename);
-	for (const auto X : points3D)
-	{
-		Eigen::Vector4d clip = proj * view * X.homogeneous();
-		const Eigen::Vector3d ndc = (clip / clip.w()).head<3>();
-		Eigen::Vector3f pixel;
-		pixel.x() = window_width / 2.0f * ndc.x() + window_width / 2.0f;
-		pixel.y() = window_height / 2.0f * ndc.y() + window_height / 2.0f;
-		pixel.z() = 0.0; // (far_plane - near_plane) / 2.0f * ndc.z() + (far_plane + near_plane) / 2.0f;
-
-		file << std::fixed << "v " << pixel.transpose() << std::endl;
-	}
-	file.close();
-}
-
-
-static void export_volume(const std::string& filename, const std::vector<Voxeld>& volume, const Eigen::Matrix4d& transformation = Eigen::Matrix4d::Identity())
-{
-	Eigen::Affine3d rotation;
-	Eigen::Vector4d rgb;
-	std::ofstream file;
-	file.open(filename);
-	for (const auto v : volume)
-	{
-		//rotation = Eigen::Affine3d::Identity();
-		//rotation.rotate(Eigen::AngleAxisd(DegToRad(v.tsdf * 180.0), Eigen::Vector3d::UnitZ()));		// 90º
-		//rgb = rotation.matrix() * (-Eigen::Vector4d::UnitX());
-		//if (v.tsdf > -0.1 && v.tsdf < 0.1)
-		//int r = v.rgb.x();
-		//int b = v.rgb.z();
-		//if (r != 255 && b != 255)
-
-		Eigen::Vector3i rgb(255, 255, 255);
-		if (v.tsdf > 0.1)
-		{
-			rgb = Eigen::Vector3i(0, 255, 0);
-			file << std::fixed << "v " << (transformation * v.point.homogeneous()).head<3>().transpose() << ' ' << rgb.transpose() << std::endl;
-		}
-		else if (v.tsdf < -0.1)
-		{
-			rgb = Eigen::Vector3i(255, 0, 0);
-			file << std::fixed << "v " << (transformation * v.point.homogeneous()).head<3>().transpose() << ' ' << rgb.transpose() << std::endl;
-		}
-		
-		
-		
-	}
-	file.close();
-}
-
-
-
-static void export_depth_buffer(const std::string& filename, const std::vector<double>& depth_buffer, Eigen::Vector3i rgb = Eigen::Vector3i::Zero())
-{
-	std::ofstream file;
-	file.open(filename);
-	int i = 0;
-	for (int y = 0; y < window_height; ++y)
-	{
-		for (int x = 0; x < window_width; ++x)
-		{
-			file << std::fixed << "v " << x << ' ' << y << ' ' << depth_buffer.at(i) << ' ' << rgb.transpose() << std::endl;
-			++i;
-		}
-	}
-	file.close();
-}
-
-static void export_image_from_depth_buffer(const std::string& filename, const std::vector<double>& depth_buffer)
-{
-	QImage depth(window_width, window_height, QImage::Format_RGB888);
-	depth.fill(Qt::white);
-
-	int x = 0;
-	int y = 0;
-	int i = 0;
-	for (double d : depth_buffer)
-	{
-		int gray = 255 - (d / far_plane * 255.0);
-		x = i % (int)window_width;
-		y = i / (int)window_width;
-		depth.setPixel(QPoint(x, window_height - y - 1), qRgb(gray, gray, gray));
-		++i;
-	}
-
-	depth.save(filename.c_str());
-}
-
-void create_plane(std::vector<Eigen::Vector3d>& points3D, float width, float height, float z, float cell_size)
-{
-	points3D.clear();
-	for (float y = -height * 0.5f; y <= height * 0.5f; y += cell_size)
-	{
-		for (float x = -width * 0.5f; x <= width * 0.5f; x += cell_size)
-		{
-			points3D.push_back(Eigen::Vector3d(x, y, z));
-		}
-	}
-
-}
-
-void build_cloud_array_points_of_planes(int count, float rotation_interval, float width, float height, float z, float cell_size)
-{
-	std::vector<Eigen::Vector3d> points3D;
-	for (float y = -height * 0.5f; y <= height * 0.5f; y += cell_size)
-	{
-		for (float x = -width * 0.5f; x <= width * 0.5f; x += cell_size)
-		{
-			points3D.push_back(Eigen::Vector3d(x, y, z));
-		}
-	}
-
-	// inserting first cloud
-	cloud_array_points.push_back(points3D);
-	cloud_array_matrix.push_back(Eigen::Matrix4d::Identity());
-
-	for (int i = 1; i < count; ++i)
-	{
-		Eigen::Affine3d affine = Eigen::Affine3d::Identity();
-		affine.translate(Eigen::Vector3d(0, 0, z));
-		affine.rotate(Eigen::AngleAxisd(DegToRad(i * rotation_interval), Eigen::Vector3d::UnitY()));
-		affine.translate(Eigen::Vector3d(0, 0, -z));
-
-		std::vector<Eigen::Vector3d> points3DRot;
-
-		for (const Eigen::Vector3d p3d : points3D)
-		{
-			Eigen::Vector4d rot = affine.matrix() * p3d.homogeneous();
-			rot /= rot.w();
-
-			points3DRot.push_back(rot.head<3>());
-		}
-
-		// inserting clouds rotated
-		cloud_array_points.push_back(points3DRot);
-		cloud_array_matrix.push_back(affine.matrix());
-	}
-
-	//int cc = 0;
-	//for (auto c : cloud_array_points)
-	//{
-	//	std::stringstream ss;
-	//	ss << "../../data/cloud_10_0" << cc << ".obj";
-	//	export_obj(ss.str(), c);
-	//	cc++;
-	//}
-}
-
-void create_depth_buffer(std::vector<double>& depth_buffer, const std::vector<Eigen::Vector3d>& points3D, const Eigen::Matrix4d& proj, const Eigen::Matrix4d& view, double far_plane)
-{
-	// Creating depth buffer
-	depth_buffer.clear();
-	depth_buffer.resize(int(window_width * window_height), far_plane);
-
-
-	for (const Eigen::Vector3d p3d : points3D)
-	{
-		Eigen::Vector4d v = view * p3d.homogeneous();
-		v /= v.w();
-
-		const Eigen::Vector4d clip = proj * view * p3d.homogeneous();
-		const Eigen::Vector3d ndc = (clip / clip.w()).head<3>();
-		if (ndc.x() < -1 || ndc.x() > 1 || ndc.y() < -1 || ndc.y() > 1 || ndc.z() < -1 || ndc.z() > 1)
-			continue;
-
-		Eigen::Vector3d pixel;
-		pixel.x() = window_width / 2.0f * ndc.x() + window_width / 2.0f;
-		pixel.y() = window_height / 2.0f * ndc.y() + window_height / 2.0f;
-		//pixel.z() = (far_plane - near_plane) / 2.0f * ndc.z() + (far_plane + near_plane) / 2.0f;
-
-#if 0
-		if (pixel.x() > 0 && pixel.x() < window_width &&
-			pixel.y() > 0 && pixel.y() < window_height)
-		{
-			const int depth_index = (int)pixel.y() * (int)window_width + (int)pixel.x();
-			const double& curr_depth = std::abs(depth_buffer.at(depth_index));
-			const double& new_depth = std::abs(v.z());
-			if (new_depth < curr_depth) 
-				depth_buffer.at(depth_index) = new_depth;
-		}
-#else
-		const int depth_index = (int)pixel.y() * (int)window_width + (int)pixel.x();
-		if (depth_index > 0 && depth_index < depth_buffer.size())
-		{
-			const double& curr_depth = std::abs(depth_buffer.at(depth_index));
-			const double& new_depth = std::abs(v.z());
-			if (new_depth < curr_depth)
-				depth_buffer.at(depth_index) = new_depth;
-		}
-
-#endif
-	}
-}
-
-double compute_tsdf(const Eigen::Vector3d& pt, std::vector<double>& depth_buffer, const Eigen::Matrix4d& view)
-{
-	Eigen::Vector4d vg = pt.homogeneous();
-	Eigen::Vector4d v = view * vg;	// se for inversa não fica no clip space		
-	v /= v.w();
-
-	// to screen space
-	const Eigen::Vector3i pixel = vertex_to_window_coord(v, fov_y, aspect_ratio, near_plane, far_plane, (int)window_width, (int)window_height).cast<int>();
-
-	// get depth buffer value at pixel where the current vertex has been projected
-	const int depth_pixel_index = pixel.y() * int(window_width) + pixel.x();
-
-	if (depth_pixel_index < 0 || depth_pixel_index > depth_buffer.size())
-	{
-		//std::cout << "Depth pixel out of range: " << depth_pixel_index << " > " << pixel.transpose() << std::endl;
-		return -far_plane;
-	}
-
-	const double Dp = depth_buffer.at(depth_pixel_index);
-	double distance_vertex_camera = std::abs(v.z());
-
-	std::cout << std::endl << pixel.x() << ' ' << pixel.y() << " ---> " << depth_pixel_index << " : " << Dp << std::endl;
-
-	int xx = depth_pixel_index % int(window_width);
-	int yy = depth_pixel_index / int(window_width);
-	std::cout << xx << ' ' << yy << " : " << yy * window_width + xx << std::endl;
-
-	std::cout << std::endl << distance_vertex_camera << " - " << Dp << " = " << distance_vertex_camera - Dp << std::endl;
-	
-	return distance_vertex_camera - Dp;
-}
-
-
-void update_volume(Grid& grid, std::vector<double>& depth_buffer, const Eigen::Matrix4d& proj, const Eigen::Matrix4d& view)
-{
-	const Eigen::Vector4d& ti = view.col(3);
-
-	//
-	// Sweeping volume
-	//
-	const std::size_t slice_size = (grid.voxel_count.x() + 1) * (grid.voxel_count.y() + 1);
-	for (auto it_volume = grid.data.begin(); it_volume != grid.data.end(); it_volume += slice_size)
-	{
-		auto z_slice_begin = it_volume;
-		auto z_slice_end = it_volume + slice_size;
-
-		for (auto it = z_slice_begin; it != z_slice_end; ++it)
-		{
-			// to world space
-			Eigen::Vector4d vg = it->point.homogeneous();
-
-			// to camera space
-			Eigen::Vector4d v = view.inverse() * vg;	
-			v /= v.w();
-
-			// to screen space
-			const Eigen::Vector3i pixel = vertex_to_window_coord(v, fov_y, aspect_ratio, near_plane, far_plane, (int)window_width, (int)window_height).cast<int>();
-
-			// get depth buffer value at pixel where the current vertex has been projected
-			const int depth_pixel_index = pixel.y() * int(window_width) + pixel.x();
-			if (depth_pixel_index < 0 || depth_pixel_index > depth_buffer.size() - 1)
-			{
-				continue;
-			}
-
-			const double Dp = std::abs(depth_buffer.at(depth_pixel_index));
-
-			double distance_vertex_camera = (ti - vg).norm();
-
-			const double sdf = Dp - distance_vertex_camera;
-			
-			const double half_voxel_size = grid.voxel_size.x();// *0.5;
-			if (std::fabs(sdf) > half_voxel_size)
-				continue;
-
-
-			const double prev_weight = it->weight;
-			const double prev_tsdf = it->tsdf;
-			double tsdf = sdf;
-
-			if (sdf > 0)
-			{
-				tsdf = std::fmin(1.0, sdf / MaxTruncation);
-			}
-			else
-			{
-				tsdf = std::fmax(-1.0, sdf / MinTruncation);
-			}
-
-#if 1	// Izadi
-			const double weight = std::fmin(MaxWeight, prev_weight + 1);
-			const double tsdf_avg = (prev_tsdf * prev_weight + tsdf * weight) / (prev_weight + weight);
-#else	// Open Fusion
-			const double weight = std::fmin(MaxWeight, prev_weight + 1);
-			const double tsdf_avg = (prev_tsdf * prev_weight + tsdf * 1) / (prev_weight + 1);
-#endif
-
-			it->weight = weight;
-			it->tsdf = tsdf_avg;
-
-			it->sdf = sdf;
-			it->tsdf_raw = tsdf;
-		}
-	}
-}
 
 // Usage: ./Volumetricd.exe ../../data/plane.obj 256 8 2 90
 int main(int argc, char **argv)
@@ -600,8 +136,13 @@ int main(int argc, char **argv)
 	//
 	// Update grid with first cloud
 	//
+	timer.start();
 	create_depth_buffer(depth_buffer.first, cloud.first, K, Eigen::Matrix4d::Identity(), far_plane);
-	update_volume(grid, depth_buffer.first, K, T.first.inverse());
+	timer.print_interval("CPU compute depth   : ");
+
+	timer.start();
+	update_volume(grid, depth_buffer.first, K, T.first);
+	timer.print_interval("CPU Update volume   : ");
 
 	//
 	// Compute next clouds
@@ -624,38 +165,51 @@ int main(int argc, char **argv)
 			cloud.second.push_back(rot.head<3>());
 		}
 
+		//export_obj("../../data/cloud_cpu_2.obj", cloud.second);
+
 		timer.start();
 		create_depth_buffer(depth_buffer.second, cloud.second, K, Eigen::Matrix4d::Identity(), far_plane);
 		timer.print_interval("Compute depth buffer: ");
+
+		//export_depth_buffer("../../data/cpu_depth_buffer_2.obj", depth_buffer.second);
 
 		timer.start();
 		Eigen::Matrix4d icp_mat;
 		ComputeRigidTransform(cloud.first, cloud.second, icp_mat);
 		timer.print_interval("Compute rigid transf: ");
 
-		//std::cout << std::fixed << std::endl << "icp_mat " << std::endl << icp_mat << std::endl;
+		std::cout << std::fixed << std::endl << "icp_mat " << std::endl << icp_mat << std::endl;
 
 		// accumulate matrix
 		cloud_mat = cloud_mat * icp_mat;
 
-		//std::cout << std::fixed << std::endl << "cloud_mat " << std::endl << cloud_mat << std::endl;
+		std::cout << std::fixed << std::endl << "cloud_mat " << std::endl << cloud_mat << std::endl;
 
 		timer.start();
+		//update_volume(grid, depth_buffer.second, K, cloud_mat.inverse());
 		update_volume(grid, depth_buffer.second, K, cloud_mat.inverse());
 		timer.print_interval("Update volume       : ");
 
 
 		// copy second point cloud to first
 		cloud.first = cloud.second;
-		depth_buffer.first = depth_buffer.second;
-
+		//depth_buffer.first = depth_buffer.second;
 
 		iter_timer.print_interval("Iteration time      : ");
 	}
 
 
+	//std::cout << "------- // --------" << std::endl;
+	//for (int i = 0; i <  grid.data.size(); ++i)
+	//{
+	//	const Eigen::Vector3d& point = grid.data[i].point;
+
+	//	std::cout << point.transpose() << "\t\t" << grid.data[i].tsdf << " " << grid.data[i].weight << std::endl;
+	//}
+	//std::cout << "------- // --------" << std::endl;
+
 	timer.start();
-	export_volume("../../data/grid_volume.obj", grid.data);
+	export_volume("../../data/grid_volume_cpu.obj", grid.data);
 	timer.print_interval("Exporting volume    : ");
 
 
