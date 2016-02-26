@@ -178,12 +178,12 @@ int main(int argc, char **argv)
 		ComputeRigidTransform(cloud.first, cloud.second, icp_mat);
 		timer.print_interval("Compute rigid transf: ");
 
-		std::cout << std::fixed << std::endl << "icp_mat " << std::endl << icp_mat << std::endl;
+		//std::cout << std::fixed << std::endl << "icp_mat " << std::endl << icp_mat << std::endl;
 
 		// accumulate matrix
 		cloud_mat = cloud_mat * icp_mat;
 
-		std::cout << std::fixed << std::endl << "cloud_mat " << std::endl << cloud_mat << std::endl;
+		//std::cout << std::fixed << std::endl << "cloud_mat " << std::endl << cloud_mat << std::endl;
 
 		timer.start();
 		//update_volume(grid, depth_buffer.second, K, cloud_mat.inverse());
