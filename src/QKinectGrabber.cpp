@@ -37,7 +37,7 @@ void QKinectGrabber::enableImageSending(bool value)
 }
 
 
-void QKinectGrabber::copyFrameBuffer(KinectFrameBuffer& frame)
+void QKinectGrabber::copyFrameBuffer(KinectFrame& frame)
 {
 	mutex.lock();
 	{

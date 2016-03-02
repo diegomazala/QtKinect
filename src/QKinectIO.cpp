@@ -197,7 +197,7 @@ void QKinectIO::exportObj(QString filename, std::vector<unsigned short> info, st
 
 
 
-void QKinectIO::saveFrame(const std::string& filename, const KinectFrameBuffer& frame)
+void QKinectIO::saveFrame(const std::string& filename, const KinectFrame& frame)
 {
 	QtConcurrent::run(save, QString::fromStdString(filename), frame.info, frame.color, frame.depth);
 }
@@ -209,7 +209,7 @@ void QKinectIO::save(QString filename,
 					std::vector<unsigned short> depth_buffer)
 {
 	std::ofstream out;
-	out.open(filename.toStdString(), std::ofstream::out | std::ofstream::binary);
+	out.open(filename.toStdString(), std::ofstream::binary);
 
 	vector_write(out, info);
 	vector_write(out, color_buffer);
@@ -220,10 +220,10 @@ void QKinectIO::save(QString filename,
 
 
 
-void QKinectIO::loadFrame(const std::string& filename, KinectFrameBuffer& frame)
+void QKinectIO::loadFrame(const std::string& filename, KinectFrame& frame)
 {
 	std::ifstream in_file;
-	in_file.open(filename, std::ios::in | std::ios::binary);
+	in_file.open(filename, std::ifstream::binary);
 	vector_read(in_file, frame.info);
 	vector_read(in_file, frame.color);
 	vector_read(in_file, frame.depth);

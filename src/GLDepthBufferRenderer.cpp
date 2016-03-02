@@ -141,7 +141,7 @@ void GLDepthBufferRenderer::initCubeGeometry()
 
 void GLDepthBufferRenderer::render(QOpenGLShaderProgram *program)
 {
-	updatePoints();
+	//updatePoints();
 
 	// Tell OpenGL programmable pipeline how to locate vertex position data
 	int vertexLocation = program->attributeLocation("a_position");

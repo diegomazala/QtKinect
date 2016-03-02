@@ -25,7 +25,7 @@ public:
 
 	void save()
 	{
-		KinectFrameBuffer frame;
+		KinectFrame frame;
 		kinect->copyFrameBuffer(frame);
 
 		std::stringstream filename, filename_knt, filename_color, filename_depth;
@@ -74,7 +74,7 @@ public:
 
 	void save()
 	{
-		KinectFrameBuffer frame;
+		KinectFrame frame;
 		kinect->copyFrameBuffer(frame);
 		
 		std::stringstream filename, filename_knt, filename_png;

@@ -1,0 +1,7 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+  <qresource prefix="/">
+      <file>../resources/shaders/kinect.vert</file>
+      <file>../resources/shaders/kinect.frag</file>
+  </qresource>
+</RCC>

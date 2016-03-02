@@ -345,27 +345,45 @@ static bool import_obj(const std::string& filename, std::vector<Eigen::Vector4f>
 
 
 
-static void export_obj(const std::string& filename, const std::vector<Eigen::Vector3d>& points3D)
+template<typename Type, int Rows>
+static void export_obj_with_normals(const std::string& filename, const std::vector<Eigen::Matrix<Type, Rows, 1>>& vertices, const std::vector<Eigen::Matrix<Type, Rows, 1>>& normals)
 {
 	std::ofstream file;
 	file.open(filename);
-	for (const auto X : points3D)
+	for (const auto v : vertices)
+		file << std::fixed << "v " << v.transpose() << std::endl;
+	for (const auto n : normals)
+		file << std::fixed << "vn " << n.transpose() << std::endl;
+	file.close();
+}
+
+template<typename Type, int Rows>
+static void export_obj_with_colors(const std::string& filename, const std::vector<Eigen::Matrix<Type, Rows, 1>>& vertices, const std::vector<Eigen::Vector3f>& rgb)
+{
+	std::ofstream file;
+	file.open(filename);
+	for (int i = 0; i < vertices.size(); ++i)
 	{
-		file << std::fixed << "v " << X.transpose() << std::endl;
+		const auto& v = vertices[i];
+		const auto& c = rgb[i];
+		file << std::fixed << "v " << v.transpose() << '\t' << c.transpose() << std::endl;
 	}
 	file.close();
 }
 
-static void export_obj(const std::string& filename, const std::vector<Eigen::Vector4f>& points3D)
+
+template<typename Type, int Rows>
+static void export_obj(const std::string& filename, const std::vector<Eigen::Matrix<Type, Rows, 1>>& vertices)
 {
 	std::ofstream file;
 	file.open(filename);
-	for (const auto X : points3D)
+	for (const auto v : vertices)
 	{
-		file << std::fixed << "v " << X.transpose() << std::endl;
+		file << std::fixed << "v " << v.transpose() << std::endl;
 	}
 	file.close();
 }
+
 
 
 static void export_obj(const std::string& filename, const std::vector<Eigen::Vector3d>& points3D, const Eigen::Matrix4d& proj, const Eigen::Matrix4d& view)

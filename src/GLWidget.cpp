@@ -109,7 +109,6 @@ void GLWidget::paintGL()
 
     texture->bind();
 
-
     // Calculate model view transformation
     QMatrix4x4 matrix;
 	matrix.translate(0.0, 0.0, -distance);
@@ -117,7 +116,6 @@ void GLWidget::paintGL()
 
     // Set modelview-projection matrix
     program.setUniformValue("mvp_matrix", projection * matrix);
-
 
     // Use texture unit 0 which contains cube.png
     program.setUniformValue("texture", 0);

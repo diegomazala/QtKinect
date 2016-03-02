@@ -4,6 +4,7 @@
 #include "QImageWidget.h"
 #include "QKinectGrabber.h"
 #include "QKinectIO.h"
+#include "GLKinectWidget.h"
 #include <iostream>
 
 
@@ -26,16 +27,9 @@ int main(int argc, char **argv)
 	for (int i = 0; i < 256; ++i)
 		colorTable.push_back(qRgb(i, i, i));
 
-	std::cout << "Press 'l' to load last frame saved" << std::endl;
-	
-
 	QApplication app(argc, argv);
-	
 
-
-	std::cout << "loading kinect frame " << filename << std::endl;
-
-	KinectFrameBuffer frame;
+	KinectFrame frame;
 	QKinectIO::loadFrame(filename, frame);
 
 	/////////////////////////////////////
@@ -59,14 +53,13 @@ int main(int argc, char **argv)
 
 	colorImage = QImage(frame.color.data(), frame.color_width(), frame.color_height(), QImage::Format_ARGB32);
 
-	std::cout << "loaded kinect frame " << filename << std::endl;
-
 
 
 	QImageWidget colorWidget;
 	colorWidget.setMinimumSize(720, 480);
 	colorWidget.move(0, 0);
 	colorWidget.setImage(colorImage);
+	colorWidget.setWindowTitle("Color Map");
 	colorWidget.show();
 	
 
@@ -74,8 +67,16 @@ int main(int argc, char **argv)
 	depthWidget.setMinimumSize(512, 424);
 	depthWidget.move(720, 0);
 	depthWidget.setImage(depthImage);
+	depthWidget.setWindowTitle("Depth Map");
 	depthWidget.show();
 
+
+	GLKinectWidget glwidget;
+	glwidget.setMinimumSize(512, 424);
+	glwidget.move(720, 512);
+	glwidget.setWindowTitle("Vertex Map");
+	glwidget.show();
+	glwidget.setFrame(&frame);
 
 	return app.exec();
 }
