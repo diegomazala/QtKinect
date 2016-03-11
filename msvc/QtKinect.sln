@@ -35,6 +35,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cuda_kernels", "cuda_kernel
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "NormalEstimate", "NormalEstimate.vcxproj", "{235F7D6E-4E3F-4428-B181-AC7594CAA09E}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BilateralFilter_gpu", "BilateralFilter_gpu.vcxproj", "{5D2195C7-BCFD-4207-B003-5B852F9A61E0}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -117,6 +119,12 @@ Global
 		{235F7D6E-4E3F-4428-B181-AC7594CAA09E}.Release|Win32.ActiveCfg = Release|x64
 		{235F7D6E-4E3F-4428-B181-AC7594CAA09E}.Release|x64.ActiveCfg = Release|x64
 		{235F7D6E-4E3F-4428-B181-AC7594CAA09E}.Release|x64.Build.0 = Release|x64
+		{5D2195C7-BCFD-4207-B003-5B852F9A61E0}.Debug|Win32.ActiveCfg = Debug|x64
+		{5D2195C7-BCFD-4207-B003-5B852F9A61E0}.Debug|x64.ActiveCfg = Debug|x64
+		{5D2195C7-BCFD-4207-B003-5B852F9A61E0}.Debug|x64.Build.0 = Debug|x64
+		{5D2195C7-BCFD-4207-B003-5B852F9A61E0}.Release|Win32.ActiveCfg = Release|x64
+		{5D2195C7-BCFD-4207-B003-5B852F9A61E0}.Release|x64.ActiveCfg = Release|x64
+		{5D2195C7-BCFD-4207-B003-5B852F9A61E0}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -134,5 +142,6 @@ Global
 		{85A698F9-697C-420E-B95D-27DAADB7F97F} = {692D3B53-0A36-4FC7-8215-7622A18E77C1}
 		{835E1B3C-B685-4290-8C71-0F36F3E1D3BD} = {692D3B53-0A36-4FC7-8215-7622A18E77C1}
 		{235F7D6E-4E3F-4428-B181-AC7594CAA09E} = {F87E6F7F-F06A-44E6-AC2E-AB5DAC113F07}
+		{5D2195C7-BCFD-4207-B003-5B852F9A61E0} = {692D3B53-0A36-4FC7-8215-7622A18E77C1}
 	EndGlobalSection
 EndGlobal

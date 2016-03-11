@@ -18,6 +18,8 @@ public:
 
 	void setFrame(KinectFrame* frame);
 
+	GLuint vertexBufferId() const;
+
 public slots:
 
 	void initGL();

@@ -22,6 +22,7 @@
     <ClCompile Include="..\src\cuda_kernels\cuda_kernels.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <CudaCompile Include="..\src\cuda_kernels\bilateral_kernel.cu" />
     <CudaCompile Include="..\src\cuda_kernels\cuda_kernels.cu" />
   </ItemGroup>
   <ItemGroup>

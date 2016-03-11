@@ -15,6 +15,9 @@
     <CudaCompile Include="..\src\cuda_kernels\cuda_kernels.cu">
       <Filter>Cuda Files</Filter>
     </CudaCompile>
+    <CudaCompile Include="..\src\cuda_kernels\bilateral_kernel.cu">
+      <Filter>Cuda Files</Filter>
+    </CudaCompile>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\cuda_kernels\cuda_kernels.cpp">

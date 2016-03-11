@@ -13,8 +13,71 @@
 #endif
 
 
+#define USE_RGBA 0
+
+#include "helper_timer.h"
+#include <cuda_runtime.h>
+
+typedef unsigned char	uchar;
+typedef unsigned int	uint;
+typedef unsigned short	ushort;
+
+
+
+
+
 extern "C"
 {
+
+	double bilateralFilterRGBA(
+		unsigned int *d_dest, 
+		int width, 
+		int height,
+		float e_d, 
+		int radius, 
+		int iterations,
+		StopWatchInterface *timer);
+
+
+	double bilateralFilterGray(
+		uchar* dOutputImage,
+		uchar* dInputImage,
+		int width, 
+		int height,
+		size_t pitch,
+		float e_d, 
+		int radius, 
+		int iterations,
+		StopWatchInterface *timer);
+
+
+	double bilateralFilter_ushort(
+		ushort *dOutputImage,
+		ushort *dInputImage,
+		int width, 
+		int height, 
+		size_t pitch,
+		ushort max_depth,
+		float e_d, 
+		int radius, 
+		int iterations,
+		StopWatchInterface *timer);
+
+	
+	void passthrough_texture_ushort(
+		ushort* dOutputImage,
+		ushort* dInputImage,
+		int width,
+		int height,
+		size_t pitch);
+
+
+
+	extern "C" void updateGaussian(float delta, int radius);
+
+
+
+
 	bool cublas_init();
 	bool cublas_cleanup();
 	bool cublas_matrix_mul(float *dev_C, const float *dev_A, const float *dev_B, const int m, const int k, const int n);

@@ -10,7 +10,6 @@
 #include "KinectFrame.h"
 
 
-
 GLKinectFrame::GLKinectFrame()
 {
 }
@@ -20,6 +19,10 @@ GLKinectFrame::~GLKinectFrame()
 {
 }
 
+GLuint GLKinectFrame::vertexBufferId() const
+{
+	return vertexBuf.bufferId();
+}
 
 
 void GLKinectFrame::initGL()

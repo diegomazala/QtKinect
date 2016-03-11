@@ -3,5 +3,7 @@
   <qresource prefix="/">
       <file>../resources/shaders/kinect.vert</file>
       <file>../resources/shaders/kinect.frag</file>
+      <file>../resources/shaders/vertices.vert</file>
+      <file>../resources/shaders/vertices.frag</file>
   </qresource>
 </RCC>
