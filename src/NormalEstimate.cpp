@@ -146,7 +146,6 @@ int main(int argc, char **argv)
 				vert_u1v = window_coord_to_3d(Eigen::Vector2f(x + 1, y), depth_u1v, fovy, aspect_ratio, near_plane, far_plane, depth_map_width, depth_map_height);
 				vert_uv1 = window_coord_to_3d(Eigen::Vector2f(x, y + 1), depth_uv1, fovy, aspect_ratio, near_plane, far_plane, depth_map_width, depth_map_height);
 
-
 				if (!vert_uv.isZero() && !vert_u1v.isZero() && !vert_uv1.isZero())
 				{
 
@@ -157,16 +156,7 @@ int main(int argc, char **argv)
 					vertices.push_back(vert_uv);
 					normals.push_back(n);
 					colors.push_back((n * 0.5f + Eigen::Vector3f(0.5, 0.5, 0.5)) * 255.0f);
-
-					//std::cout << "n " << n.transpose() << std::endl << std::endl;
 				}
-				//else
-				//{
-				//	vertices.push_back(vert_uv);
-				//	normals.push_back(Eigen::Vector3f::Zero());
-				//	colors.push_back(Eigen::Vector3f::Zero());
-				//}
-
 			}
 		}
 		timer.print_interval("Depth map back projection : ");
