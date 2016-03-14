@@ -129,24 +129,24 @@ int main(int argc, char **argv)
 		Eigen::Vector3f vert_uv, vert_u1v, vert_uv1;
 		Eigen::Vector3f v, vup, vdown, vleft, vright;
 
+		int i = 0;
+
 		for (int x = 1; x < depth_map_width - 1; ++x)
 		{
 			for (int y = 1; y < depth_map_height - 1; ++y)
 			{
 				const float depth = frame.depth[y * depth_map_width + x];
+				const float depth_u1v = frame.depth[y * depth_map_width + x + 1];
+				const float depth_uv1 = frame.depth[(y + 1) * depth_map_width + x];
+
+				if (depth < 0.01 || depth_u1v < 0.01 || depth_uv1 < 0.01)
+					continue;
 
 				vert_uv  = window_coord_to_3d(Eigen::Vector2f(x, y), depth, fovy, aspect_ratio, near_plane, far_plane, depth_map_width, depth_map_height);
-				vert_u1v = window_coord_to_3d(Eigen::Vector2f(x + 1, y), depth, fovy, aspect_ratio, near_plane, far_plane, depth_map_width, depth_map_height);
-				vert_uv1 = window_coord_to_3d(Eigen::Vector2f(x, y + 1), depth, fovy, aspect_ratio, near_plane, far_plane, depth_map_width, depth_map_height);
-				
-				//v = window_coord_to_3d(Eigen::Vector2f(x, y), depth, fovy, aspect_ratio, near_plane, far_plane, depth_map_width, depth_map_height);
-				//vup = window_coord_to_3d(Eigen::Vector2f(x, y + 1), depth, fovy, aspect_ratio, near_plane, far_plane, depth_map_width, depth_map_height);
-				//vdown = window_coord_to_3d(Eigen::Vector2f(x, y - 1), depth, fovy, aspect_ratio, near_plane, far_plane, depth_map_width, depth_map_height);
-				//vleft = window_coord_to_3d(Eigen::Vector2f(x - 1, y), depth, fovy, aspect_ratio, near_plane, far_plane, depth_map_width, depth_map_height);
-				//vright = window_coord_to_3d(Eigen::Vector2f(x + 1, y), depth, fovy, aspect_ratio, near_plane, far_plane, depth_map_width, depth_map_height);
+				vert_u1v = window_coord_to_3d(Eigen::Vector2f(x + 1, y), depth_u1v, fovy, aspect_ratio, near_plane, far_plane, depth_map_width, depth_map_height);
+				vert_uv1 = window_coord_to_3d(Eigen::Vector2f(x, y + 1), depth_uv1, fovy, aspect_ratio, near_plane, far_plane, depth_map_width, depth_map_height);
 
 
-				//if (!v.isZero())
 				if (!vert_uv.isZero() && !vert_u1v.isZero() && !vert_uv1.isZero())
 				{
 
@@ -157,6 +157,8 @@ int main(int argc, char **argv)
 					vertices.push_back(vert_uv);
 					normals.push_back(n);
 					colors.push_back((n * 0.5f + Eigen::Vector3f(0.5, 0.5, 0.5)) * 255.0f);
+
+					//std::cout << "n " << n.transpose() << std::endl << std::endl;
 				}
 				//else
 				//{
@@ -164,6 +166,7 @@ int main(int argc, char **argv)
 				//	normals.push_back(Eigen::Vector3f::Zero());
 				//	colors.push_back(Eigen::Vector3f::Zero());
 				//}
+
 			}
 		}
 		timer.print_interval("Depth map back projection : ");
