@@ -2,6 +2,7 @@
 #include <QApplication>
 #include <QKeyEvent>
 #include <QBuffer>
+#include <QFileInfo>
 #include "QImageWidget.h"
 #include "QKinectGrabber.h"
 #include "QKinectIO.h"
@@ -27,13 +28,6 @@
 
 StopWatchInterface *timer = NULL;
 StopWatchInterface *kernel_timer = NULL;
-
-
-
-extern "C" void LoadBMPFile(uchar4 **dst, unsigned int *width,
-	unsigned int *height, const char *name);
-
-
 
 
 
@@ -299,7 +293,11 @@ int main(int argc, char **argv)
 	convertDepthBuffer2QImage(depth_buffer_filtered, frame.depth_width(), frame.depth_height(), frame.depth_max_distance(), depthImageFiltered);
 	t.print_interval("Converting filtered depth buffer to image : ");
 
-	QString str = "Result_Bilateral_" + QString::number(iterations) + "_" + QString::number(gaussian_delta) + "_" + QString::number(euclidean_delta) + "_" + QString::number(filter_radius);
+	t.start();
+	frame.depth = depth_buffer_filtered;
+	t.print_interval("Copying depth buffer filtered             : ");
+
+	QString str = "bilateral_filter_" + QString::number(iterations) + "_" + QString::number(gaussian_delta) + "_" + QString::number(euclidean_delta) + "_" + QString::number(filter_radius);
 	
 	QImageWidget outputWidget;
 	outputWidget.setImage(depthImageFiltered);
@@ -308,7 +306,14 @@ int main(int argc, char **argv)
 	outputWidget.show();
 #endif
 
-	depthImageFiltered.save(str + ".png");
+	t.start();
+	depthImageFiltered.save(QFileInfo(filename.c_str()).absolutePath() + '/' + str + ".png");
+	t.print_interval("Saving image result                       : ");
+
+	t.start();
+	QString frame_filename = QFileInfo(filename.c_str()).absolutePath() + '/' + str + ".knt";
+	QKinectIO::saveFrame(frame_filename.toStdString(), frame);
+	t.print_interval("Saving frame result                       : ");
 	
 	return app.exec();
 }
