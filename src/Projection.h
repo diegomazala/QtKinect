@@ -102,6 +102,28 @@ static Eigen::Matrix<Type, 3, 1> window_coord_to_3d(Eigen::Matrix<Type, 2, 1> pi
 }
 
 
+
+
+template<typename Type>
+static Eigen::Matrix<Type, 3, 1> window_coord_to_3d(Eigen::Matrix<Type, 2, 1> pixel, Type depth, const Eigen::Matrix<Type, 4, 4>& inverse_projection, int window_width, int window_height)
+{
+	Eigen::Matrix<Type, 3, 1> ndc;
+	ndc.x() = (pixel.x() - (window_width / static_cast<Type>(2.0))) / (window_width / static_cast<Type>(2.0));
+	ndc.y() = (pixel.y() - (window_height / static_cast<Type>(2.0))) / (window_height / static_cast<Type>(2.0));
+	ndc.z() = static_cast<Type>(-1.0);
+
+	const Eigen::Matrix<Type, 3, 1> clip = ndc * depth;
+
+	const Eigen::Matrix<Type, 4, 1> vertex_proj_inv = inverse_projection * clip.homogeneous();
+
+	Eigen::Matrix<Type, 3, 1> p3d_final;
+	p3d_final.x() = -vertex_proj_inv.x();
+	p3d_final.y() = -vertex_proj_inv.y();
+	p3d_final.z() = depth;
+
+	return p3d_final;
+}
+
 #if 0
 static void test_projection()
 {
