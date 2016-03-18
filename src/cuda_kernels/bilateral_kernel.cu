@@ -15,8 +15,11 @@
 
 __constant__ float cGaussian[64];   //gaussian array in device side
 texture<uchar4, 2, cudaReadModeNormalizedFloat> rgbaTex;
+texture<float4, 2, cudaReadModeElementType> float4Tex;
+texture<float, 2> floatTex;
 texture<uchar, 2> ucharTex;
 texture<ushort, 2> ushortTex;
+
 
 uint *dImage = NULL;   //original image
 uint *dTemp = NULL;   //temp array for iterations
@@ -218,6 +221,179 @@ d_bilateral_filter_ushort(ushort *out, int w, int h, ushort max_depth, float e_d
 
 
 
+
+
+
+__global__ void
+d_bilateral_filter_normal_estimate_ushort(float *out, int w, int h, ushort max_depth, float e_d, int r)
+{
+	int x = blockIdx.x*blockDim.x + threadIdx.x;
+	int y = blockIdx.y*blockDim.y + threadIdx.y;
+
+	if (x >= w || y >= h)
+	{
+		return;
+	}
+
+
+	//ushort pixel = tex2D(ushortTex, x, y);
+	//out[y * w + x] = (float)pixel;
+	//return;
+
+	float sum = 0.0f;
+	float factor;
+	float t = 0;
+	float center = ((float)tex2D(ushortTex, x, y)) / (float)max_depth;
+
+
+	for (int i = -r; i <= r; i++)
+	{
+		for (int j = -r; j <= r; j++)
+		{
+			float curPix = ((float)tex2D(ushortTex, x + j, y + i)) / (float)max_depth;
+
+			factor = cGaussian[i + r] * cGaussian[j + r] *     //domain factor
+				euclideanLen(curPix, center, e_d);             //range factor
+
+			t += factor * curPix;
+			sum += factor;
+		}
+	}
+
+	out[y * w + x] = (t / sum * max_depth);
+	
+}
+
+
+
+
+__global__ void
+d_bilateral_filter_normal_estimate_float(float *out, int w, int h, ushort max_depth, float e_d, int r)
+{
+	int x = blockIdx.x*blockDim.x + threadIdx.x;
+	int y = blockIdx.y*blockDim.y + threadIdx.y;
+
+	if (x >= w || y >= h)
+	{
+		return;
+	}
+
+
+	//ushort pixel = tex2D(ushortTex, x, y);
+	//out[y * w + x] = (float)pixel;
+	//return;
+
+	float sum = 0.0f;
+	float factor;
+	float t = 0;
+	float center = ((float)tex2D(floatTex, x, y)) / (float)max_depth;
+
+
+	for (int i = -r; i <= r; i++)
+	{
+		for (int j = -r; j <= r; j++)
+		{
+			float curPix = ((float)tex2D(floatTex, x + j, y + i)) / (float)max_depth;
+
+			factor = cGaussian[i + r] * cGaussian[j + r] *     //domain factor
+				euclideanLen(curPix, center, e_d);             //range factor
+
+			t += factor * curPix;
+			sum += factor;
+		}
+	}
+
+	out[y * w + x] = (t / sum * max_depth);
+
+}
+
+
+
+
+
+__global__ void
+d_bilateral_filter_normal_estimate_ushort_float4(float4 *out, int w, int h, ushort max_depth, float e_d, int r)
+{
+	int x = blockIdx.x*blockDim.x + threadIdx.x;
+	int y = blockIdx.y*blockDim.y + threadIdx.y;
+
+	if (x >= w || y >= h)
+	{
+		return;
+	}
+
+	float sum = 0.0f;
+	float factor;
+	float t = 0;
+	float center = ((float)tex2D(ushortTex, x, y)) / (float)max_depth;
+
+
+	for (int i = -r; i <= r; i++)
+	{
+		for (int j = -r; j <= r; j++)
+		{
+			float curPix = ((float)tex2D(ushortTex, x + j, y + i)) / (float)max_depth;
+
+			factor = cGaussian[i + r] * cGaussian[j + r] *     //domain factor
+				euclideanLen(curPix, center, e_d);             //range factor
+
+			t += factor * curPix;
+			sum += factor;
+		}
+	}
+
+	out[y * w + x].x = (t / sum * max_depth);
+	out[y * w + x].y = (t / sum * max_depth);
+	out[y * w + x].z = (t / sum * max_depth);
+	out[y * w + x].w = (float)max_depth;
+}
+
+
+__global__ void
+d_bilateral_filter_normal_estimate_float4(float4 *out, int w, int h, ushort max_depth, float e_d, int r)
+{
+	int x = blockIdx.x*blockDim.x + threadIdx.x;
+	int y = blockIdx.y*blockDim.y + threadIdx.y;
+
+	if (x >= w || y >= h)
+	{
+		return;
+	}
+
+
+	float sum = 0.0f;
+	float factor;
+	float4 t = { 0.f, 0.f, 0.f, 0.f };
+	float4 center = tex2D(float4Tex, x, y);
+	center /= (float)max_depth;
+
+
+	for (int i = -r; i <= r; i++)
+	{
+		for (int j = -r; j <= r; j++)
+		{
+			float4 curPix = tex2D(float4Tex, x + j, y + i);
+			curPix /= (float)max_depth;
+
+			factor = cGaussian[i + r] * cGaussian[j + r] *     //domain factor
+				euclideanLen(curPix, center, e_d);             //range factor
+
+			t += factor * curPix;
+			sum += factor;
+		}
+	}
+
+	out[y * w + x] = t / sum * max_depth;
+
+	//out[y * w + x].x = (t.x / sum * max_depth);
+	//out[y * w + x].y = (t.y / sum * max_depth);
+	//out[y * w + x].z = (t.z / sum * max_depth);
+	//out[y * w + x].w = (t.w / sum * max_depth);
+}
+
+
+
+
 __global__ void
 d_passthrough_texture_ushort(ushort* pImage, int w, int h)
 {
@@ -252,6 +428,10 @@ d_passthrough_texture_uchar(uchar* pImage, int w, int h)
 
 	return;
 }
+
+
+
+
 
 extern "C"
 void initTexture(int width, int height, uint *hImage)
@@ -498,6 +678,204 @@ StopWatchInterface *timer)
 	return ((dKernelTime / 1000.) / (double)iterations);
 }
 
+
+extern "C"
+double bilateralFilter_normal_estimate(
+float *dOutputImage,
+ushort *dInputImage,
+int width,
+int height,
+size_t in_pitch,
+size_t out_pitch,
+ushort max_depth,
+float e_d,
+int radius,
+int iterations,
+StopWatchInterface *timer)
+{
+	float* dTempImage = nullptr;
+	checkCudaErrors(cudaMallocPitch(&dTempImage, &out_pitch, sizeof(float) * width, height));
+
+
+	// var for kernel computation timing
+	double dKernelTime = 0.0;
+
+	// Bind the array to the texture
+	cudaChannelFormatDesc desc = cudaCreateChannelDesc<ushort>();
+	checkCudaErrors(cudaBindTexture2D(0, ushortTex, dInputImage, desc, width, height, in_pitch));
+
+
+	const dim3 threads_per_block(32, 32);
+	dim3 num_blocks;
+	num_blocks.x = (width + threads_per_block.x - 1) / threads_per_block.x;
+	num_blocks.y = (height + threads_per_block.y - 1) / threads_per_block.y;
+
+
+	//cudaMemcpy2D(
+	//	dOutputImage,
+	//	sizeof(uchar) * width,
+	//	dInputImage,
+	//	pitch,
+	//	sizeof(uchar) * width,
+	//	height,
+	//	cudaMemcpyDeviceToDevice);
+
+
+	// sync host and start kernel computation timer
+	dKernelTime = 0.0;
+	checkCudaErrors(cudaDeviceSynchronize());
+	sdkResetTimer(&timer);
+
+	d_bilateral_filter_normal_estimate_ushort << <  num_blocks, threads_per_block >> >(dOutputImage, width, height, max_depth, e_d, radius);
+
+	// sync host and stop computation timer
+	checkCudaErrors(cudaDeviceSynchronize());
+	dKernelTime += sdkGetTimerValue(&timer);
+
+	if (iterations > 1)
+	{
+		// copy result back from global memory to array
+		checkCudaErrors(cudaMemcpy2D(
+			dTempImage,
+			out_pitch,
+			dOutputImage,
+			sizeof(float) * width,
+			sizeof(float) * width,
+			height,
+			cudaMemcpyDeviceToDevice));
+
+		cudaChannelFormatDesc desc_float = cudaCreateChannelDesc<float>();
+		checkCudaErrors(cudaBindTexture2D(0, floatTex, dTempImage, desc_float, width, height, out_pitch));
+	}
+
+
+	for (int i = 1; i < iterations; i++)
+	{
+		// sync host and start kernel computation timer
+		dKernelTime = 0.0;
+		checkCudaErrors(cudaDeviceSynchronize());
+		sdkResetTimer(&timer);
+
+		d_bilateral_filter_normal_estimate_float << <  num_blocks, threads_per_block >> >(dOutputImage, width, height, max_depth, e_d, radius);
+
+		// sync host and stop computation timer
+		checkCudaErrors(cudaDeviceSynchronize());
+		dKernelTime += sdkGetTimerValue(&timer);
+
+		// copy result back from global memory to array
+		checkCudaErrors(cudaMemcpy2D(
+			dTempImage,
+			out_pitch,
+			dOutputImage,
+			sizeof(float) * width,
+			sizeof(float) * width,
+			height,
+			cudaMemcpyDeviceToDevice));
+
+		cudaChannelFormatDesc desc_float = cudaCreateChannelDesc<float>();
+		checkCudaErrors(cudaBindTexture2D(0, floatTex, dTempImage, desc_float, width, height, out_pitch));
+	}
+
+
+	return ((dKernelTime / 1000.) / (double)iterations);
+}
+
+
+extern "C"
+double bilateralFilter_normal_estimate_float4(
+float4 *dOutputImage,
+ushort *dInputImage,
+int width,
+int height,
+size_t in_pitch,
+size_t out_pitch,
+ushort max_depth,
+float e_d,
+int radius,
+int iterations,
+StopWatchInterface *timer)
+{
+	float4* dTempImage = nullptr;
+	checkCudaErrors(cudaMallocPitch(&dTempImage, &out_pitch, sizeof(float4) * width, height));
+
+
+	// var for kernel computation timing
+	double dKernelTime = 0.0;
+
+	// Bind the array to the texture
+	cudaChannelFormatDesc desc = cudaCreateChannelDesc<ushort>();
+	checkCudaErrors(cudaBindTexture2D(0, ushortTex, dInputImage, desc, width, height, in_pitch));
+
+
+	const dim3 threads_per_block(32, 32);
+	dim3 num_blocks;
+	num_blocks.x = (width + threads_per_block.x - 1) / threads_per_block.x;
+	num_blocks.y = (height + threads_per_block.y - 1) / threads_per_block.y;
+
+
+
+	// sync host and start kernel computation timer
+	dKernelTime = 0.0;
+	checkCudaErrors(cudaDeviceSynchronize());
+	sdkResetTimer(&timer);
+
+	d_bilateral_filter_normal_estimate_ushort_float4 << <  num_blocks, threads_per_block >> >(dOutputImage, width, height, max_depth, e_d, radius);
+
+	// sync host and stop computation timer
+	checkCudaErrors(cudaDeviceSynchronize());
+	dKernelTime += sdkGetTimerValue(&timer);
+
+
+	if (iterations > 1)
+	{
+		// copy result back from global memory to array
+		checkCudaErrors(cudaMemcpy2D(
+			dTempImage,
+			out_pitch,
+			dOutputImage,
+			sizeof(float4) * width,
+			sizeof(float4) * width,
+			height,
+			cudaMemcpyDeviceToDevice));
+
+		cudaChannelFormatDesc desc_float = cudaCreateChannelDesc<float4>();
+		checkCudaErrors(cudaBindTexture2D(0, float4Tex, dTempImage, desc_float, width, height, out_pitch));
+	}
+
+
+	for (int i = 1; i < iterations; i++)
+	{
+		// sync host and start kernel computation timer
+		dKernelTime = 0.0;
+		checkCudaErrors(cudaDeviceSynchronize());
+		sdkResetTimer(&timer);
+
+		d_bilateral_filter_normal_estimate_float4 << <  num_blocks, threads_per_block >> >(dOutputImage, width, height, max_depth, e_d, radius);
+
+		// sync host and stop computation timer
+		checkCudaErrors(cudaDeviceSynchronize());
+		dKernelTime += sdkGetTimerValue(&timer);
+
+		// copy result back from global memory to array
+		checkCudaErrors(cudaMemcpy2D(
+			dTempImage,
+			out_pitch,
+			dOutputImage,
+			sizeof(float4) * width,
+			sizeof(float4) * width,
+			height,
+			cudaMemcpyDeviceToDevice));
+
+		cudaChannelFormatDesc desc_float = cudaCreateChannelDesc<float4>();
+		checkCudaErrors(cudaBindTexture2D(0, float4Tex, dTempImage, desc_float, width, height, out_pitch));
+	}
+	
+
+
+	checkCudaErrors(cudaFree(dTempImage));
+
+	return ((dKernelTime / 1000.) / (double)iterations);
+}
 
 
 void passthrough_texture_ushort(ushort* dOutputImage, ushort* dInputImage, int width, int height, size_t pitch)

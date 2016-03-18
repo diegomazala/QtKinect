@@ -7,6 +7,10 @@
 #include <cublas_v2.h>
 #include <curand.h>
 #include <thrust/device_vector.h>
+#include "helper_cuda.h"
+
+texture<ushort, 2> ushortTexture;
+texture<float4, 2, cudaReadModeElementType> float4Texture;
 
 extern "C"
 {
@@ -135,6 +139,32 @@ extern "C"
 			c[row * width + col] = sum;
 		}
 	}
+
+	// cross product 
+	inline __host__ __device__ float4 cross(float4 a, float4 b)
+	{
+		return make_float4(a.y*b.z - a.z*b.y, a.z*b.x - a.x*b.z, a.x*b.y - a.y*b.x, 1.0f);
+	}
+
+	// dot product
+	inline __host__ __device__ float dot(float4 a, float4 b)
+	{
+		return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
+	}
+
+	// normalize
+	inline __host__ __device__ float4 normalize(float4 v)
+	{
+		float invLen = rsqrtf(dot(v, v));
+		return make_float4(v.x * invLen, v.y * invLen, v.z * invLen, v.w * invLen);
+	}
+
+	// subtract
+	inline __host__ __device__ float4 operator-(float4 a, float4 b)
+	{
+		return make_float4(a.x - b.x, a.y - b.y, a.z - b.z, a.w - b.w);
+	}
+
 
 	__global__ void compute_pixel_depth_kernel(
 		float* in_out_depth_buffer_1f, 
@@ -689,4 +719,141 @@ extern "C"
 		thrust::copy(d_grid_voxels_points_4f.begin(), d_grid_voxels_points_4f.end(), &grid_voxels_points_4f[0]);
 		thrust::copy(d_grid_voxels_params_2f.begin(), d_grid_voxels_params_2f.end(), &grid_voxels_params_2f[0]);
 	}
+
+
+
+	__device__ void matrix_mul_mat_vec_kernel_device(const float *a, const float *b, float *c, int width)
+	{
+		int m = width;
+		int k = width;
+		//int n = 1;
+
+		for (int i = 0; i < m; i++)
+			for (int j = 0; j < k; j++)
+				c[j] += a[i * m + j] * b[i];		// col major
+				//c[i] += a[i * m + j] * b[j];		// row major
+	}
+
+
+	__device__ void window_coord_to_3d_kernel_device(
+		float4* out_vertex,
+		const int x,
+		const int y,
+		const float depth,
+		const float* inverse_projection_mat4x4,
+		const int window_width,
+		const int window_height)
+	{
+		float ndc[3];
+		ndc[0] = (x - (window_width * 0.5f)) / (window_width * 0.5f);
+		ndc[1] = (y - (window_height * 0.5f)) / (window_height * 0.5f);
+		ndc[2] = -1.0f;
+
+		float clip[4];
+		clip[0] = ndc[0] * depth;
+		clip[1] = ndc[1] * depth;
+		clip[2] = ndc[2] * depth;
+		clip[3] = 1.0f;
+
+		float vertex_proj_inv[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+		matrix_mul_mat_vec_kernel_device(inverse_projection_mat4x4, clip, vertex_proj_inv, 4);
+
+		out_vertex->x = -vertex_proj_inv[0];
+		out_vertex->y = -vertex_proj_inv[1];
+		out_vertex->z = depth;
+		out_vertex->w = 1.0f;
+		//out_vertex->x = clip[0];
+		//out_vertex->y = clip[1];
+		//out_vertex->z = clip[2];
+		//out_vertex->w = 1.0f;
+	}
+
+	__global__ void	d_back_projection_with_normal_estimate_kernel(float4 *out_vertices, int w, int h, ushort max_depth, float* inverse_projection_16f)
+	{
+		int x = blockIdx.x*blockDim.x + threadIdx.x;
+		int y = blockIdx.y*blockDim.y + threadIdx.y;
+
+		if (x >= w || y >= h)
+		{
+			return;
+		}
+
+		float depth = ((float)tex2D(ushortTexture, x, y));
+		float4 vertex;
+		window_coord_to_3d_kernel_device(&vertex, x, y, depth, inverse_projection_16f, w, h);
+
+		out_vertices[y * w + x] = vertex;
+	}
+
+	
+
+	__global__ void	d_normal_estimate_kernel(float4 *out_normals, int w, int h)
+	{
+		int x = blockIdx.x*blockDim.x + threadIdx.x;
+		int y = blockIdx.y*blockDim.y + threadIdx.y;
+
+		if (x >= w || y >= h)
+		{
+			return;
+		}
+
+		const float4 vertex_uv = tex2D(float4Texture, x, y);
+		const float4 vertex_u1v = tex2D(float4Texture, x + 1, y);
+		const float4 vertex_uv1 = tex2D(float4Texture, x, y + 1);
+		
+		if (vertex_uv.z < 0.01 || vertex_u1v.z < 0.01 || vertex_uv1.z < 0.01)
+		{
+			out_normals[y * w + x] = make_float4(0, 0, 1, 1);
+			return;
+		}
+
+		const float4 n1 = vertex_u1v - vertex_uv;
+		const float4 n2 = vertex_uv1 - vertex_uv;
+		const float4 n = cross(n1, n2);
+
+		out_normals[y * w + x] = normalize(n);
+	}
+	
+	void back_projection_with_normal_estimation(
+		float4* d_out_vertices_4f,
+		float4* d_out_normals_4f,
+		const ushort* d_depth_buffer,
+		const ushort depth_width,
+		const ushort depth_height,
+		const ushort max_depth,
+		const size_t in_pitch,
+		const size_t out_pitch,
+		const float* h_inverse_projection_mat4x4
+		)
+	{
+		thrust::device_vector<float> d_inverse_projection_mat_16f(&h_inverse_projection_mat4x4[0], &h_inverse_projection_mat4x4[0] + 16);
+
+		cudaChannelFormatDesc desc = cudaCreateChannelDesc<ushort>();
+		checkCudaErrors(cudaBindTexture2D(0, ushortTexture, d_depth_buffer, desc, depth_width, depth_height, in_pitch));
+
+
+		const dim3 threads_per_block(32, 32);
+		dim3 num_blocks;
+		num_blocks.x = (depth_width + threads_per_block.x - 1) / threads_per_block.x;
+		num_blocks.y = (depth_height + threads_per_block.y - 1) / threads_per_block.y;
+
+		d_back_projection_with_normal_estimate_kernel << <  num_blocks, threads_per_block >> >(
+			d_out_vertices_4f,
+			depth_width,
+			depth_height,
+			max_depth,
+			thrust::raw_pointer_cast(&d_inverse_projection_mat_16f[0])
+			);
+
+		cudaChannelFormatDesc desc_normal = cudaCreateChannelDesc<float4>();
+		checkCudaErrors(cudaBindTexture2D(0, float4Texture, d_out_vertices_4f, desc_normal, depth_width, depth_height, out_pitch));
+
+		d_normal_estimate_kernel << <  num_blocks, threads_per_block >> >(
+			d_out_normals_4f,
+			depth_width,
+			depth_height);
+
+	}
+
+
 };

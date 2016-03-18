@@ -25,59 +25,8 @@ typedef unsigned short	ushort;
 
 
 
-
 extern "C"
 {
-
-	double bilateralFilterRGBA(
-		unsigned int *d_dest, 
-		int width, 
-		int height,
-		float e_d, 
-		int radius, 
-		int iterations,
-		StopWatchInterface *timer);
-
-
-	double bilateralFilterGray(
-		uchar* dOutputImage,
-		uchar* dInputImage,
-		int width, 
-		int height,
-		size_t pitch,
-		float e_d, 
-		int radius, 
-		int iterations,
-		StopWatchInterface *timer);
-
-
-	double bilateralFilter_ushort(
-		ushort *dOutputImage,
-		ushort *dInputImage,
-		int width, 
-		int height, 
-		size_t pitch,
-		ushort max_depth,
-		float e_d, 
-		int radius, 
-		int iterations,
-		StopWatchInterface *timer);
-
-	
-	void passthrough_texture_ushort(
-		ushort* dOutputImage,
-		ushort* dInputImage,
-		int width,
-		int height,
-		size_t pitch);
-
-
-
-	extern "C" void updateGaussian(float delta, int radius);
-
-
-
-
 	bool cublas_init();
 	bool cublas_cleanup();
 	bool cublas_matrix_mul(float *dev_C, const float *dev_A, const float *dev_B, const int m, const int k, const int n);
@@ -140,28 +89,101 @@ extern "C"
 		float* grid_voxels_points_4f,
 		float* grid_voxels_params_2f
 		);
+
+
+	double bilateralFilterRGBA(
+		unsigned int *d_dest,
+		int width,
+		int height,
+		float e_d,
+		int radius,
+		int iterations,
+		StopWatchInterface *timer);
+
+
+	double bilateralFilterGray(
+		uchar* dOutputImage,
+		uchar* dInputImage,
+		int width,
+		int height,
+		size_t pitch,
+		float e_d,
+		int radius,
+		int iterations,
+		StopWatchInterface *timer);
+
+
+	double bilateralFilter_ushort(
+		ushort *dOutputImage,
+		ushort *dInputImage,
+		int width,
+		int height,
+		size_t pitch,
+		ushort max_depth,
+		float e_d,
+		int radius,
+		int iterations,
+		StopWatchInterface *timer);
+
+	double bilateralFilter_normal_estimate(
+		float *dOutputImage,
+		ushort *dInputImage,
+		int width,
+		int height,
+		size_t in_pitch,
+		size_t out_pitch,
+		ushort max_depth,
+		float e_d,
+		int radius,
+		int iterations,
+		StopWatchInterface *timer);
+
+
+
+	double bilateralFilter_normal_estimate_float4(
+		float4 *dOutputImage,
+		ushort *dInputImage,
+		int width,
+		int height,
+		size_t in_pitch,
+		size_t out_pitch,
+		ushort max_depth,
+		float e_d,
+		int radius,
+		int iterations,
+		StopWatchInterface *timer);
+
+
+	void passthrough_texture_ushort(
+		ushort* dOutputImage,
+		ushort* dInputImage,
+		int width,
+		int height,
+		size_t pitch);
+
+
+
+	extern "C" void updateGaussian(float delta, int radius);
+
+
+	void back_projection_with_normal_estimation(
+		float4* d_out_verteices_4f,
+		float4* d_out_normals_4f,
+		const ushort* d_depth_buffer,
+		const ushort depth_width,
+		const ushort depth_height,
+		const ushort max_depth,
+		const size_t in_pitch,
+		const size_t out_pitch,
+		const float* h_inverse_projection_mat4x4
+		);
+
 };
 
 
 
 template<typename Type>
 static void perspective_matrix(Type out[16], Type fovy, Type aspect_ratio, Type near_plane, Type far_plane);
-
-
-////usage example with eigen: matrix_mul(mat_C.data(), mat_A.data(), &vector_of_eigen_vector4[0][0], A.rows(), A.cols(), vector_of_eigen_vector4.size());
-//template<typename Type>
-//void matrix_mul(Type* mat_c, const Type* mat_a, const Type* mat_b, int m, int k, int n);
-//{
-//	// transfer to device 
-//	thrust::device_vector<Type> d_a(&mat_a[0], &mat_a[0] + m * k);
-//	thrust::device_vector<Type> d_b(&mat_b[0], &mat_b[0] + k * n);
-//	thrust::device_vector<Type> d_c(&mat_c[0], &mat_c[0] + m * n);
-//
-//	// Multiply A and B on GPU
-//	//cublas_matrix_mul(thrust::raw_pointer_cast(&d_a[0]), thrust::raw_pointer_cast(&d_b[0]), thrust::raw_pointer_cast(&d_c[0]), m, k, n);
-//
-//	thrust::copy(d_c.begin(), d_c.end(), &mat_c[0]);
-//}
 
 
 
