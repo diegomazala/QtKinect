@@ -21,9 +21,19 @@ public:
 		return std::chrono::duration<double>(interval_ns()).count();
 	}
 
+	double diff_msec() const
+	{
+		return std::chrono::duration<double>(interval_ms()).count();
+	}
+
 	void print_interval(const std::string& msg) const
 	{
 		std::cout << msg << diff_sec() << " seconds " << std::endl;
+	}
+
+	void print_interval_msec(const std::string& msg) const
+	{
+		std::cout << msg << diff_msec() << " msec " << std::endl;
 	}
 
 	std::chrono::seconds interval_sec() const
