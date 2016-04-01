@@ -13,7 +13,11 @@ public:
 	explicit QOpenGLTrackballWidget(QWidget *parent = 0);
 	~QOpenGLTrackballWidget();
 
+	void setWeelSpeed(float weel_speed){ weelSpeed = weel_speed; }
+	void setDistance(float dist){ distance = dist; }
+
 protected:
+	virtual void keyReleaseEvent(QKeyEvent *);
 	void mousePressEvent(QMouseEvent *e) Q_DECL_OVERRIDE;
 	void mouseMoveEvent(QMouseEvent *e) Q_DECL_OVERRIDE;
 	void mouseReleaseEvent(QMouseEvent *e) Q_DECL_OVERRIDE;
@@ -26,7 +30,11 @@ protected:
 	qreal angularSpeed;
 	QQuaternion rotation;
 	float distance;
+	float weelSpeed;
+
+	
 };
+
 
 
 

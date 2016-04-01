@@ -56,7 +56,7 @@ void QOpenGLTrackballWidget::mouseReleaseEvent(QMouseEvent *e)
 
 void QOpenGLTrackballWidget::wheelEvent(QWheelEvent* event)
 {
-	distance -= event->delta() * 0.1;
+	distance -= event->delta() * weelSpeed;
 
 	//if (distance < 0.5f)
 	//	distance = 0.5f;
@@ -91,4 +91,8 @@ void QOpenGLTrackballWidget::timerEvent(QTimerEvent *)
 }
 
 
-
+void QOpenGLTrackballWidget::keyReleaseEvent(QKeyEvent *e)
+{
+	if (e->key() == Qt::Key_Q || e->key() == Qt::Key_Escape)
+		this->close();
+}
