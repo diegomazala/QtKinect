@@ -297,7 +297,7 @@ int main(int argc, char **argv)
 	frame.depth = depth_buffer_filtered;
 	t.print_interval("Copying depth buffer filtered             : ");
 
-	QString str = "bilateral_filter_" + QString::number(iterations) + "_" + QString::number(gaussian_delta) + "_" + QString::number(euclidean_delta) + "_" + QString::number(filter_radius);
+	QString str = "_bilateral_filter_" + QString::number(iterations) + "_" + QString::number(gaussian_delta) + "_" + QString::number(euclidean_delta) + "_" + QString::number(filter_radius);
 	
 	QImageWidget outputWidget;
 	outputWidget.setImage(depthImageFiltered);
@@ -307,11 +307,11 @@ int main(int argc, char **argv)
 #endif
 
 	t.start();
-	depthImageFiltered.save(QFileInfo(filename.c_str()).absolutePath() + '/' + str + ".png");
+	depthImageFiltered.save(QFileInfo(filename.c_str()).absolutePath() + '/' + QFileInfo(filename.c_str()).baseName() + str + ".png");
 	t.print_interval("Saving image result                       : ");
 
 	t.start();
-	QString frame_filename = QFileInfo(filename.c_str()).absolutePath() + '/' + str + ".knt";
+	QString frame_filename = QFileInfo(filename.c_str()).absolutePath() + '/' + QFileInfo(filename.c_str()).baseName() + str + ".knt";
 	QKinectIO::saveFrame(frame_filename.toStdString(), frame);
 	t.print_interval("Saving frame result                       : ");
 	
