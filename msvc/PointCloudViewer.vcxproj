@@ -15,6 +15,7 @@
     <ClCompile Include="..\src\GLKinectWidget.cpp" />
     <ClCompile Include="..\src\GLPointCloud.cpp" />
     <ClCompile Include="..\src\GLPointCloudViewer.cpp" />
+    <ClCompile Include="..\src\ICP.cpp" />
     <ClCompile Include="..\src\KinectFrame.cpp" />
     <ClCompile Include="..\src\QOpenGLTrackballWidget.cpp" />
     <ClCompile Include="..\src\PointCloudViewerMain.cpp" />
@@ -44,6 +45,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\src\ComputeRigidTransform.h" />
     <ClInclude Include="..\src\GLKinectFrame.h" />
     <CustomBuild Include="..\src\GLKinectWidget.h">
       <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(QTDIR)\bin\moc.exe;%(FullPath)</AdditionalInputs>
@@ -67,6 +69,7 @@
     </CustomBuild>
     <ClInclude Include="..\src\GLModel.h" />
     <ClInclude Include="..\src\GLPointCloud.h" />
+    <ClInclude Include="..\src\ICP.h" />
     <ClInclude Include="..\src\KinectFrame.h" />
     <ClInclude Include="..\src\ObjFile.h" />
     <ClInclude Include="..\src\QOpenGLTrackballWidget.h" />

@@ -108,6 +108,63 @@ static bool import_obj(const std::string& filename, std::vector<Eigen::Vector4f>
 }
 
 
+static bool import_obj(const std::string& filename, std::vector<Eigen::Vector4f>& vertices, std::vector<Eigen::Vector3f>& normals)
+{
+	std::ifstream inFile;
+	inFile.open(filename);
+
+	if (!inFile.is_open())
+	{
+		std::cerr << "Error: Could not open obj input file: " << filename << std::endl;
+		return false;
+	}
+
+	vertices.clear();
+	normals.clear();
+
+	int i = 0;
+	while (inFile)
+	{
+		std::string str;
+
+		if (!std::getline(inFile, str))
+		{
+			if (inFile.eof())
+				return true;
+
+			std::cerr << "Error: Problems when reading obj file: " << filename << std::endl;
+			return false;
+		}
+
+		if (str[0] == 'v')
+		{
+			std::stringstream ss(str);
+
+			char c[3];
+			float x, y, z, w;
+			
+			ss >> c >> x >> y >> z >> w;
+			
+
+			if (str[1] == 'n')			// read normal
+			{
+				normals.push_back(Eigen::Vector3f(x, y, z));
+			}
+			else						// read vertex
+			{
+				Eigen::Vector4f p(x, y, z, 1.0f);
+				if ((int)w != 0) p.w() = w;
+				vertices.push_back(p);
+			}
+		}
+	}
+
+	inFile.close();
+	return true;
+}
+
+
+
 
 template<typename Type, int Rows>
 static void export_obj_with_normals(const std::string& filename, const std::vector<Eigen::Matrix<Type, Rows, 1>>& vertices, const std::vector<Eigen::Matrix<Type, Rows, 1>>& normals)

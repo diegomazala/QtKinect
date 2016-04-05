@@ -47,6 +47,7 @@ void GLPointCloud::setVertices(const float* vertices, uint count, uint tuple_siz
 
 	vertexBuf.bind();
 	vertexBuf.allocate(vertices, static_cast<int>(count * stride));
+
 }
 
 
@@ -61,6 +62,8 @@ void GLPointCloud::render(QOpenGLShaderProgram *program)
 	int vertexLocation = program->attributeLocation("in_position");
 	program->enableAttributeArray(vertexLocation);
 	program->setAttributeBuffer(vertexLocation, GL_FLOAT, 0, tupleSize, stride);
+
+	program->setUniformValue("color", color);
 
     // Draw geometry 
 	glDrawArrays(GL_POINTS, 0, static_cast<int>(vertexCount * tupleSize));

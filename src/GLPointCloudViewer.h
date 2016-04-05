@@ -25,7 +25,8 @@ public:
 	explicit GLPointCloudViewer(QWidget *parent = 0);
 	~GLPointCloudViewer();
 
-	void addPointCloud(PointCloudXYZW* point_cloud);
+	void addPointCloud(const std::vector<Eigen::Vector4f>& point_cloud);
+	void addPointCloud(const std::vector<Eigen::Vector4f>& point_cloud, const Eigen::Vector3f& color);
 
 protected:
 

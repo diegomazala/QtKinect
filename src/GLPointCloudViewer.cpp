@@ -21,6 +21,8 @@ GLPointCloudViewer::GLPointCloudViewer(QWidget *parent) :
 	QTimer* updateTimer = new QTimer(this);
 	connect(updateTimer, SIGNAL(timeout()), this, SLOT(update()));
 	updateTimer->start(33);
+
+	srand(time(NULL));
 }
 
 
@@ -35,15 +37,22 @@ GLPointCloudViewer::~GLPointCloudViewer()
 }
 
 
-void GLPointCloudViewer::addPointCloud(PointCloudXYZW* point_cloud)
+void GLPointCloudViewer::addPointCloud(const std::vector<Eigen::Vector4f>& point_cloud)
 {
-	if (point_cloud == nullptr)
-		return;
-
 	pointCloud.push_back(new GLPointCloud());
 	GLPointCloud* cloud = pointCloud.back();
 	cloud->initGL();
-	cloud->setVertices(point_cloud->data()->data(), point_cloud->size(), 4);
+	cloud->setVertices(point_cloud.data()->data(), point_cloud.size(), 4);
+	cloud->setColor(colours[rand() % 10]);
+}
+
+void GLPointCloudViewer::addPointCloud(const std::vector<Eigen::Vector4f>& point_cloud, const Eigen::Vector3f& color)
+{
+	pointCloud.push_back(new GLPointCloud());
+	GLPointCloud* cloud = pointCloud.back();
+	cloud->initGL();
+	cloud->setVertices(point_cloud.data()->data(), point_cloud.size(), 4);
+	cloud->setColor(QVector3D(color.x(), color.y(), color.z()));
 }
 
 
@@ -60,6 +69,8 @@ void GLPointCloudViewer::initializeGL()
 
     // Enable back face culling
     glEnable(GL_CULL_FACE);
+
+	glEnable(GL_VERTEX_PROGRAM_POINT_SIZE);
 
 	for (auto cloud : pointCloud)
 		cloud->initGL();
@@ -85,8 +96,8 @@ void GLPointCloudViewer::initShaders()
     if (!program.bind())
         close();
 	
-	srand(time(NULL));
-	program.setUniformValue("color", colours[rand() % 10]);
+	
+	
 }
 
 
