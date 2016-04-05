@@ -23,7 +23,7 @@ public:
 
 	double diff_msec() const
 	{
-		return std::chrono::duration<double>(interval_ms()).count();
+		return std::chrono::duration<double, std::milli>(interval_ns()).count();
 	}
 
 	void print_interval(const std::string& msg) const
