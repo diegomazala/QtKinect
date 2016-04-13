@@ -57,8 +57,6 @@ void GLPointCloud::render(QOpenGLShaderProgram *program)
 	program->enableAttributeArray(vertexLocation);
 	program->setAttributeBuffer(vertexLocation, GL_FLOAT, 0, tupleSize, stride);
 
-	program->setUniformValue("color", color);
-
     // Draw geometry 
 	glDrawArrays(GL_POINTS, 0, static_cast<float>(vertexCount * tupleSize));
 

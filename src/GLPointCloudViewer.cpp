@@ -8,11 +8,10 @@
 #include <iostream>
 #include <time.h>
 
-static QVector3D colours[10] = {
+static QVector3D colours[7] = {
 	QVector3D(1, 0, 0), QVector3D(0, 1, 0), QVector3D(0, 0, 1),
 	QVector3D(1, 1, 0), QVector3D(1, 0, 1), QVector3D(0, 1, 1),
-	QVector3D(1, 1, 1), QVector3D(0, 0.5, 0.25), QVector3D(0.75, 0.5, 0),
-	QVector3D(0.25, 0.5, 0.75) };
+	QVector3D(1, 1, 1) };
 
 
 
@@ -104,7 +103,7 @@ void GLPointCloudViewer::initShaders()
 
 	int colorLocation = shaderProgram->uniformLocation("color");
 	if (colorLocation > -1)
-		shaderProgram->setUniformValue(colorLocation, QVector3D(1, 1, 0));
+		shaderProgram->setUniformValue(colorLocation, colours[rand() % 7]);
 }
 
 void GLPointCloudViewer::setShaderProgram(const std::shared_ptr<QOpenGLShaderProgram>& shader_program)
