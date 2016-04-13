@@ -32,4 +32,5 @@ private:
 	QVector3D color;
 };
 
+
 #endif // _GL_POINT_CLOUD_H_

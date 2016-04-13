@@ -14,6 +14,7 @@
 #include <QBasicTimer>
 #include <QOpenGLShaderProgram>
 #include <QOpenGLTexture>
+#include <memory>
 
 class GeometryEngine;
 
@@ -25,8 +26,9 @@ public:
 	explicit GLPointCloudViewer(QWidget *parent = 0);
 	~GLPointCloudViewer();
 
-	void addPointCloud(const std::vector<Eigen::Vector4f>& point_cloud);
-	void addPointCloud(const std::vector<Eigen::Vector4f>& point_cloud, const Eigen::Vector3f& color);
+	void addPointCloud(const std::shared_ptr<GLModel>& point_cloud);
+
+	void setShaderProgram(const std::shared_ptr<QOpenGLShaderProgram>& shader_program);
 
 protected:
 
@@ -37,8 +39,10 @@ protected:
     void initShaders();
 
 private:
-    QOpenGLShaderProgram program;
-	std::vector<GLPointCloud*> pointCloud;
+    
+	std::shared_ptr<QOpenGLShaderProgram> shaderProgram;
+	
+	std::vector<std::shared_ptr<GLModel>> pointCloud;
 
     QMatrix4x4 projection;
 };

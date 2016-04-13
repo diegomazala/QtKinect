@@ -3,6 +3,7 @@
 
 #include <QMouseEvent>
 #include <QTimer>
+#include <QDir>
 #include <math.h>
 #include <iostream>
 #include <time.h>
@@ -23,6 +24,7 @@ GLPointCloudViewer::GLPointCloudViewer(QWidget *parent) :
 	updateTimer->start(33);
 
 	srand(time(NULL));
+
 }
 
 
@@ -36,24 +38,11 @@ GLPointCloudViewer::~GLPointCloudViewer()
     doneCurrent();
 }
 
-
-void GLPointCloudViewer::addPointCloud(const std::vector<Eigen::Vector4f>& point_cloud)
+void GLPointCloudViewer::addPointCloud(const std::shared_ptr<GLModel>& point_cloud)
 {
-	pointCloud.push_back(new GLPointCloud());
-	GLPointCloud* cloud = pointCloud.back();
-	cloud->initGL();
-	cloud->setVertices(point_cloud.data()->data(), point_cloud.size(), 4);
-	cloud->setColor(colours[rand() % 10]);
+	pointCloud.push_back(point_cloud);
 }
 
-void GLPointCloudViewer::addPointCloud(const std::vector<Eigen::Vector4f>& point_cloud, const Eigen::Vector3f& color)
-{
-	pointCloud.push_back(new GLPointCloud());
-	GLPointCloud* cloud = pointCloud.back();
-	cloud->initGL();
-	cloud->setVertices(point_cloud.data()->data(), point_cloud.size(), 4);
-	cloud->setColor(QVector3D(color.x(), color.y(), color.z()));
-}
 
 
 void GLPointCloudViewer::initializeGL()
@@ -70,7 +59,7 @@ void GLPointCloudViewer::initializeGL()
     // Enable back face culling
     glEnable(GL_CULL_FACE);
 
-	glEnable(GL_VERTEX_PROGRAM_POINT_SIZE);
+	//glEnable(GL_VERTEX_PROGRAM_POINT_SIZE);
 
 	for (auto cloud : pointCloud)
 		cloud->initGL();
@@ -80,27 +69,49 @@ void GLPointCloudViewer::initializeGL()
 
 void GLPointCloudViewer::initShaders()
 {
+	// look for shader dir 
+	QDir dir;
+	std::string shader_dir("resources/shaders/");
+	for (int i = 0; i < 5; ++i)
+	{
+		if (!dir.exists(shader_dir.c_str()))
+			shader_dir.insert(0, "../");
+		else
+			break;
+	}
+
+	QString vertexShaderFileName = shader_dir.c_str() + QString("color.vert");
+	QString fragmentShaderFileName = shader_dir.c_str() + QString("color.frag");
+
+	shaderProgram.reset(new QOpenGLShaderProgram);
+
     // Compile vertex shader
-	if (!program.addShaderFromSourceFile(QOpenGLShader::Vertex, ":/resources/shaders/color.vert"))
+	if (!shaderProgram->addShaderFromSourceFile(QOpenGLShader::Vertex, vertexShaderFileName))
         close();
 
     // Compile fragment shader
-	if (!program.addShaderFromSourceFile(QOpenGLShader::Fragment, ":/resources/shaders/color.frag"))
+	if (!shaderProgram->addShaderFromSourceFile(QOpenGLShader::Fragment, fragmentShaderFileName))
         close();
 
     // Link shader pipeline
-    if (!program.link())
+	if (!shaderProgram->link())
         close();
 
     // Bind shader pipeline for use
-    if (!program.bind())
+	if (!shaderProgram->bind())
         close();
-	
-	
-	
+
+
+	int colorLocation = shaderProgram->uniformLocation("color");
+	if (colorLocation > -1)
+		shaderProgram->setUniformValue(colorLocation, QVector3D(1, 1, 0));
 }
 
-
+void GLPointCloudViewer::setShaderProgram(const std::shared_ptr<QOpenGLShaderProgram>& shader_program)
+{
+	shaderProgram->release();
+	shaderProgram = shader_program;
+}
 
 
 
@@ -124,21 +135,43 @@ void GLPointCloudViewer::resizeGL(int w, int h)
 
 void GLPointCloudViewer::paintGL()
 {
+	if (!shaderProgram->bind())
+		return;
+
     // Clear color and depth buffer
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // Calculate model view transformation
-    QMatrix4x4 matrix;
-	matrix.translate(0, 0, distance);
-    matrix.rotate(rotation);
+    QMatrix4x4 view;
+	view.translate(0, 0, distance);
+	view.rotate(rotation);
 	
 	QMatrix4x4 model;
 	model.rotate(180, 0, 1, 0);
+	
 
-    // Set modelview-projection matrix
-    program.setUniformValue("mvp_matrix", projection * matrix * model);
+	int projection_matrix_location = shaderProgram->uniformLocation("projectionMatrix");
+	if (projection_matrix_location > -1)
+		shaderProgram->setUniformValue("projectionMatrix", projection);
+	else
+		std::cerr << "Error: Shader does not have attribute 'projectionMatrix'" << std::endl;
 
-    // Draw cube geometry
+
+	int view_matrix_location = shaderProgram->uniformLocation("viewMatrix");
+	if (view_matrix_location > -1)
+		shaderProgram->setUniformValue("viewMatrix", view);
+	else
+		std::cerr << "Error: Shader does not have attribute 'viewMatrix'" << std::endl;
+
+
+	int model_matrix_location = shaderProgram->uniformLocation("modelMatrix");
+	if (model_matrix_location > -1)
+		shaderProgram->setUniformValue("modelMatrix", model);
+	else
+		std::cerr << "Error: Shader does not have attribute 'modelMatrix'" << std::endl;
+
+    // Draw geometry
 	for (auto cloud : pointCloud)
-		cloud->render(&program);
+		cloud->render(shaderProgram.get());
+	
 }

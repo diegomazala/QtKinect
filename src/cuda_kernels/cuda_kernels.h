@@ -178,6 +178,15 @@ extern "C"
 		const float* h_inverse_projection_mat4x4
 		);
 
+
+	void icp_matching_vertices(
+		ushort2* d_out_indices,
+		float4* d_in_vertices_t0_4f,
+		float4* d_in_vertices_t1_4f,
+		const ushort depth_width,
+		const ushort depth_height,
+		const size_t vertex_pitch,
+		const size_t index_pitch);
 };
 
 

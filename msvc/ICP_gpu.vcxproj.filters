@@ -35,31 +35,25 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\src\QOpenGLTrackballWidget.cpp">
+    <ClCompile Include="..\src\QImageWidget.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="GeneratedFiles\qrc_QKinectPlayer.cpp">
-      <Filter>Generated Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\src\GLKinectFrame.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\src\GLKinectWidget.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="GeneratedFiles\Debug\moc_GLKinectWidget.cpp">
+    <ClCompile Include="GeneratedFiles\Debug\moc_QImageWidget.cpp">
       <Filter>Generated Files\Debug</Filter>
     </ClCompile>
-    <ClCompile Include="GeneratedFiles\Release\moc_GLKinectWidget.cpp">
+    <ClCompile Include="GeneratedFiles\Release\moc_QImageWidget.cpp">
       <Filter>Generated Files\Release</Filter>
     </ClCompile>
     <ClCompile Include="..\src\KinectFrame.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="GeneratedFiles\qrc_KinectShaders.cpp">
-      <Filter>Generated Files</Filter>
+    <ClCompile Include="..\src\ICP_gpu.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\PointCloudViewerMain.cpp">
+    <ClCompile Include="..\src\ICP.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\GLPointCloud.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\src\GLPointCloudViewer.cpp">
@@ -71,19 +65,16 @@
     <ClCompile Include="GeneratedFiles\Release\moc_GLPointCloudViewer.cpp">
       <Filter>Generated Files\Release</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\GLPointCloud.cpp">
+    <ClCompile Include="..\src\QOpenGLTrackballWidget.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\GLRgbPointCloud.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="..\src\QKinectPlayer.qrc">
-      <Filter>Resource Files</Filter>
-    </CustomBuild>
-    <CustomBuild Include="..\src\GLKinectWidget.h">
+    <CustomBuild Include="..\src\QImageWidget.h">
       <Filter>Header Files</Filter>
-    </CustomBuild>
-    <CustomBuild Include="..\src\KinectShaders.qrc">
-      <Filter>Resource Files</Filter>
     </CustomBuild>
     <CustomBuild Include="..\src\GLPointCloudViewer.h">
       <Filter>Header Files</Filter>
@@ -93,13 +84,10 @@
     <ClInclude Include="..\src\Timer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\src\QOpenGLTrackballWidget.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\src\GLKinectFrame.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\src\KinectFrame.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\ICP.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\src\GLModel.h">
@@ -108,60 +96,11 @@
     <ClInclude Include="..\src\GLPointCloud.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\src\ObjFile.h">
+    <ClInclude Include="..\src\QOpenGLTrackballWidget.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\src\ComputeRigidTransform.h">
+    <ClInclude Include="..\src\GLRgbPointCloud.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <Image Include="..\resources\icons\play_48x48.png">
-      <Filter>Resource Files</Filter>
-    </Image>
-    <Image Include="..\resources\icons\stop_48x48.png">
-      <Filter>Resource Files</Filter>
-    </Image>
-    <Image Include="..\resources\icons\rec_48x48.png">
-      <Filter>Resource Files</Filter>
-    </Image>
-    <Image Include="..\resources\icons\power_48x48.png">
-      <Filter>Resource Files</Filter>
-    </Image>
-    <Image Include="..\resources\icons\screenshot_48x48.png">
-      <Filter>Resource Files</Filter>
-    </Image>
-    <Image Include="..\resources\icons\open_48x48.png">
-      <Filter>Resource Files</Filter>
-    </Image>
-    <Image Include="..\resources\icons\save_48x48.png">
-      <Filter>Resource Files</Filter>
-    </Image>
-    <Image Include="..\resources\icons\delete_48x48.png">
-      <Filter>Resource Files</Filter>
-    </Image>
-    <Image Include="..\resources\icons\info_48x48.png">
-      <Filter>Resource Files</Filter>
-    </Image>
-    <Image Include="..\resources\icons\help_48x48.png">
-      <Filter>Resource Files</Filter>
-    </Image>
-    <Image Include="..\resources\images\cube.png">
-      <Filter>Resource Files</Filter>
-    </Image>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="..\resources\shaders\color.vert">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="..\resources\shaders\color.frag">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="..\resources\shaders\kinect.vert">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="..\resources\shaders\kinect.frag">
-      <Filter>Resource Files</Filter>
-    </None>
   </ItemGroup>
 </Project>

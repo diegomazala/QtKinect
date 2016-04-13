@@ -7,11 +7,9 @@
 #include <Eigen/Dense>
 #include "Projection.h"
 
-
 GLPointCloud::GLPointCloud() : GLModel()
 {
 }
-
 
 GLPointCloud::~GLPointCloud()
 {
@@ -22,7 +20,6 @@ GLuint GLPointCloud::vertexBufferId() const
 {
 	return vertexBuf.bufferId();
 }
-
 
 void GLPointCloud::initGL()
 {
@@ -38,7 +35,6 @@ void GLPointCloud::cleanupGL()
 	vertexBuf.destroy();
 }
 
-
 void GLPointCloud::setVertices(const float* vertices, uint count, uint tuple_size)
 {
 	vertexCount = count;
@@ -46,10 +42,8 @@ void GLPointCloud::setVertices(const float* vertices, uint count, uint tuple_siz
 	stride = sizeof(float) * tuple_size;
 
 	vertexBuf.bind();
-	vertexBuf.allocate(vertices, static_cast<int>(count * stride));
-
+	vertexBuf.allocate(vertices, static_cast<float>(count * stride));
 }
-
 
 
 
@@ -66,7 +60,7 @@ void GLPointCloud::render(QOpenGLShaderProgram *program)
 	program->setUniformValue("color", color);
 
     // Draw geometry 
-	glDrawArrays(GL_POINTS, 0, static_cast<int>(vertexCount * tupleSize));
+	glDrawArrays(GL_POINTS, 0, static_cast<float>(vertexCount * tupleSize));
 
 	vertexBuf.release();
 }
