@@ -7,7 +7,7 @@
 #include <Eigen/Dense>
 #include "Projection.h"
 
-GLPointCloud::GLPointCloud() : GLModel()
+GLPointCloud::GLPointCloud() : GLModel(), color(1, 1, 1)
 {
 }
 
@@ -56,6 +56,8 @@ void GLPointCloud::render(QOpenGLShaderProgram *program)
 	int vertexLocation = program->attributeLocation("in_position");
 	program->enableAttributeArray(vertexLocation);
 	program->setAttributeBuffer(vertexLocation, GL_FLOAT, 0, tupleSize, stride);
+
+	program->setUniformValue("color", color);
 
     // Draw geometry 
 	glDrawArrays(GL_POINTS, 0, static_cast<float>(vertexCount * tupleSize));

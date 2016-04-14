@@ -24,6 +24,7 @@ GLPointCloudViewer::GLPointCloudViewer(QWidget *parent) :
 
 	srand(time(NULL));
 
+	currentCloud = -1;
 }
 
 
@@ -36,6 +37,16 @@ GLPointCloudViewer::~GLPointCloudViewer()
 		cloud->cleanupGL();
     doneCurrent();
 }
+
+
+void GLPointCloudViewer::keyReleaseEvent(QKeyEvent *e)
+{
+	if (e->key() >= Qt::Key_0 && e->key() <= Qt::Key_9)
+		currentCloud = e->key() - Qt::Key_0 - 1;
+
+	QOpenGLTrackballWidget::keyReleaseEvent(e);
+}
+
 
 void GLPointCloudViewer::addPointCloud(const std::shared_ptr<GLModel>& point_cloud)
 {
@@ -62,7 +73,6 @@ void GLPointCloudViewer::initializeGL()
 
 	for (auto cloud : pointCloud)
 		cloud->initGL();
-	
 }
 
 
@@ -169,8 +179,13 @@ void GLPointCloudViewer::paintGL()
 	else
 		std::cerr << "Error: Shader does not have attribute 'modelMatrix'" << std::endl;
 
+
+
     // Draw geometry
-	for (auto cloud : pointCloud)
-		cloud->render(shaderProgram.get());
+	if (currentCloud < 0 || currentCloud > pointCloud.size() - 1)
+		for (auto cloud : pointCloud)
+			cloud->render(shaderProgram.get());
+	else
+		pointCloud[currentCloud]->render(shaderProgram.get());
 	
 }

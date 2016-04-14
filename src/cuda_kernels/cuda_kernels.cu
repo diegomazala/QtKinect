@@ -855,21 +855,56 @@ extern "C"
 
 	}
 
-
-	__global__ void	d_icp_matching_vertices_kernel(ushort2 *out_indices, const float4 *in_vertices, int w, int h)
+	__device__ float vec4f_magnitude(const float4& v)
 	{
-		int x = blockIdx.x*blockDim.x + threadIdx.x;
-		int y = blockIdx.y*blockDim.y + threadIdx.y;
+		return sqrt(v.x * v.x + v.y * v.y + v.z * v.z + v.w * v.w);
+	}
+
+	__device__ float4 vec4f_subtract(const float4& a, const float4& b)
+	{
+		return make_float4(a.x - b.x, a.y - b.y, a.z - b.z, a.w - b.w);
+	}
+
+
+	__global__ void	d_icp_matching_vertices_kernel(ushort2 *out_indices, const float4 *in_vertices, ushort w, ushort h, ushort half_window)
+	{
+		int x = blockIdx.x * blockDim.x + threadIdx.x;
+		int y = blockIdx.y * blockDim.y + threadIdx.y;
 
 		if (x >= w || y >= h)
-		{
 			return;
+
+		if (x + half_window >= w || y + half_window >= h
+			|| x - half_window < 0 || y - half_window < 0)
+			return;
+
+
+		const float4 in_vertex = in_vertices[y * w + x];
+		float min_distance = FLT_MAX;
+		ushort2 index = make_ushort2((ushort)x, (ushort)y);
+
+
+		for (ushort xx = x - half_window; xx <= x + half_window; ++xx)
+		{
+			for (ushort yy = y - half_window; yy <= y + half_window; ++yy)
+			{
+				const float4 cur_vertex = tex2D(float4Texture, xx, yy);
+				
+				const float4 vec_diff = vec4f_subtract(cur_vertex, in_vertex);
+				const float distance = vec4f_magnitude(vec_diff);
+
+				if (distance < min_distance)
+				{
+					min_distance = distance;
+					index.x = xx;
+					index.y = yy;
+				}
+			}
 		}
 
-		//const float4 vertex = tex2D(float4Texture, x, y);
-		
-		out_indices[y * w + x] = make_ushort2((ushort)x, (ushort)y);
+		out_indices[y * w + x] = index;
 	}
+
 
 	__global__ void	d_icp_matching_vertices_check_kernel(float4 *out_vertices, const ushort2 *in_indices, int w, int h)
 	{
@@ -881,42 +916,8 @@ extern "C"
 
 		const ushort2 index = in_indices[y * w + x];
 		out_vertices[y * w + x] = tex2D(float4Texture, index.x, index.y);
-
-		
-
-		//ushort half_window = 3;
-
-		//if (x + half_window >= w || y + half_window >= h
-		//	|| x - half_window < 0 || y - half_window < 0)
-		//	return;
-
-		//const ushort2 window = make_ushort2(half_window * 2 + 1, half_window * 2 + 1);
-		//const ushort pixel_count = window.x * window.y;
-
-		//
-		////const float4 vertex = tex2D(float4Texture, index.x, index.y);
-
-		//
-
-		//float4 vertex_sum = tex2D(float4Texture, index.x, index.y);
-		//for (int xx = index.x - half_window; xx < index.x + half_window; ++xx)
-		//{
-		//	for (int yy = index.y - half_window; yy < index.y + half_window; ++yy)
-		//	{
-		//		const float4 vertex = tex2D(float4Texture, xx, yy);
-		//		
-		//		vertex_sum.x += vertex.x;
-		//		vertex_sum.y += vertex.y;
-		//		vertex_sum.z += vertex.z;
-		//	}
-		//}
-
-
-		//out_vertices[y * w + x].x = vertex_sum.x / (pixel_count - 1);
-		//out_vertices[y * w + x].y = vertex_sum.y / (pixel_count - 1);
-		//out_vertices[y * w + x].z = vertex_sum.z / (pixel_count - 1);
-		//out_vertices[y * w + x].w = 1.0f;
 	}
+
 
 
 	void icp_matching_vertices(
@@ -926,12 +927,12 @@ extern "C"
 		const ushort depth_width,
 		const ushort depth_height,
 		const size_t vertex_pitch,
-		const size_t index_pitch
+		const size_t index_pitch,
+		const ushort half_window_search_size
 		)
 	{
 		cudaChannelFormatDesc desc = cudaCreateChannelDesc<float4>();
 		checkCudaErrors(cudaBindTexture2D(0, float4Texture, d_in_vertices_t0_4f, desc, depth_width, depth_height, vertex_pitch));
-
 
 		const dim3 threads_per_block(32, 32);
 		dim3 num_blocks;
@@ -940,16 +941,36 @@ extern "C"
 
 		d_icp_matching_vertices_kernel << <  num_blocks, threads_per_block >> >(
 			d_out_indices,
-			d_in_vertices_t0_4f,
+			d_in_vertices_t1_4f,
 			depth_width,
-			depth_height);
+			depth_height,
+			half_window_search_size);
+
+		//d_icp_matching_vertices_check_kernel << <  num_blocks, threads_per_block >> >(
+		//	d_in_vertices_t1_4f,
+		//	d_out_indices,
+		//	depth_width,
+		//	depth_height);
+	}
+
+
+
+	void icp_matching_vertices_check(
+		float4* d_out_vertices_4f,
+		ushort2* d_in_indices,
+		const ushort depth_width,
+		const ushort depth_height)
+	{
+		const dim3 threads_per_block(32, 32);
+		dim3 num_blocks;
+		num_blocks.x = (depth_width + threads_per_block.x - 1) / threads_per_block.x;
+		num_blocks.y = (depth_height + threads_per_block.y - 1) / threads_per_block.y;
 
 		d_icp_matching_vertices_check_kernel << <  num_blocks, threads_per_block >> >(
-			d_in_vertices_t1_4f,
-			d_out_indices,
+			d_out_vertices_4f,
+			d_in_indices,
 			depth_width,
 			depth_height);
-
 	}
 
 };

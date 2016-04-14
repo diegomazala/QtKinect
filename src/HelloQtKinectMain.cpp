@@ -1,7 +1,7 @@
 
 #include <QApplication>
 #include "QImageWidget.h"
-#include "QKinectGrabber.h"
+#include "QKinectGrabberV1.h"
 #include "QKinectIO.h"
 #include <iostream>
 
@@ -10,16 +10,18 @@ int main(int argc, char **argv)
 {
 	QApplication app(argc, argv);
 
-	QKinectGrabber k;
+	QKinectGrabberV1 k;
 	k.start();
 
 	QImageWidget colorWidget;
-	colorWidget.setMinimumSize(720, 480);
+	//colorWidget.setMinimumSize(720, 480);
+	colorWidget.setMinimumSize(640, 480);
 	colorWidget.show();
 	QApplication::connect(&k, SIGNAL(colorImage(QImage)), &colorWidget, SLOT(setImage(QImage)));
 
 	QImageWidget depthWidget;
-	depthWidget.setMinimumSize(512, 424);
+	//depthWidget.setMinimumSize(512, 424);
+	depthWidget.setMinimumSize(640, 480);
 	depthWidget.show();
 	QApplication::connect(&k, SIGNAL(depthImage(QImage)), &depthWidget, SLOT(setImage(QImage)));
 

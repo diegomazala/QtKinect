@@ -35,8 +35,9 @@ protected:
     void initializeGL() Q_DECL_OVERRIDE;
     void resizeGL(int w, int h) Q_DECL_OVERRIDE;
     void paintGL() Q_DECL_OVERRIDE;
-
+	void keyReleaseEvent(QKeyEvent *) Q_DECL_OVERRIDE;
     void initShaders();
+
 
 private:
     
@@ -45,6 +46,8 @@ private:
 	std::vector<std::shared_ptr<GLModel>> pointCloud;
 
     QMatrix4x4 projection;
+
+	int currentCloud;
 };
 
 #endif // _GL_POINT_CLOUD_VIEWER_H_

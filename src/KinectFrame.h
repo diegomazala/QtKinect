@@ -10,6 +10,9 @@
 class KinectFrame
 {
 public:
+
+	static const unsigned short BytesPerPixel = 4;
+
 	// info : [0] color_width
 	// info : [1] color_height
 	// info : [2] color_channels
@@ -48,9 +51,8 @@ public:
 
 	void reset()
 	{
+		clear();
 		info.resize(7, 0);
-		color.resize(1920 * 1080 * 4, 0);
-		depth.resize(512 * 424, 0);
 	}
 
 	unsigned short color_width() const { return info[ColorWidth]; }

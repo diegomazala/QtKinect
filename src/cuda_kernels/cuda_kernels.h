@@ -186,7 +186,15 @@ extern "C"
 		const ushort depth_width,
 		const ushort depth_height,
 		const size_t vertex_pitch,
-		const size_t index_pitch);
+		const size_t index_pitch,
+		const ushort half_window_search_size);
+
+
+	void icp_matching_vertices_check(
+		float4* d_out_vertices_4f,
+		ushort2* d_in_indices,
+		const ushort depth_width,
+		const ushort depth_height);
 };
 
 
