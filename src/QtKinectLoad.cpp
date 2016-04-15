@@ -2,7 +2,6 @@
 #include <QApplication>
 #include <QKeyEvent>
 #include "QImageWidget.h"
-#include "QKinectGrabber.h"
 #include "QKinectIO.h"
 #include "GLKinectWidget.h"
 #include <iostream>
@@ -51,7 +50,12 @@ int main(int argc, char **argv)
 	for (int y = 0; y < depthImage.height(); y++)
 		memcpy(depthImage.scanLine(y), depthImgBuffer.data() + y * depthImage.width(), depthImage.width());
 
-	colorImage = QImage(frame.color.data(), frame.color_width(), frame.color_height(), QImage::Format_ARGB32);
+	bool is_kinect_v2 = (frame.color_width() == 1920);
+
+	if (is_kinect_v2)	// Kinect v2
+		colorImage = QImage(frame.color.data(), frame.color_width(), frame.color_height(), QImage::Format_ARGB32);
+	else     // kinect v1
+		colorImage = QImage(frame.color.data(), frame.color_width(), frame.color_height(), QImage::Format_RGB32);
 
 
 
@@ -70,13 +74,15 @@ int main(int argc, char **argv)
 	depthWidget.setWindowTitle("Depth Map");
 	depthWidget.show();
 
-
-	GLKinectWidget glwidget;
-	glwidget.setMinimumSize(512, 424);
-	glwidget.move(720, 512);
-	glwidget.setWindowTitle("Vertex Map");
-	glwidget.show();
-	glwidget.setFrame(&frame);
+	if (is_kinect_v2)
+	{
+		GLKinectWidget glwidget;
+		glwidget.setMinimumSize(512, 424);
+		glwidget.move(720, 512);
+		glwidget.setWindowTitle("Vertex Map");
+		glwidget.show();
+		glwidget.setFrame(&frame);
+	}
 
 	return app.exec();
 }

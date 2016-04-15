@@ -372,8 +372,6 @@ bool QKinectGrabberV1::updateColor()
 	mutex.lock();
 	{
 		memcpy(colorBuffer.data(), LockedRect.pBits, LockedRect.size);
-	//	UINT bufferSize = sizeof(byte) * colorFrameWidth * colorFrameHeight * colorFrameChannels;
-	//	std::copy(reinterpret_cast<unsigned char*>(LockedRect.pBits), LockedRect.pBits + bufferSize, colorBuffer.begin());
 	}
 	mutex.unlock();
 

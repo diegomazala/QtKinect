@@ -1,15 +1,23 @@
+#define Use_Kinect_V1 1
+
 
 #include <QApplication>
 #include <QKeyEvent>
 #include <QPushButton>
 #include "QImageWidget.h"
+#if Use_Kinect_V1 
+#include "QKinectGrabberV1.h"
+QKinectGrabberV1*		kinect;
+#else
 #include "QKinectGrabber.h"
+QKinectGrabber*		kinect;
+#endif
 #include "QKinectIO.h"
 #include <iostream>
 #include <chrono>
 #include <sstream>
 
-QKinectGrabber*		kinect;
+
 
 class QKeyCtrl : public QPushButton
 {
@@ -46,10 +54,6 @@ public:
 
 protected:
 
-	void click()
-	{
-		std::cout << "click" << std::endl;
-	}
 
 	void keyReleaseEvent(QKeyEvent* e)
 	{
@@ -106,7 +110,11 @@ int main(int argc, char **argv)
 
 	QApplication app(argc, argv);
 	
+#if Use_Kinect_V1 
+	kinect = new QKinectGrabberV1();
+#else
 	kinect = new QKinectGrabber();
+#endif
 	kinect->start();
 
 	
