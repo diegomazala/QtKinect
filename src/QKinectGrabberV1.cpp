@@ -32,8 +32,6 @@ QKinectGrabberV1::QKinectGrabberV1(QObject *parent)
 	colorFrameWidth = static_cast<unsigned short>(width);
 	colorFrameHeight = static_cast<unsigned short>(height);
 
-	m_colorRGBX = new unsigned char[colorFrameWidth*colorFrameHeight*colorFrameChannels];
-
 	colorBuffer.resize(colorFrameWidth * colorFrameHeight * colorFrameChannels);
 	depthBuffer.resize(depthFrameWidth * depthFrameHeight);
 }
@@ -348,7 +346,11 @@ bool QKinectGrabberV1::initializeSensor()
 void QKinectGrabberV1::uninitializeSensor()
 {
 	// close the Kinect Sensor
-	m_pNuiSensor->Release();
+	if (m_pNuiSensor)
+	{
+		m_pNuiSensor->Release();
+		m_pNuiSensor = nullptr;
+	}
 }
 
 
@@ -366,9 +368,7 @@ bool QKinectGrabberV1::updateColor()
 	NUI_LOCKED_RECT LockedRect;
 	hr = imageFrame.pFrameTexture->LockRect(0, &LockedRect, NULL, 0);
 	if (FAILED(hr)) { return false; }
-
-	memcpy(m_colorRGBX, LockedRect.pBits, LockedRect.size);
-	
+		
 	mutex.lock();
 	{
 		memcpy(colorBuffer.data(), LockedRect.pBits, LockedRect.size);
@@ -384,108 +384,6 @@ bool QKinectGrabberV1::updateColor()
 	if ( FAILED(hr) ) { return false; };
 
 	return true;
-
-
-#if 0
-	if (!m_pColorFrameReader)
-	{
-		return false;
-	}
-
-	IColorFrame* pColorFrame = NULL;
-
-	HRESULT hr = m_pColorFrameReader->AcquireLatestFrame(&pColorFrame);
-
-	if (SUCCEEDED(hr))
-	{
-		INT64 nTime = 0;
-		IFrameDescription* pFrameDescription = NULL;
-		int frameWidth = 0;
-		int frameHeight = 0;
-		ColorImageFormat imageFormat = ColorImageFormat_None;
-		BYTE *pBuffer = NULL;
-
-		hr = pColorFrame->get_RelativeTime(&nTime);
-
-		if (SUCCEEDED(hr))
-		{
-			hr = pColorFrame->get_FrameDescription(&pFrameDescription);
-		}
-
-		if (SUCCEEDED(hr))
-		{
-			hr = pFrameDescription->get_Width(&frameWidth);
-		}
-
-		if (SUCCEEDED(hr))
-		{
-			hr = pFrameDescription->get_Height(&frameHeight);
-		}
-
-		if (SUCCEEDED(hr))
-		{
-			hr = pColorFrame->get_RawColorImageFormat(&imageFormat);
-		}
-
-		if (SUCCEEDED(hr))
-		{
-			if (imageFormat == ColorImageFormat_Bgra)
-			{
-				UINT bufferSize;
-				hr = pColorFrame->AccessRawUnderlyingBuffer(&bufferSize, reinterpret_cast<BYTE**>(pBuffer));
-
-				// copy data to color buffer
-				if (SUCCEEDED(hr))
-				{
-					mutex.lock();
-					{
-						std::copy(reinterpret_cast<unsigned char*>(pBuffer), pBuffer + bufferSize, colorBuffer.begin());
-						colorFrameTime = nTime;
-
-						if (colorFrameWidth != frameWidth || colorFrameHeight != frameHeight)
-						{
-							std::cerr << "<Warning>	Unexpected size for depth buffer" << std::endl;
-							colorFrameWidth = frameWidth;
-							colorFrameHeight = frameHeight;
-						}
-					}
-					mutex.unlock();
-				}
-			}
-			else 
-			{
-				mutex.lock();
-				{
-					hr = pColorFrame->CopyConvertedFrameDataToArray(colorBuffer.size(), reinterpret_cast<BYTE*>(colorBuffer.data()), ColorImageFormat_Bgra);
-					if (SUCCEEDED(hr))
-					{
-						colorFrameTime = nTime;
-						if (colorFrameWidth != frameWidth || colorFrameHeight != frameHeight)
-						{
-							std::cerr << "<Warning>	Unexpected size for depth buffer" << std::endl;
-							colorFrameWidth = frameWidth;
-							colorFrameHeight = frameHeight;
-						}
-					}
-					else
-					{
-						std::cerr << "<Error>	Could not convert data from color frame to color buffer" << std::endl;
-					}
-				}
-				mutex.unlock();
-			}
-		}
-
-		SafeRelease(pFrameDescription);
-	}
-
-	SafeRelease(pColorFrame);
-
-	if (!SUCCEEDED(hr))
-		return false;
-
-	return true;
-#endif
 }
 
 
@@ -506,11 +404,6 @@ bool QKinectGrabberV1::updateDepth()
 	mutex.lock();
 	{
 		memcpy(depthBuffer.data(), LockedRect.pBits, LockedRect.size);
-		// copy data to depth buffer
-		//std::copy(reinterpret_cast<unsigned short*>(pBuffer), pBuffer + nBufferSize, depthBuffer.begin());
-		//depthMinReliableDistance = nDepthMinReliableDistance;
-		//depthMaxDistance = nDepthMaxDistance;
-		//depthFrameTime = nTime;
 	}
 	mutex.unlock();
 	

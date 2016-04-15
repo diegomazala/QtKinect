@@ -4,11 +4,6 @@
 #define __KINECT_GRABBER_V1_H__
 
 
-//#ifndef WIN32_LEAN_AND_MEAN
-//#define WIN32_LEAN_AND_MEAN             // Exclude rarely-used stuff from Windows headers
-//#endif
-
-
 // Windows Header Files
 #include <windows.h>
 
@@ -16,18 +11,6 @@
 // Kinect Header files
 #include "NuiApi.h"
 
-
-
-//// Safe release for interfaces
-//template<class Interface>
-//inline void SafeRelease(Interface *& pInterfaceToRelease)
-//{
-//	if (pInterfaceToRelease != NULL)
-//	{
-//		pInterfaceToRelease->Release();
-//		pInterfaceToRelease = NULL;
-//	}
-//}
 
 
 #include <QMutex>
