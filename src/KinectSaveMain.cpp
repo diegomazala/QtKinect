@@ -20,6 +20,12 @@ QKinectGrabber*		kinect;
 
 int main(int argc, char **argv)
 {
+	QDateTime now = QDateTime::currentDateTime();
+	QString output_folder = "../" + now.toString("yyyyMMdd_hhmmss");
+
+	if (argc > 1)
+		output_folder = argv[1];
+
 	QApplication app(argc, argv);
 
 	int width = 640;
@@ -32,8 +38,6 @@ int main(int argc, char **argv)
 #endif
 	kinect->start();
 
-	QDateTime now = QDateTime::currentDateTime();
-	QString output_folder = "../" + now.toString("yyyyMMdd_hhmmss");
 
 	QDir dir(output_folder);
 	if (!dir.exists())

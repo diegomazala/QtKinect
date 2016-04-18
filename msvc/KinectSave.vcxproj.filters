@@ -44,9 +44,6 @@
     <ClCompile Include="GeneratedFiles\Release\moc_QImageWidget.cpp">
       <Filter>Generated Files\Release</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\SaveStreamMain.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\src\QKinectFile.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -56,6 +53,9 @@
     <ClCompile Include="GeneratedFiles\Release\moc_QKinectFile.cpp">
       <Filter>Generated Files\Release</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\KinectSaveMain.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="..\src\QImageWidget.h">
@@ -63,9 +63,6 @@
     </CustomBuild>
     <CustomBuild Include="..\src\QKinectFile.h">
       <Filter>Header Files</Filter>
-    </CustomBuild>
-    <CustomBuild Include="GeneratedFiles\Debug\SaveStreamMain.moc">
-      <Filter>Generated Files\Debug</Filter>
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
