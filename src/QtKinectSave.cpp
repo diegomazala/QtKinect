@@ -43,7 +43,7 @@ public:
 		filename_depth << filename.str() << "_depth.png";
 
 		std::cout << "saving kinect frame " << filename_knt.str() << std::endl;
-		QKinectIO::saveFrame(filename_knt.str(), frame);
+		QKinectIO::saveFrame(QString::fromStdString(filename_knt.str()), frame);
 
 		if (colorWidget != nullptr)
 			colorWidget->pixmap()->save(QString::fromStdString(filename_color.str()));
@@ -87,7 +87,7 @@ public:
 		filename_png << filename.str() << ".png";
 		
 		std::cout << "saving kinect frame " << filename_knt.str() << std::endl;
-		QKinectIO::saveFrame(filename_knt.str(), frame);
+		QKinectIO::saveFrame(QString::fromStdString(filename_knt.str()), frame);
 		this->pixmap()->save(QString::fromStdString(filename_png.str()));
 
 	};

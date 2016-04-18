@@ -29,7 +29,7 @@ int main(int argc, char **argv)
 	QApplication app(argc, argv);
 
 	KinectFrame frame;
-	QKinectIO::loadFrame(filename, frame);
+	QKinectIO::loadFrame(QString::fromStdString(filename), frame);
 
 	/////////////////////////////////////
 	//

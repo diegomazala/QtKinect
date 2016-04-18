@@ -262,7 +262,7 @@ int main(int argc, char **argv)
 
 	timer.start();
 	KinectFrame frame;
-	QKinectIO::loadFrame(filename, frame);
+	QKinectIO::loadFrame(QString::fromStdString(filename), frame);
 
 	/////////////////////////////////////
 	//
@@ -312,7 +312,7 @@ int main(int argc, char **argv)
 
 	t.start();
 	QString frame_filename = QFileInfo(filename.c_str()).absolutePath() + '/' + QFileInfo(filename.c_str()).baseName() + str + ".knt";
-	QKinectIO::saveFrame(frame_filename.toStdString(), frame);
+	QKinectIO::saveFrame(frame_filename, frame);
 	t.print_interval("Saving frame result                       : ");
 	
 	return app.exec();

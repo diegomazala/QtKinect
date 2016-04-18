@@ -36,9 +36,9 @@ public:
 	static void exportObj(QString filename, std::vector<unsigned short> info, std::vector<unsigned short> depthBuffer);
 
 
-	static void loadFrame(const std::string& filename, KinectFrame& frame);
+	static void loadFrame(const QString& filename, KinectFrame& frame);
 
-	static void saveFrame(const std::string& filename, const KinectFrame& frame);
+	static void saveFrame(const QString& filename, const KinectFrame& frame);
 
 	static void save(QString filename, std::vector<unsigned short> info, std::vector<unsigned char> color_buffer, std::vector<unsigned short> depthBuffer);
 

@@ -173,7 +173,7 @@ int main(int argc, char **argv)
 
 	timer.start();
 	KinectFrame frame;
-	QKinectIO::loadFrame(filename, frame);
+	QKinectIO::loadFrame(QString::fromStdString(filename), frame);
 	timer.print_interval("Importing kinect frame (.knt)             : ");
 
 	timer.start();
