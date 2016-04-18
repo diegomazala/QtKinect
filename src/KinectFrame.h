@@ -41,6 +41,10 @@ public:
 		const std::vector<unsigned short>& _depth) :
 		info(_info), color(_color), depth(_depth){}
 
+	KinectFrame(const std::string& filename)
+	{
+		load(filename);
+	}
 
 	void clear()
 	{
@@ -62,7 +66,7 @@ public:
 	unsigned short depth_min_distance() const { return info[DepthMinDistance]; }
 	unsigned short depth_max_distance() const { return info[DepthMaxDistance]; }
 
-
+	void load(const std::string& filename);
 
 	static void KinectFrame::load(
 		const std::string& filename,
@@ -93,7 +97,22 @@ public:
 		const std::vector<unsigned short>& depth_buffer);
 
 
+	KinectFrame& KinectFrame::operator=(KinectFrame other) // copy/move constructor is called to construct arg
+	{
+		// resources are exchanged between *this and other
+		info.swap(other.info); 
+		color.swap(other.color);
+		depth.swap(other.depth);
+		return *this;
+	} // destructor of other is called to release the resources formerly held by *this
 
+	KinectFrame& operator=(const KinectFrame& other) // copy assignment
+	{
+		info = other.info;
+		color = other.color;
+		depth = other.depth;
+		return *this;
+	}
 
 	std::vector<unsigned short> info;
 	std::vector<unsigned char> color;

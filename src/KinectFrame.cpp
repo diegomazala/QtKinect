@@ -41,6 +41,11 @@ void KinectFrame::load(
 }
 
 
+void KinectFrame::load(const std::string& filename)
+{
+	KinectFrame::load(filename, info, color, depth);
+}
+
 void KinectFrame::load(
 	const std::string& filename, 
 	std::vector<unsigned short>& info,
