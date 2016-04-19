@@ -97,14 +97,14 @@ public:
 		const std::vector<unsigned short>& depth_buffer);
 
 
-	KinectFrame& KinectFrame::operator=(KinectFrame other) // copy/move constructor is called to construct arg
-	{
-		// resources are exchanged between *this and other
-		info.swap(other.info); 
-		color.swap(other.color);
-		depth.swap(other.depth);
-		return *this;
-	} // destructor of other is called to release the resources formerly held by *this
+	//KinectFrame& KinectFrame::operator=(KinectFrame other) // copy/move constructor is called to construct arg
+	//{
+	//	// resources are exchanged between *this and other
+	//	info.swap(other.info); 
+	//	color.swap(other.color);
+	//	depth.swap(other.depth);
+	//	return *this;
+	//} // destructor of other is called to release the resources formerly held by *this
 
 	KinectFrame& operator=(const KinectFrame& other) // copy assignment
 	{
