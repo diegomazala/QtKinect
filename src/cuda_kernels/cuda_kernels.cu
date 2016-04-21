@@ -881,8 +881,7 @@ extern "C"
 
 		const float4 in_vertex = in_vertices[y * w + x];
 		float min_distance = FLT_MAX;
-		ushort2 index = make_ushort2((ushort)x, (ushort)y);
-
+		ushort2 index = make_ushort2(0, 0);
 
 		for (ushort xx = x - half_window; xx <= x + half_window; ++xx)
 		{
@@ -890,14 +889,19 @@ extern "C"
 			{
 				const float4 cur_vertex = tex2D(float4Texture, xx, yy);
 				
-				const float4 vec_diff = vec4f_subtract(cur_vertex, in_vertex);
-				const float distance = vec4f_magnitude(vec_diff);
-
-				if (distance < min_distance)
+				// only compute if the vertex has a valid distance, i.e, not zero
+				if (cur_vertex.z > 0.1)
 				{
-					min_distance = distance;
-					index.x = xx;
-					index.y = yy;
+
+					const float4 vec_diff = vec4f_subtract(cur_vertex, in_vertex);
+					const float distance = vec4f_magnitude(vec_diff);
+
+					if (distance < min_distance)
+					{
+						min_distance = distance;
+						index.x = xx;
+						index.y = yy;
+					}
 				}
 			}
 		}
