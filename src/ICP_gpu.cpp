@@ -158,6 +158,7 @@ void run_icp_with_normal_estimate(
 	std::vector<float4>& vertices_1,
 	std::vector<float4>& normals,
 	std::vector<ushort2>& indices,
+	std::vector<float>& distances,
 	const std::vector<ushort>& depth_buffer_0,
 	const std::vector<ushort>& depth_buffer_1,
 	uint width,
@@ -170,7 +171,7 @@ void run_icp_with_normal_estimate(
 	ushort* h_depth_buffer_0 = (ushort*)depth_buffer_0.data();
 	ushort* h_depth_buffer_1 = (ushort*)depth_buffer_1.data();
 
-	size_t in_pitch, out_pitch, index_pitch;
+	size_t in_pitch, out_pitch, index_pitch, distance_pitch;
 
 	
 	//
@@ -245,7 +246,17 @@ void run_icp_with_normal_estimate(
 		width * sizeof(ushort2),
 		height));
 
-	icp_matching_vertices(d_index_buffer, d_vertex_buffer_0, d_vertex_buffer_1, width, height, out_pitch, index_pitch, half_window_search_size);
+	//
+	// allocate index buffer in gpu
+	// 
+	float* d_distances_buffer;
+	checkCudaErrors(cudaMallocPitch(
+		&d_distances_buffer,
+		&distance_pitch,
+		width * sizeof(float),
+		height));
+
+	icp_matching_vertices(d_index_buffer, d_distances_buffer, d_vertex_buffer_0, d_vertex_buffer_1, width, height, out_pitch, index_pitch, half_window_search_size);
 	
 
 	checkCudaErrors(cudaDeviceSynchronize());
@@ -257,6 +268,7 @@ void run_icp_with_normal_estimate(
 	vertices_1.resize(depth_buffer_1.size());
 	normals.resize(depth_buffer_0.size());
 	indices.resize(depth_buffer_0.size());
+	distances.resize(depth_buffer_0.size());
 
 
 	cudaMemcpy2D(
@@ -295,7 +307,28 @@ void run_icp_with_normal_estimate(
 		sizeof(ushort2) * width,
 		height,
 		cudaMemcpyDeviceToHost);
+
+	cudaMemcpy2D(
+		distances.data(),
+		sizeof(float) * width,
+		d_distances_buffer,
+		distance_pitch,
+		sizeof(float) * width,
+		height,
+		cudaMemcpyDeviceToHost);
 	
+
+	for (int i = 0; i < width * height; ++i)
+	{
+		ushort2 index = indices[i];
+		int ii = index.y * width + index.x;
+		//std::cout << index.x << ", " << index.y << std::endl;
+
+		if (ii > width * height)
+		{
+			std::cout << ii << " ---> " << width * height << std::endl;
+		}
+	}
 
 
 	checkCudaErrors(cudaFree(d_depth_buffer_0));
@@ -304,6 +337,7 @@ void run_icp_with_normal_estimate(
 	checkCudaErrors(cudaFree(d_vertex_buffer_1));
 	checkCudaErrors(cudaFree(d_normal_buffer));
 	checkCudaErrors(cudaFree(d_index_buffer));
+	checkCudaErrors(cudaFree(d_distances_buffer));
 }
 
 
@@ -453,8 +487,12 @@ int main(int argc, char **argv)
 	std::string filename_0 = argv[1];
 	std::string filename_1 = argv[2];
 	ushort half_window_search_size = 3;
-	if (argc > 2)
+	if (argc > 3)
 		half_window_search_size = atoi(argv[3]);
+
+	ushort max_distance = 10;
+	if (argc > 4)
+		max_distance = atoi(argv[4]);
 
 	Timer timer;
 
@@ -472,6 +510,7 @@ int main(int argc, char **argv)
 	
 	std::vector<float4> vertices_0, vertices_1, normals;
 	std::vector<ushort2> indices;
+	std::vector<float> distances;
 	std::vector<Eigen::Vector3f> vertices_00, vertices_11;
 
 	timer.start();
@@ -480,6 +519,7 @@ int main(int argc, char **argv)
 		vertices_1, 
 		normals, 
 		indices, 
+		distances,
 		frame_0.depth, 
 		frame_1.depth,
 		frame_0.depth_width(), 
@@ -497,23 +537,46 @@ int main(int argc, char **argv)
 	}
 
 
-	for (int i = 0; i < vertices_0.size(); ++i)
-	{
-		const float4& v0 = vertices_0.at(i);
-		const float4& v1 = vertices_1.at(i);
+	//for (int i = 0; i < vertices_0.size(); ++i)
+	//{
+	//	const float4& v0 = vertices_0.at(i);
+	//	const float4& v1 = vertices_1.at(i);
 
-		if (v0.z > 0.1 && v1.z > 0.1)
+	//	if (v0.z > 0.1 && v1.z > 0.1)
+	//	{
+	//		vertices_00.push_back(Eigen::Vector3f((Eigen::Vector4f(v0.x, v0.y, v0.z, v0.w) / v0.w).head<3>()));
+	//		vertices_11.push_back(Eigen::Vector3f((Eigen::Vector4f(v1.x, v1.y, v1.z, v1.w) / v1.w).head<3>()));
+	//	}
+	//}
+
+
+	for (int y = 0; y < frame_0.depth_height(); ++y)
+	{
+		for (int x = 0; x < frame_0.depth_width(); ++x)
 		{
+			int i = y * frame_0.depth_width() + x;
+
+			float distance = distances[i];
+
+			if (distance > max_distance)
+				continue;
+
+			ushort2 index = indices[i];
+			int ii = index.y * frame_0.depth_width() + index.x;
+
+			const float4& v0 = vertices_0.at(ii);
+			const float4& v1 = vertices_1.at(ii);
+
 			vertices_00.push_back(Eigen::Vector3f((Eigen::Vector4f(v0.x, v0.y, v0.z, v0.w) / v0.w).head<3>()));
 			vertices_11.push_back(Eigen::Vector3f((Eigen::Vector4f(v1.x, v1.y, v1.z, v1.w) / v1.w).head<3>()));
+
 		}
+
 	}
+
 
 	std::cout << "Vertices size " << vertices_0.size() << ", " << vertices_1.size() << std::endl;
 	std::cout << "Vertices size " << vertices_00.size() << ", " << vertices_11.size() << std::endl;
-
-
-
 
 
 	Eigen::Matrix<float, 3, 3> R = Eigen::Matrix<float, 3, 3>::Zero();

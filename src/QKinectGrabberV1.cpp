@@ -32,6 +32,9 @@ QKinectGrabberV1::QKinectGrabberV1(QObject *parent)
 	colorFrameWidth = static_cast<unsigned short>(width);
 	colorFrameHeight = static_cast<unsigned short>(height);
 
+	depthMinReliableDistance = 40;
+	depthMaxDistance = 4500;
+
 	colorBuffer.resize(colorFrameWidth * colorFrameHeight * colorFrameChannels);
 	depthBuffer.resize(depthFrameWidth * depthFrameHeight);
 }

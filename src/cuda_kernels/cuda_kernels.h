@@ -181,6 +181,7 @@ extern "C"
 
 	void icp_matching_vertices(
 		ushort2* d_out_indices,
+		float* d_out_distance,
 		float4* d_in_vertices_t0_4f,
 		float4* d_in_vertices_t1_4f,
 		const ushort depth_width,
@@ -189,12 +190,6 @@ extern "C"
 		const size_t index_pitch,
 		const ushort half_window_search_size);
 
-
-	void icp_matching_vertices_check(
-		float4* d_out_vertices_4f,
-		ushort2* d_in_indices,
-		const ushort depth_width,
-		const ushort depth_height);
 };
 
 

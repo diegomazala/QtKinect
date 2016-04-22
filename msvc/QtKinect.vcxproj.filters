@@ -89,6 +89,9 @@
     <ClCompile Include="GeneratedFiles\Release\moc_QKinectGrabberFromFile.cpp">
       <Filter>Generated Files\Release</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\QKinectFrame.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GeneratedFiles\ui_MainWindow.h">
@@ -98,6 +101,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\src\KinectFrame.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\QKinectFrame.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

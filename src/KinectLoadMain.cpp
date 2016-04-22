@@ -17,6 +17,10 @@ int main(int argc, char **argv)
 	if (argc > 1)
 		input_folder = argv[1];
 
+	int fps = 30;
+	if (argc > 2)
+		fps = atoi(argv[2]);
+
 	QApplication app(argc, argv);
 
 	int width = 640;
@@ -24,6 +28,7 @@ int main(int argc, char **argv)
 
 	QKinectGrabberFromFile* kinect = new QKinectGrabberFromFile();
 	kinect->setFolder(input_folder);
+	kinect->setFramesPerSecond(fps);
 	kinect->start();
 
 

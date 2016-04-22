@@ -13,6 +13,7 @@
   <ItemGroup>
     <ClCompile Include="..\src\KinectFrame.cpp" />
     <ClCompile Include="..\src\QKinectFile.cpp" />
+    <ClCompile Include="..\src\QKinectFrame.cpp" />
     <ClCompile Include="..\src\QKinectGrabberFromFile.cpp" />
     <ClCompile Include="..\src\QKinectGrabberV1.cpp" />
     <ClCompile Include="..\src\QKinectIO.cpp" />
@@ -87,6 +88,7 @@
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">.\GeneratedFiles\$(ConfigurationName)\moc_%(Filename).cpp</Outputs>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">"$(QTDIR)\bin\moc.exe"  "%(FullPath)" -o ".\GeneratedFiles\$(ConfigurationName)\moc_%(Filename).cpp"  -DUNICODE -DWIN32 -DWIN64 -DQT_DLL -DQT_NO_DEBUG -DNDEBUG -DQT_CORE_LIB -DQT_GUI_LIB -DQT_WIDGETS_LIB -DQT_CONCURRENT_LIB "-I.\GeneratedFiles" "-I." "-I$(QTDIR)\include" "-I.\GeneratedFiles\$(ConfigurationName)\." "-I$(QTDIR)\include\QtCore" "-I$(QTDIR)\include\QtGui" "-I$(QTDIR)\include\QtWidgets" "-I$(QTDIR)\include\QtConcurrent" "-I$(KINECTSDK10_DIR)\inc" "-I$(KINECTSDK20_DIR)\inc"</Command>
     </CustomBuild>
+    <ClInclude Include="..\src\QKinectFrame.h" />
     <ClInclude Include="..\src\QKinectIO.h" />
     <CustomBuild Include="..\src\QKinectGrabber.h">
       <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(QTDIR)\bin\moc.exe;%(FullPath);$(QTDIR)\bin\moc.exe;%(FullPath)</AdditionalInputs>

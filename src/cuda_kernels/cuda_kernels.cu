@@ -866,7 +866,7 @@ extern "C"
 	}
 
 
-	__global__ void	d_icp_matching_vertices_kernel(ushort2 *out_indices, const float4 *in_vertices, ushort w, ushort h, ushort half_window)
+	__global__ void	d_icp_matching_vertices_kernel(ushort2 *out_indices, float *out_distances, const float4 *in_vertices, ushort w, ushort h, ushort half_window)
 	{
 		int x = blockIdx.x * blockDim.x + threadIdx.x;
 		int y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -907,6 +907,7 @@ extern "C"
 		}
 
 		out_indices[y * w + x] = index;
+		out_distances[y * w + x] = min_distance;
 	}
 
 
@@ -926,6 +927,7 @@ extern "C"
 
 	void icp_matching_vertices(
 		ushort2* d_out_indices,
+		float* d_out_distances,
 		float4* d_in_vertices_t0_4f,
 		float4* d_in_vertices_t1_4f,
 		const ushort depth_width,
@@ -945,36 +947,13 @@ extern "C"
 
 		d_icp_matching_vertices_kernel << <  num_blocks, threads_per_block >> >(
 			d_out_indices,
+			d_out_distances,
 			d_in_vertices_t1_4f,
 			depth_width,
 			depth_height,
 			half_window_search_size);
-
-		//d_icp_matching_vertices_check_kernel << <  num_blocks, threads_per_block >> >(
-		//	d_in_vertices_t1_4f,
-		//	d_out_indices,
-		//	depth_width,
-		//	depth_height);
 	}
 
 
-
-	void icp_matching_vertices_check(
-		float4* d_out_vertices_4f,
-		ushort2* d_in_indices,
-		const ushort depth_width,
-		const ushort depth_height)
-	{
-		const dim3 threads_per_block(32, 32);
-		dim3 num_blocks;
-		num_blocks.x = (depth_width + threads_per_block.x - 1) / threads_per_block.x;
-		num_blocks.y = (depth_height + threads_per_block.y - 1) / threads_per_block.y;
-
-		d_icp_matching_vertices_check_kernel << <  num_blocks, threads_per_block >> >(
-			d_out_vertices_4f,
-			d_in_indices,
-			depth_width,
-			depth_height);
-	}
 
 };
