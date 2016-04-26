@@ -16,6 +16,9 @@ public:
 	void setVertices(const float* vertices, uint count, uint tuple_size);
 	GLuint vertexBufferId() const;
 
+	void setNormals(const float* normals, uint count, uint tuple_size);
+	GLuint normalBufferId() const;
+
 	void setColor(const QVector3D& c){ color = c; }
 
 public slots:
@@ -27,8 +30,14 @@ private:
 
     QOpenGLBuffer vertexBuf;
 	uint vertexCount;
-	uint tupleSize;
-	uint stride;
+	uint vertexTupleSize;
+	uint vertexStride;
+
+	QOpenGLBuffer normalBuf;
+	uint normalCount;
+	uint normalTupleSize;
+	uint normalStride;
+
 	QVector3D color;
 };
 

@@ -84,6 +84,8 @@ void QKinectGrabberFromFile::getDepthBuffer(
 
 
 
+
+
 void QKinectGrabberFromFile::copyDepthBuffer(
 	std::vector<unsigned short>& buffer, 
 	std::vector<unsigned short>::iterator position)
@@ -96,6 +98,16 @@ void QKinectGrabberFromFile::copyDepthBuffer(
 }
 
 
+void QKinectGrabberFromFile::getKinectFrame(KinectFrame& frame)
+{
+	mutex.lock();
+	{
+		frame.info = kinectFrame.info;
+		frame.color = kinectFrame.color;
+		frame.depth = kinectFrame.depth;
+	}
+	mutex.unlock();
+}
 
 void QKinectGrabberFromFile::stop()
 {
@@ -142,6 +154,7 @@ void QKinectGrabberFromFile::run()
 		const QString frame_file_name = folder + "/" + frameFile.next();
 		QKinectFrame kinect_frame(frame_file_name);
 		
+		emit fileLoaded(frameFile.next());
 
 		mutex.lock();
 		{

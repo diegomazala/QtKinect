@@ -47,7 +47,8 @@ public:
 	void copyDepthBuffer(std::vector<unsigned short>& buffer,
 						 std::vector<unsigned short>::iterator position);
 
-
+	void getKinectFrame(KinectFrame& frame);
+	KinectFrame* getKinectFrame() { return &kinectFrame; };
 
 
 public slots:
@@ -60,6 +61,7 @@ signals:
 	void depthImage(const QImage &image);
 	void infraredImage(const QImage &image);
 	void frameUpdated();
+	void fileLoaded(const QString& filename);
 
 protected:
 	

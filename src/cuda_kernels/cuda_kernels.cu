@@ -778,7 +778,7 @@ extern "C"
 			return;
 		}
 
-		float depth = ((float)tex2D(ushortTexture, x, y));
+		float depth = ((float)tex2D(ushortTexture, x, y)) * 0.1f;
 		float4 vertex;
 		window_coord_to_3d_kernel_device(&vertex, x, y, depth, inverse_projection_16f, w, h);
 

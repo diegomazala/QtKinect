@@ -37,11 +37,11 @@ static Eigen::Matrix<Type, 4, 4> perspective_matrix_inverse(Type fovy, Type aspe
 	const float	x_scale = y_scale / aspect_ratio;
 	const float	depth_length = far_plane - near_plane;
 
-	out(0, 0) = 1.0 / x_scale;
-	out(1, 1) = 1.0 / y_scale;
-	out(2, 3) = -1.0f;
-	out(3, 2) = -1.0f / ((2 * near_plane * far_plane) / depth_length);
-	out(3, 3) = ((far_plane + near_plane) / depth_length) / ((2 * near_plane * far_plane) / depth_length);
+	out(0, 0) = static_cast<Type>(1.0 / x_scale);
+	out(1, 1) = static_cast<Type>(1.0 / y_scale);
+	out(2, 3) = static_cast<Type>(-1.0f);
+	out(3, 2) = static_cast<Type>(-1.0f / ((2 * near_plane * far_plane) / depth_length));
+	out(3, 3) = static_cast<Type>(((far_plane + near_plane) / depth_length) / ((2 * near_plane * far_plane) / depth_length));
 
 	return out;
 }

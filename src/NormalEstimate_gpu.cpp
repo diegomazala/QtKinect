@@ -6,7 +6,6 @@
 #include "QImageWidget.h"
 #include "QKinectGrabber.h"
 #include "QKinectIO.h"
-#include "GLKinectWidget.h"
 #include <iostream>
 #include <iterator>
 #include <array>
@@ -17,9 +16,6 @@
 #include <cuda_runtime.h>
 #include <vector_types.h>
 #include "cuda_kernels/cuda_kernels.h"
-
-#include "GLBaseWidget.h"
-#include "GLPointCloud.h"
 
 #include "helper_cuda.h"
 #include "helper_image.h"

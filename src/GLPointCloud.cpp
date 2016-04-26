@@ -21,28 +21,50 @@ GLuint GLPointCloud::vertexBufferId() const
 	return vertexBuf.bufferId();
 }
 
+GLuint GLPointCloud::normalBufferId() const
+{
+	return normalBuf.bufferId();
+}
+
 void GLPointCloud::initGL()
 {
 	initializeOpenGLFunctions();
 
 	// Generate VBOs
 	vertexBuf.create();
+	vertexBuf.setUsagePattern(QOpenGLBuffer::UsagePattern::DynamicDraw);
+
+	// Generate VBOs
+	normalBuf.create();
+	normalBuf.setUsagePattern(QOpenGLBuffer::UsagePattern::DynamicDraw);
 }
 
 
 void GLPointCloud::cleanupGL()
 {
 	vertexBuf.destroy();
+	normalBuf.destroy();
 }
 
 void GLPointCloud::setVertices(const float* vertices, uint count, uint tuple_size)
 {
 	vertexCount = count;
-	tupleSize = tuple_size;
-	stride = sizeof(float) * tuple_size;
+	vertexTupleSize = tuple_size;
+	vertexStride = sizeof(float) * tuple_size;
 
 	vertexBuf.bind();
-	vertexBuf.allocate(vertices, static_cast<float>(count * stride));
+	vertexBuf.allocate(vertices, static_cast<float>(count * vertexStride));
+}
+
+
+void GLPointCloud::setNormals(const float* normals, uint count, uint tuple_size)
+{
+	normalCount = count;
+	normalTupleSize = tuple_size;
+	normalStride = sizeof(float) * tuple_size;
+
+	normalBuf.bind();
+	normalBuf.allocate(normals, static_cast<float>(count * normalStride));
 }
 
 
@@ -53,14 +75,19 @@ void GLPointCloud::render(QOpenGLShaderProgram *program)
 		return;
 
     vertexBuf.bind();
-	int vertexLocation = program->attributeLocation("in_position");
-	program->enableAttributeArray(vertexLocation);
-	program->setAttributeBuffer(vertexLocation, GL_FLOAT, 0, tupleSize, stride);
+	//int vertexLocation = program->attributeLocation("in_position");
+	program->setAttributeBuffer("in_position", GL_FLOAT, 0, vertexTupleSize, vertexStride);
+	program->enableAttributeArray("in_position");
+	
+	normalBuf.bind();
+	program->setAttributeBuffer("in_normal", GL_FLOAT, 0, normalTupleSize, normalStride);
+	program->enableAttributeArray("in_normal");
+
 
 	program->setUniformValue("color", color);
 
     // Draw geometry 
-	glDrawArrays(GL_POINTS, 0, static_cast<float>(vertexCount * tupleSize));
+	glDrawArrays(GL_POINTS, 0, static_cast<float>(vertexCount * vertexTupleSize));
 
 	vertexBuf.release();
 }

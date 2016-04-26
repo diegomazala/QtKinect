@@ -54,6 +54,17 @@ void GLPointCloudViewer::addPointCloud(const std::shared_ptr<GLModel>& point_clo
 }
 
 
+void GLPointCloudViewer::updateCloud(const float* vertices, const float* normals, uint count, uint tuple_size)
+{
+	if (pointCloud.size() > 0)
+	{
+		std::shared_ptr<GLModel>& model = pointCloud.at(0);
+		GLPointCloud* p = dynamic_cast<GLPointCloud*>(model.get());
+		p->setVertices(vertices, count, tuple_size);
+		p->setNormals(normals, count, tuple_size);
+	}
+}
+
 
 void GLPointCloudViewer::initializeGL()
 {
@@ -109,11 +120,6 @@ void GLPointCloudViewer::initShaders()
     // Bind shader pipeline for use
 	if (!shaderProgram->bind())
         close();
-
-
-	int colorLocation = shaderProgram->uniformLocation("color");
-	if (colorLocation > -1)
-		shaderProgram->setUniformValue(colorLocation, colours[rand() % 7]);
 }
 
 void GLPointCloudViewer::setShaderProgram(const std::shared_ptr<QOpenGLShaderProgram>& shader_program)
@@ -126,12 +132,12 @@ void GLPointCloudViewer::setShaderProgram(const std::shared_ptr<QOpenGLShaderPro
 
 void GLPointCloudViewer::resizeGL(int w, int h)
 {
-	const float depth_map_width = 512;
-	const float depth_map_height = 424;
-	const float fovy = 70.0f;
+	const float depth_map_width = 640;
+	const float depth_map_height = 480;
+	const float fovy = 43.0f;
 	const float aspect_ratio = depth_map_width / depth_map_height;
 	const float near_plane = 0.1f;
-	const float far_plane = 10240.0f;
+	const float far_plane = 81920.0f;
 
     // Reset projection
     projection.setToIdentity();

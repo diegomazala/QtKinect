@@ -30,6 +30,8 @@ public:
 
 	void setShaderProgram(const std::shared_ptr<QOpenGLShaderProgram>& shader_program);
 
+	void updateCloud(const float* vertices, const float* normals, uint count, uint tuple_size);
+
 protected:
 
     void initializeGL() Q_DECL_OVERRIDE;

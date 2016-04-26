@@ -6,7 +6,6 @@
 #include "QImageWidget.h"
 #include "QKinectGrabber.h"
 #include "QKinectIO.h"
-#include "GLKinectWidget.h"
 #include <iostream>
 #include <iterator>
 #include <array>
@@ -20,7 +19,6 @@
 #include <vector_types.h>
 #include "cuda_kernels/cuda_kernels.h"
 
-#include "GLBaseWidget.h"
 #include "GLPointCloud.h"
 #include "GLRgbPointCloud.h"
 
@@ -358,67 +356,6 @@ void convertKinectFrame2QImage(const KinectFrame& frame, QImage& depthImage)
 			depthImage.scanLine(y)[x] = static_cast<uchar>((float)depth / (float)frame.depth_max_distance() * 255.f);;
 		}
 	}
-}
-
-
-QOpenGLShaderProgram* loadShaders()
-{
-	// look for shader dir 
-	QDir dir;
-	std::string shader_dir("resources/shaders/");
-	for (int i = 0; i < 5; ++i)
-		if (!dir.exists(shader_dir.c_str()))
-			shader_dir.insert(0, "../");
-
-	std::cout << shader_dir << std::endl;
-
-	QString vertexShaderFileName = shader_dir.c_str() + QString("rgb.vert");
-	QString fragmentShaderFileName = shader_dir.c_str() + QString("rgb.frag");
-
-	QOpenGLShaderProgram* shaderProgram = new QOpenGLShaderProgram;
-
-	// Compile vertex shader
-	if (!shaderProgram->addShaderFromSourceFile(QOpenGLShader::Vertex, vertexShaderFileName))
-	{
-		delete shaderProgram;
-		return nullptr;
-	}
-
-	// Compile fragment shader
-	if (!shaderProgram->addShaderFromSourceFile(QOpenGLShader::Fragment, fragmentShaderFileName))
-	{
-		delete shaderProgram;
-		return nullptr;
-	}
-
-	shaderProgram->bindAttributeLocation("in_position", 0);
-	shaderProgram->bindAttributeLocation("in_color", 1);
-
-	// Link shader pipeline
-	if (!shaderProgram->link())
-	{
-		delete shaderProgram;
-		return nullptr;
-	}
-
-	// Bind shader pipeline for use
-	if (!shaderProgram->bind())
-	{
-		delete shaderProgram;
-		return nullptr;
-	}
-
-	shaderProgram->setUniformValue("color", QVector3D(1, 0, 1));
-
-
-
-	std::cout << "id : " << shaderProgram->programId() << "  " << shaderProgram->log().toStdString() << std::endl
-		<< "color position:" << shaderProgram->attributeLocation("in_color") << "  " << shaderProgram->attributeLocation("in_position") << "  " << shaderProgram->attributeLocation("in_normal") << std::endl
-		<< std::endl;
-
-
-
-	return shaderProgram;
 }
 
 template<typename Type>
