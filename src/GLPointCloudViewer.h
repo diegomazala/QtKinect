@@ -26,16 +26,18 @@ public:
 	explicit GLPointCloudViewer(QWidget *parent = 0);
 	~GLPointCloudViewer();
 
-	void addPointCloud(const std::shared_ptr<GLModel>& point_cloud);
+	void addPointCloud(const std::shared_ptr<GLPointCloud>& point_cloud);
 
 	void setShaderProgram(const std::shared_ptr<QOpenGLShaderProgram>& shader_program);
 
-	void updateCloud(const float* vertices, const float* normals, uint count, uint tuple_size);
+	void updateCloud(const float* vertices, const float* normals, size_t count, size_t tuple_size);
+
+	std::shared_ptr<GLPointCloud> getCloud(int index = 0);
+
 
 protected:
 
     void initializeGL() Q_DECL_OVERRIDE;
-    void resizeGL(int w, int h) Q_DECL_OVERRIDE;
     void paintGL() Q_DECL_OVERRIDE;
 	void keyReleaseEvent(QKeyEvent *) Q_DECL_OVERRIDE;
     void initShaders();
@@ -45,10 +47,9 @@ private:
     
 	std::shared_ptr<QOpenGLShaderProgram> shaderProgram;
 	
-	std::vector<std::shared_ptr<GLModel>> pointCloud;
+	std::vector<std::shared_ptr<GLPointCloud>> pointCloud;
 
-    QMatrix4x4 projection;
-
+	
 	int currentCloud;
 };
 

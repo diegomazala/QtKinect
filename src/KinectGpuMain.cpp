@@ -3,10 +3,12 @@
 #include <QDir>
 #include <QDateTime>
 #include "QImageWidget.h"
+#include "GLModelViewer.h"
 #include "QKinectFile.h"
 #include "QKinectGrabberFromFile.h"
 #include "QKinectIO.h"
 #include "QKinectGpu.h"
+#include "KinectSpecs.h"
 
 #include <iostream>
 
@@ -18,33 +20,10 @@
 #include <cuda_runtime.h>
 #include <vector_types.h>
 #include "GLPointCloud.h"
+#include "KinectShaderProgram.h"
 #include "helper_cuda.h"
 #include "helper_image.h"
 #include "Projection.h"
-
-template<typename T>
-static void vector_read(std::istream& in_file, std::vector<T>& data)
-{
-	std::size_t count;
-	in_file.read(reinterpret_cast<char*>(&count), sizeof(std::size_t));
-	data.resize(count);
-	in_file.read(reinterpret_cast<char*>(&data[0]), count * sizeof(T));
-}
-
-
-template<typename T>
-bool load_buffer(const std::string& filename, std::vector<T>& data)
-{
-	std::ifstream in_file;
-	in_file.open(filename, std::ifstream::binary);
-	if (in_file.is_open())
-	{
-		vector_read(in_file, data);
-		in_file.close();
-		return true;
-	}
-	return false;
-}
 
 
 
@@ -114,22 +93,40 @@ int main(int argc, char **argv)
 
 
 	QImageWidget colorWidget;
-	colorWidget.setMinimumSize(640, 480);
+	colorWidget.setMinimumSize(320, 240);
 	colorWidget.move(0, 0);
 	colorWidget.show();
 	QApplication::connect(kinect, SIGNAL(colorImage(QImage)), &colorWidget, SLOT(setImage(QImage)));
 
 	QImageWidget depthWidget;
-	depthWidget.setMinimumSize(640, 480);
-	depthWidget.move(0, 480);
+	depthWidget.setMinimumSize(320, 240);
+	depthWidget.move(0, 240);
 	depthWidget.show();
 	QApplication::connect(kinect, SIGNAL(depthImage(QImage)), &depthWidget, SLOT(setImage(QImage)));
 
-	
+#if 0
+	GLModelViewer glViewer;
+	glViewer.setMinimumSize(640, 480);
+	glViewer.move(640, 0);
+	glViewer.setWindowTitle("Point Cloud");
+	glViewer.setWeelSpeed(0.1f);
+	glViewer.setDistance(-0.5f);
+	glViewer.show();
+
+	GLPointCloud pointCloud;
+	pointCloud.initGL();
+	float4 vv = make_float4(1, 1, 1, 1);
+	pointCloud.setVertices(&vv.x, 1, 4);
+	//pointCloud.setVertices(&vertices[0].x, static_cast<uint>(vertices.size()), static_cast<uint>(4));
+	//pointCloud.setColors(&rgb[0].x, static_cast<uint>(rgb.size()), static_cast<uint>(3));
+	glViewer.setModel(&pointCloud);
+#endif
+
 
 	GLPointCloudViewer glwidget;
 	glwidget.resize(640, 480);
-	glwidget.move(640, 0);
+	glwidget.setPerspective(KINECT_V1_FOVY, KINECT_V1_DEPTH_MIN * 0.1f, KINECT_V1_DEPTH_MAX * 2);
+	glwidget.move(320, 0);
 	glwidget.setWindowTitle("Point Cloud");
 	glwidget.setWeelSpeed(0.1f);
 	glwidget.setDistance(-0.5f);
@@ -138,9 +135,22 @@ int main(int argc, char **argv)
 
 	std::shared_ptr<GLPointCloud> cloud(new GLPointCloud);
 	cloud->initGL();
-	float4 v = make_float4(1, 1, 1, 1);
-	cloud->setVertices(&v.x, 1, 4);
+	int vertex_count = 640 * 480;
+	int vertex_tuple_size = 4;
+	float* dumb_vertices = new float[vertex_count * vertex_tuple_size];
+	cloud->setVertices(dumb_vertices, vertex_count, vertex_tuple_size);
+	cloud->setNormals(dumb_vertices, vertex_count, vertex_tuple_size);
+	delete dumb_vertices;
 	glwidget.addPointCloud(cloud);
+
+
+	//
+	// setup kinect shader program
+	// 
+	std::shared_ptr<KinectShaderProgram> kinectShaderProgram(new KinectShaderProgram);
+	if (kinectShaderProgram->build("normal2rgb.vert", "normal2rgb.frag"))
+		glwidget.setShaderProgram(kinectShaderProgram);
+
 
 	QKinectGpu kinectGpu;
 	kinectGpu.setKinect(kinect);
@@ -148,17 +158,18 @@ int main(int argc, char **argv)
 	QApplication::connect(kinect, SIGNAL(frameUpdated()), &kinectGpu, SLOT(onFrameUpdate()));
 
 
-	//int app_exit = app.exec();
+#if 1
+	int app_exit = app.exec();
+#else
 	int app_exit = 0;
 	int i = 0;
 	while (1)
 	{
 		i++;
 		QCoreApplication::processEvents();  // ???
-
-		
 	}
 	QCoreApplication::exit(app_exit);
+#endif
 	kinect->stop();
 
 

@@ -48,22 +48,29 @@ void GLPointCloudViewer::keyReleaseEvent(QKeyEvent *e)
 }
 
 
-void GLPointCloudViewer::addPointCloud(const std::shared_ptr<GLModel>& point_cloud)
+void GLPointCloudViewer::addPointCloud(const std::shared_ptr<GLPointCloud>& point_cloud)
 {
 	pointCloud.push_back(point_cloud);
 }
 
+std::shared_ptr<GLPointCloud> GLPointCloudViewer::getCloud(int index)
+{
+	if (index > -1 && index < pointCloud.size())
+		return pointCloud.at(index);
+	else
+		return nullptr;
+}
 
-void GLPointCloudViewer::updateCloud(const float* vertices, const float* normals, uint count, uint tuple_size)
+void GLPointCloudViewer::updateCloud(const float* vertices, const float* normals, size_t count, size_t tuple_size)
 {
 	if (pointCloud.size() > 0)
 	{
-		std::shared_ptr<GLModel>& model = pointCloud.at(0);
-		GLPointCloud* p = dynamic_cast<GLPointCloud*>(model.get());
-		p->setVertices(vertices, count, tuple_size);
-		p->setNormals(normals, count, tuple_size);
+		std::shared_ptr<GLPointCloud>& p = pointCloud.at(0);
+		p->updateVertices(vertices);
+		p->updateNormals(normals);
 	}
 }
+
 
 
 void GLPointCloudViewer::initializeGL()
@@ -122,6 +129,8 @@ void GLPointCloudViewer::initShaders()
         close();
 }
 
+
+
 void GLPointCloudViewer::setShaderProgram(const std::shared_ptr<QOpenGLShaderProgram>& shader_program)
 {
 	shaderProgram->release();
@@ -129,22 +138,6 @@ void GLPointCloudViewer::setShaderProgram(const std::shared_ptr<QOpenGLShaderPro
 }
 
 
-
-void GLPointCloudViewer::resizeGL(int w, int h)
-{
-	const float depth_map_width = 640;
-	const float depth_map_height = 480;
-	const float fovy = 43.0f;
-	const float aspect_ratio = depth_map_width / depth_map_height;
-	const float near_plane = 0.1f;
-	const float far_plane = 81920.0f;
-
-    // Reset projection
-    projection.setToIdentity();
-
-    // Set perspective projection
-	projection.perspective(fovy, aspect_ratio, near_plane, far_plane);
-}
 
 
 

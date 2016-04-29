@@ -53,7 +53,17 @@ void GLPointCloud::setVertices(const float* vertices, uint count, uint tuple_siz
 	vertexStride = sizeof(float) * tuple_size;
 
 	vertexBuf.bind();
-	vertexBuf.allocate(vertices, static_cast<float>(count * vertexStride));
+	vertexBuf.allocate(vertices, static_cast<float>(vertexCount * vertexStride));
+}
+
+
+void GLPointCloud::updateVertices(const float* vertices)
+{
+	//if (!vertices)
+	//	return;
+
+	vertexBuf.bind();
+	vertexBuf.write(0, vertices, static_cast<float>(vertexCount * vertexStride));
 }
 
 
@@ -64,9 +74,18 @@ void GLPointCloud::setNormals(const float* normals, uint count, uint tuple_size)
 	normalStride = sizeof(float) * tuple_size;
 
 	normalBuf.bind();
-	normalBuf.allocate(normals, static_cast<float>(count * normalStride));
+	normalBuf.allocate(normals, static_cast<float>(normalCount * normalStride));
 }
 
+
+void GLPointCloud::updateNormals(const float* normals)
+{
+	//if (!normals)
+	//	return;
+
+	normalBuf.bind();
+	normalBuf.allocate(normals, static_cast<float>(normalCount * normalStride));
+}
 
 
 void GLPointCloud::render(QOpenGLShaderProgram *program)
@@ -74,14 +93,18 @@ void GLPointCloud::render(QOpenGLShaderProgram *program)
 	if (!vertexBuf.isCreated())
 		return;
 
-    vertexBuf.bind();
-	//int vertexLocation = program->attributeLocation("in_position");
-	program->setAttributeBuffer("in_position", GL_FLOAT, 0, vertexTupleSize, vertexStride);
-	program->enableAttributeArray("in_position");
+
+	if (vertexBuf.bind())
+	{
+		program->setAttributeBuffer("in_position", GL_FLOAT, 0, vertexTupleSize, vertexStride);
+		program->enableAttributeArray("in_position");
+	}
 	
-	normalBuf.bind();
-	program->setAttributeBuffer("in_normal", GL_FLOAT, 0, normalTupleSize, normalStride);
-	program->enableAttributeArray("in_normal");
+	if (normalBuf.bind())
+	{
+		program->setAttributeBuffer("in_normal", GL_FLOAT, 0, normalTupleSize, normalStride);
+		program->enableAttributeArray("in_normal");
+	}
 
 
 	program->setUniformValue("color", color);
@@ -89,6 +112,8 @@ void GLPointCloud::render(QOpenGLShaderProgram *program)
     // Draw geometry 
 	glDrawArrays(GL_POINTS, 0, static_cast<float>(vertexCount * vertexTupleSize));
 
+
 	vertexBuf.release();
+	normalBuf.release();
 }
 

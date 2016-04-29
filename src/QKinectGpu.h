@@ -19,6 +19,7 @@ public:
 public slots :
 	void setKinect(QKinectGrabberFromFile* kinect_ptr);
 	void setPointCloudViewer(GLPointCloudViewer* viewer_ptr);
+	void setPointCloud(GLPointCloud* model_ptr);
 	void onFrameUpdate();
 
 
@@ -31,6 +32,7 @@ public://protected:
 	QKinectGrabberFromFile*			kinect;
 	KinectCuda						kinectCuda;
 	GLPointCloudViewer*				viewer;
+	GLPointCloud*					pointCloud;
 	std::shared_ptr<GLPointCloud>	cloud;
 };
 

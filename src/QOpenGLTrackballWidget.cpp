@@ -7,7 +7,10 @@
 QOpenGLTrackballWidget::QOpenGLTrackballWidget(QWidget *parent) :
 	QOpenGLWidget(parent),
 	angularSpeed(0),
-	distance(0.0)
+	distance(0.0),
+	fovy(60.0f),
+	nearPlane(0.1f),
+	farPlane(1024.f)
 {
 	timer.start(12, this);
 }
@@ -95,4 +98,16 @@ void QOpenGLTrackballWidget::keyReleaseEvent(QKeyEvent *e)
 {
 	if (e->key() == Qt::Key_Q || e->key() == Qt::Key_Escape)
 		this->close();
+}
+
+
+
+void QOpenGLTrackballWidget::resizeGL(int w, int h)
+{
+	projection.setToIdentity();	// Reset projection
+	projection.perspective(
+		fovy, 
+		(float)w / (float)h, 
+		nearPlane, 
+		farPlane);	// Set perspective projection
 }

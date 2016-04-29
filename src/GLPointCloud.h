@@ -14,9 +14,11 @@ public:
 	void render(QOpenGLShaderProgram *program);
 
 	void setVertices(const float* vertices, uint count, uint tuple_size);
+	void updateVertices(const float* vertices);
 	GLuint vertexBufferId() const;
 
 	void setNormals(const float* normals, uint count, uint tuple_size);
+	void updateNormals(const float* vertices);
 	GLuint normalBufferId() const;
 
 	void setColor(const QVector3D& c){ color = c; }
