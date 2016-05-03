@@ -1,108 +1,127 @@
 
 #include "GLModelViewer.h"
-#include "GLModel.h"
+
 #include <QMouseEvent>
 #include <QTimer>
+#include <QDir>
 #include <math.h>
+#include <iostream>
+#include <time.h>
+
 
 GLModelViewer::GLModelViewer(QWidget *parent) :
-	QOpenGLTrackballWidget(parent),
-	model(nullptr)
+	QOpenGLTrackballWidget(parent)
 {
 	QTimer* updateTimer = new QTimer(this);
 	connect(updateTimer, SIGNAL(timeout()), this, SLOT(update()));
 	updateTimer->start(33);
 
-	distance = -150;
 }
 
 
 GLModelViewer::~GLModelViewer()
 {
+	// Make sure the context is current when deleting the texture
+	// and the buffers.
+	makeCurrent();
+	for (auto m : models)
+		m->cleanupGL();
+	doneCurrent();
 }
 
 
-void GLModelViewer::setModel(GLModel* gl_model)
+void GLModelViewer::keyReleaseEvent(QKeyEvent *e)
 {
-	model = gl_model;
+	QOpenGLTrackballWidget::keyReleaseEvent(e);
 }
+
+
+void GLModelViewer::addModel(const std::shared_ptr<GLModel>& model)
+{
+	models.push_back(model);
+}
+
+std::shared_ptr<GLModel> GLModelViewer::getModel(int index)
+{
+	if (index > -1 && index < models.size())
+		return models.at(index);
+	else
+		return nullptr;
+}
+
+
+void GLModelViewer::updateModel(int index, const float* vertices, const float* normals, size_t count, size_t tuple_size)
+{
+	if (index > -1 && models.size() > index)
+	{
+		std::shared_ptr<GLModel>& p = models.at(index);
+		p->updateVertices(vertices);
+		p->updateNormals(normals);
+	}
+}
+
 
 
 void GLModelViewer::initializeGL()
 {
-    initializeOpenGLFunctions();
+	initializeOpenGLFunctions();
 
-    glClearColor(0, 0, 0, 1);
+	glClearColor(0, 0, 0, 1);
 
-    initShaders();
+	// Enable depth buffer
+	glEnable(GL_DEPTH_TEST);
 
-    // Enable depth buffer
-    glEnable(GL_DEPTH_TEST);
-
-    // Enable back face culling
-    glEnable(GL_CULL_FACE);
-
-	if (model != nullptr)
-		model->initGL();
-}
-
-
-void GLModelViewer::initShaders()
-{
-    // Compile vertex shader
-	if (!program.addShaderFromSourceFile(QOpenGLShader::Vertex, ":/resources/shaders/vertices.vert"))
-        close();
-
-    // Compile fragment shader
-	if (!program.addShaderFromSourceFile(QOpenGLShader::Fragment, ":/resources/shaders/vertices.frag"))
-        close();
-
-    // Link shader pipeline
-    if (!program.link())
-        close();
-
-    // Bind shader pipeline for use
-    if (!program.bind())
-        close();
+	// Enable back face culling
+	glEnable(GL_CULL_FACE);
 }
 
 
 
-
-
-void GLModelViewer::resizeGL(int w, int h)
+void GLModelViewer::renderModel(QOpenGLShaderProgram* program, GLModel* cloud)
 {
-	const float fovy = 40.0f;
-	const float aspect_ratio = 1.77f;
-	const float near_plane = 0.1f;
-	const float far_plane = 10240.0f;
+	if (program == nullptr || !program->bind())
+		return;
 
-    // Reset projection
-    projection.setToIdentity();
+	// Calculate model view transformation
+	QMatrix4x4 view;
+	view.translate(0, 0, distance);
+	view.rotate(rotation);
 
-    // Set perspective projection
-	projection.perspective(fovy, aspect_ratio, near_plane, far_plane);
+	int projection_matrix_location = program->uniformLocation("projectionMatrix");
+	if (projection_matrix_location > -1)
+		program->setUniformValue("projectionMatrix", projection);
+	else
+		std::cerr << "Error: Shader does not have attribute 'projectionMatrix'" << std::endl;
+
+
+	int view_matrix_location = program->uniformLocation("viewMatrix");
+	if (view_matrix_location > -1)
+		program->setUniformValue("viewMatrix", view);
+	else
+		std::cerr << "Error: Shader does not have attribute 'viewMatrix'" << std::endl;
+
+
+	int model_matrix_location = program->uniformLocation("modelMatrix");
+	if (model_matrix_location > -1)
+		program->setUniformValue("modelMatrix", cloud->transform());
+	else
+		std::cerr << "Error: Shader does not have attribute 'modelMatrix'" << std::endl;
+
+	cloud->render(program);
 }
 
 
 
 void GLModelViewer::paintGL()
 {
-    // Clear color and depth buffer
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	if (models.size() < 1)
+		return;
 
-    // Calculate model view transformation
-    QMatrix4x4 view_matrix;
-	view_matrix.translate(0, 0, distance);
-	view_matrix.rotate(rotation);
-	
-	QMatrix4x4 model_matrix;
-	//model_matrix.rotate(180, 0, 1, 0);
+	// Clear color and depth buffer
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    // Set modelview-projection matrix
-	program.setUniformValue("mvp_matrix", projection * view_matrix * model_matrix);
+	// Draw geometry
+	for (auto m : models)
+		renderModel(m->getShaderProgram().get(), m.get());
 
-    // Draw cube geometry
-	if (model != nullptr)
-		model->render(&program);
 }

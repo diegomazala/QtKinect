@@ -5,13 +5,18 @@
 #include "GLModel.h"
 
 
-class GLPointCloud : public GLModel
+class GLPointCloud : public QOpenGLFunctions
 {
 public:
 	GLPointCloud();
 	virtual ~GLPointCloud();
 
 	void render(QOpenGLShaderProgram *program);
+	
+	QMatrix4x4& transform();
+
+	void setShaderProgram(const std::shared_ptr<QOpenGLShaderProgram>& shader_program);
+	std::shared_ptr<QOpenGLShaderProgram> getShaderProgram();
 
 	void setVertices(const float* vertices, uint count, uint tuple_size);
 	void updateVertices(const float* vertices);
@@ -25,10 +30,12 @@ public:
 
 public slots:
 
-	void initGL();
-	void cleanupGL();
+	virtual void initGL();
+	virtual void cleanupGL();
 
 private:
+	std::shared_ptr<QOpenGLShaderProgram>	shaderProgram;
+	QMatrix4x4								transformMatrix;
 
     QOpenGLBuffer vertexBuf;
 	uint vertexCount;

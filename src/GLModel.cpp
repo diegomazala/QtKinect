@@ -1,5 +1,5 @@
 
-#include "GLPointCloud.h"
+#include "GLModel.h"
 #include <iostream>
 #include <QVector2D>
 #include <QVector3D>
@@ -7,27 +7,32 @@
 #include <Eigen/Dense>
 #include "Projection.h"
 
-GLPointCloud::GLPointCloud() : shaderProgram(nullptr), color(1, 1, 1)
+GLModel::GLModel() : shaderProgram(nullptr), color(1, 1, 1)
 {
 	transformMatrix.setToIdentity();
 }
 
-GLPointCloud::~GLPointCloud()
+GLModel::~GLModel()
 {
 	cleanupGL();
 }
 
-GLuint GLPointCloud::vertexBufferId() const
+GLuint GLModel::vertexBufferId() const
 {
 	return vertexBuf.bufferId();
 }
 
-GLuint GLPointCloud::normalBufferId() const
+GLuint GLModel::normalBufferId() const
 {
 	return normalBuf.bufferId();
 }
 
-void GLPointCloud::initGL()
+GLuint GLModel::colorBufferId() const
+{
+	return colorBuf.bufferId();
+}
+
+void GLModel::initGL()
 {
 	initializeOpenGLFunctions();
 
@@ -38,33 +43,37 @@ void GLPointCloud::initGL()
 	// Generate VBOs
 	normalBuf.create();
 	normalBuf.setUsagePattern(QOpenGLBuffer::UsagePattern::StaticDraw);
+
+	colorBuf.create();
+	colorBuf.setUsagePattern(QOpenGLBuffer::UsagePattern::StaticDraw);
 }
 
 
-void GLPointCloud::cleanupGL()
+void GLModel::cleanupGL()
 {
 	vertexBuf.destroy();
 	normalBuf.destroy();
+	colorBuf.destroy();
 }
 
 
-QMatrix4x4& GLPointCloud::transform()
+QMatrix4x4& GLModel::transform()
 {
 	return transformMatrix;
 }
 
-void GLPointCloud::setShaderProgram(const std::shared_ptr<QOpenGLShaderProgram>& shader_program)
+void GLModel::setShaderProgram(const std::shared_ptr<QOpenGLShaderProgram>& shader_program)
 {
 	shaderProgram = shader_program;
 }
 
-std::shared_ptr<QOpenGLShaderProgram> GLPointCloud::getShaderProgram()
+std::shared_ptr<QOpenGLShaderProgram> GLModel::getShaderProgram()
 {
 	return shaderProgram;
 }
 
 
-void GLPointCloud::setVertices(const float* vertices, uint count, uint tuple_size)
+void GLModel::setVertices(const float* vertices, uint count, uint tuple_size)
 {
 	vertexCount = count;
 	vertexTupleSize = tuple_size;
@@ -75,7 +84,7 @@ void GLPointCloud::setVertices(const float* vertices, uint count, uint tuple_siz
 }
 
 
-void GLPointCloud::updateVertices(const float* vertices)
+void GLModel::updateVertices(const float* vertices)
 {
 	if (!vertices)
 		return;
@@ -85,7 +94,27 @@ void GLPointCloud::updateVertices(const float* vertices)
 }
 
 
-void GLPointCloud::setNormals(const float* normals, uint count, uint tuple_size)
+void GLModel::setColors(const float* colors, uint count, uint tuple_size)
+{
+	colorCount = count;
+	colorTupleSize = tuple_size;
+	colorStride = sizeof(float) * tuple_size;
+
+	colorBuf.bind();
+	colorBuf.allocate(colors, static_cast<float>(colorCount * colorStride));
+}
+
+
+void GLModel::updateColors(const float* colors)
+{
+	if (!colors)
+		return;
+
+	colorBuf.bind();
+	colorBuf.allocate(colors, static_cast<float>(colorCount * colorStride));
+}
+
+void GLModel::setNormals(const float* normals, uint count, uint tuple_size)
 {
 	normalCount = count;
 	normalTupleSize = tuple_size;
@@ -96,7 +125,7 @@ void GLPointCloud::setNormals(const float* normals, uint count, uint tuple_size)
 }
 
 
-void GLPointCloud::updateNormals(const float* normals)
+void GLModel::updateNormals(const float* normals)
 {
 	if (!normals)
 		return;
@@ -106,7 +135,7 @@ void GLPointCloud::updateNormals(const float* normals)
 }
 
 
-void GLPointCloud::render(QOpenGLShaderProgram *program)
+void GLModel::render(QOpenGLShaderProgram *program)
 {
 	if (!vertexBuf.isCreated())
 		return;
@@ -117,19 +146,21 @@ void GLPointCloud::render(QOpenGLShaderProgram *program)
 		shaderProgram->setAttributeBuffer("in_position", GL_FLOAT, 0, vertexTupleSize, vertexStride);
 		shaderProgram->enableAttributeArray("in_position");
 	}
-	
+
 	if (normalBuf.bind())
 	{
 		shaderProgram->setAttributeBuffer("in_normal", GL_FLOAT, 0, normalTupleSize, normalStride);
 		shaderProgram->enableAttributeArray("in_normal");
 	}
 
+	if (colorBuf.bind())
+	{
+		shaderProgram->setAttributeBuffer("in_color", GL_FLOAT, 0, colorTupleSize, colorStride);
+		shaderProgram->enableAttributeArray("in_color");
+	}
 
-	shaderProgram->setUniformValue("color", color);
-
-    // Draw geometry 
+	// Draw geometry 
 	glDrawArrays(GL_POINTS, 0, static_cast<float>(vertexCount * vertexTupleSize));
-
 
 	vertexBuf.release();
 	normalBuf.release();

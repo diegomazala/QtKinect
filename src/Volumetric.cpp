@@ -2,9 +2,9 @@
 #include <QApplication>
 #include <QKeyEvent>
 #include <QPushButton>
-#include "QImageWidget.h"
-#include "QKinectGrabber.h"
-#include "QKinectIO.h"
+#include "GLModelViewer.h"
+#include "GLModel.h"
+#include "GLShaderProgram.h"
 #include "Grid.h"
 #include <iostream>
 #include <chrono>
@@ -18,7 +18,6 @@
 
 
 
-int g_index = 449;
 
 #if 0
 void raycast_volume()
@@ -104,6 +103,7 @@ int main(int argc, char **argv)
 	Eigen::Affine3d grid_affine = Eigen::Affine3d::Identity();
 	grid_affine.translate(Eigen::Vector3d(0, 0, -256));
 	grid_affine.scale(Eigen::Vector3d(1, 1, -1));	// z is negative inside of screen
+#if 0
 	Grid grid(volume_size, voxel_size, grid_affine.matrix());
 
 
@@ -123,6 +123,7 @@ int main(int argc, char **argv)
 	Eigen::Affine3d rotate = Eigen::Affine3d::Identity();
 	Eigen::Affine3d translate = Eigen::Affine3d::Identity();
 	translate.translate(Eigen::Vector3d(0, 0, -256));
+
 
 	// 
 	// Compute first cloud
@@ -211,9 +212,112 @@ int main(int argc, char **argv)
 	timer.start();
 	export_volume("../../data/grid_volume_cpu.obj", grid.data);
 	timer.print_interval("Exporting volume    : ");
+#endif
 
 
-	return 0;
+	QApplication app(argc, argv);
+
+#if 0
+
+	//
+	// setup opengl viewer
+	// 
+	GLModelViewer glwidget;
+	glwidget.resize(640, 480);
+	glwidget.setPerspective(60.0f, 0.1f, 1024.0f);
+	glwidget.move(320, 0);
+	glwidget.setWindowTitle("Point Cloud");
+	glwidget.setWeelSpeed(0.1f);
+	glwidget.setDistance(-0.5f);
+	glwidget.show();
+
+
+	timer.start();
+	std::vector<Eigen::Vector4f> points3DOrig;
+	import_obj(filepath, points3DOrig);
+	timer.print_interval("Importing monkey    : ");
+	std::cout << "Monkey point count  : " << points3DOrig.size() << std::endl;
+
+	//
+	// setup model
+	// 
+	std::shared_ptr<GLModel> cloud(new GLModel);
+	cloud->initGL();
+	cloud->setVertices(&points3DOrig[0][0], points3DOrig.size(), 4);
+	cloud->setNormals(&points3DOrig[0][0], points3DOrig.size(), 4);
+	cloud->transform().rotate(180, 0, 1, 0);
+	glwidget.addModel(cloud);
+
+
+	//
+	// setup kinect shader program
+	// 
+	std::shared_ptr<GLShaderProgram> kinectShaderProgram(new GLShaderProgram);
+	if (kinectShaderProgram->build("color.vert", "color.frag"))
+		cloud->setShaderProgram(kinectShaderProgram);
+
+#else
+
+
+	//
+	// setup opengl viewer
+	// 
+	GLModelViewer glwidget;
+	glwidget.resize(640, 480);
+	glwidget.setPerspective(60.0f, 0.1f, 1024.0f);
+	glwidget.move(320, 0);
+	glwidget.setWindowTitle("Point Cloud");
+	glwidget.setWeelSpeed(0.1f);
+	glwidget.setDistance(-0.5f);
+	glwidget.show();
+
+	
+	Eigen::Matrix4d to_origin = Eigen::Matrix4d::Identity();
+	to_origin.col(3) << -(volume_size.x() / 2.0), -(volume_size.y() / 2.0), -(volume_size.z() / 2.0), 1.0;	// set translate
+
+
+	std::vector<Eigen::Vector4f> vertices, colors;
+
+	int i = 0;
+	for (int z = 0; z <= volume_size.z(); z += voxel_size.z())
+	{
+		for (int y = 0; y <= volume_size.y(); y += voxel_size.y())
+		{
+			for (int x = 0; x <= volume_size.x(); x += voxel_size.x(), i++)
+			{
+				Eigen::Vector4d p = grid_affine.matrix() * to_origin * Eigen::Vector4d(x, y, z, 1);
+				p /= p.w();
+				vertices.push_back(p.cast<float>());
+
+				colors.push_back(Eigen::Vector4f(1, 1, 0, 1));
+			}
+		}
+	}
+
+
+
+
+	//
+	// setup model
+	// 
+	std::shared_ptr<GLModel> model(new GLModel);
+	model->initGL();
+	model->setVertices(&vertices[0][0], vertices.size(), 4);
+	model->setColors(&colors[0][0], colors.size(), 4);
+	glwidget.addModel(model);
+
+
+	//
+	// setup kinect shader program
+	// 
+	std::shared_ptr<GLShaderProgram> kinectShaderProgram(new GLShaderProgram);
+	if (kinectShaderProgram->build("color.vert", "color.frag"))
+		model->setShaderProgram(kinectShaderProgram);
+
+
+#endif
+
+	return app.exec();
 }
 
 

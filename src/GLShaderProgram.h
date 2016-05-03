@@ -1,17 +1,17 @@
 
-#ifndef __KINECT_SHADER_PROGRAM_H__
-#define __KINECT_SHADER_PROGRAM_H__
+#ifndef __GL_SHADER_PROGRAM_H__
+#define __GL_SHADER_PROGRAM_H__
 
 #include <QOpenGLShaderProgram>
 #include <QDir>
 #include <QString>
-#include <iostream>
-class KinectShaderProgram : public QOpenGLShaderProgram
+
+class GLShaderProgram : public QOpenGLShaderProgram
 {
 	Q_OBJECT
 public:
-	explicit KinectShaderProgram(QObject *parent = 0) :QOpenGLShaderProgram(parent){};
-	virtual ~KinectShaderProgram(){};
+	explicit GLShaderProgram(QObject *parent = 0) : QOpenGLShaderProgram(parent){};
+	virtual ~GLShaderProgram(){};
 
 	bool build(const QString& vertex_shader_file, const QString& fragment_shader_file)
 	{
@@ -66,4 +66,4 @@ public:
 
 };
 
-#endif // __KINECT_SHADER_PROGRAM_H__
+#endif // __GL_SHADER_PROGRAM_H__

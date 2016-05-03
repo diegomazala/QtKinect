@@ -20,7 +20,6 @@
 #include "cuda_kernels/cuda_kernels.h"
 
 #include "GLPointCloud.h"
-#include "GLRgbPointCloud.h"
 
 #include "helper_cuda.h"
 #include "helper_image.h"

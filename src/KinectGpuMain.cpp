@@ -20,7 +20,7 @@
 #include <cuda_runtime.h>
 #include <vector_types.h>
 #include "GLPointCloud.h"
-#include "KinectShaderProgram.h"
+#include "GLShaderProgram.h"
 #include "helper_cuda.h"
 #include "helper_image.h"
 #include "Projection.h"
@@ -104,25 +104,10 @@ int main(int argc, char **argv)
 	depthWidget.show();
 	QApplication::connect(kinect, SIGNAL(depthImage(QImage)), &depthWidget, SLOT(setImage(QImage)));
 
-#if 0
-	GLModelViewer glViewer;
-	glViewer.setMinimumSize(640, 480);
-	glViewer.move(640, 0);
-	glViewer.setWindowTitle("Point Cloud");
-	glViewer.setWeelSpeed(0.1f);
-	glViewer.setDistance(-0.5f);
-	glViewer.show();
 
-	GLPointCloud pointCloud;
-	pointCloud.initGL();
-	float4 vv = make_float4(1, 1, 1, 1);
-	pointCloud.setVertices(&vv.x, 1, 4);
-	//pointCloud.setVertices(&vertices[0].x, static_cast<uint>(vertices.size()), static_cast<uint>(4));
-	//pointCloud.setColors(&rgb[0].x, static_cast<uint>(rgb.size()), static_cast<uint>(3));
-	glViewer.setModel(&pointCloud);
-#endif
-
-
+	//
+	// setup opengl viewer
+	// 
 	GLPointCloudViewer glwidget;
 	glwidget.resize(640, 480);
 	glwidget.setPerspective(KINECT_V1_FOVY, KINECT_V1_DEPTH_MIN * 0.1f, KINECT_V1_DEPTH_MAX * 2);
@@ -133,6 +118,10 @@ int main(int argc, char **argv)
 	glwidget.show();
 	QApplication::connect(kinect, SIGNAL(fileLoaded(QString)), &glwidget, SLOT(setWindowTitle(QString)));
 
+
+	//
+	// setup model
+	// 
 	std::shared_ptr<GLPointCloud> cloud(new GLPointCloud);
 	cloud->initGL();
 	int vertex_count = 640 * 480;
@@ -141,15 +130,16 @@ int main(int argc, char **argv)
 	cloud->setVertices(dumb_vertices, vertex_count, vertex_tuple_size);
 	cloud->setNormals(dumb_vertices, vertex_count, vertex_tuple_size);
 	delete dumb_vertices;
+	cloud->transform().rotate(180, 0, 1, 0);
 	glwidget.addPointCloud(cloud);
 
 
 	//
 	// setup kinect shader program
 	// 
-	std::shared_ptr<KinectShaderProgram> kinectShaderProgram(new KinectShaderProgram);
+	std::shared_ptr<GLShaderProgram> kinectShaderProgram(new GLShaderProgram);
 	if (kinectShaderProgram->build("normal2rgb.vert", "normal2rgb.frag"))
-		glwidget.setShaderProgram(kinectShaderProgram);
+		cloud->setShaderProgram(kinectShaderProgram);
 
 
 	QKinectGpu kinectGpu;

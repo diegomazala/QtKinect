@@ -68,9 +68,6 @@
     <ClCompile Include="..\src\QOpenGLTrackballWidget.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\GLRgbPointCloud.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="..\src\QImageWidget.h">
@@ -97,9 +94,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\src\QOpenGLTrackballWidget.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\src\GLRgbPointCloud.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
