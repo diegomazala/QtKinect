@@ -80,6 +80,7 @@ void raycast_volume()
 #endif
 
 
+
 static void export_volume(const std::string& filename, const std::vector<Voxeld>& volume, const Eigen::Matrix4d& transformation = Eigen::Matrix4d::Identity())
 {
 	Eigen::Affine3d rotation;
@@ -273,24 +274,25 @@ static void create_depth_buffer(std::vector<float>& depth_buffer, const std::vec
 }
 
 
-static void create_depth_buffer(std::vector<double>& depth_buffer, const std::vector<Eigen::Vector3d>& points3D, const Eigen::Matrix4d& proj, const Eigen::Matrix4d& view, double far_plane)
+template <typename Type>
+static void create_depth_buffer(std::vector<Type>& depth_buffer, const std::vector<Eigen::Matrix<Type, 3, 1>>& points3D, const Eigen::Matrix<Type, 4, 4>& proj, const Eigen::Matrix<Type, 4, 4>& view, Type far_plane)
 {
 	// Creating depth buffer
 	depth_buffer.clear();
 	depth_buffer.resize(int(window_width * window_height), far_plane);
 
 
-	for (const Eigen::Vector3d p3d : points3D)
+	for (const Eigen::Matrix<Type, 3, 1> p3d : points3D)
 	{
-		Eigen::Vector4d v = view * p3d.homogeneous();
+		Eigen::Matrix<Type, 4, 1> v = view * p3d.homogeneous();
 		v /= v.w();
 
-		const Eigen::Vector4d clip = proj * view * p3d.homogeneous();
-		const Eigen::Vector3d ndc = (clip / clip.w()).head<3>();
+		const Eigen::Matrix<Type, 4, 1> clip = proj * view * p3d.homogeneous();
+		const Eigen::Matrix<Type, 3, 1> ndc = (clip / clip.w()).head<3>();
 		if (ndc.x() < -1 || ndc.x() > 1 || ndc.y() < -1 || ndc.y() > 1 || ndc.z() < -1 || ndc.z() > 1)
 			continue;
 
-		Eigen::Vector3d pixel;
+		Eigen::Matrix<Type, 3, 1> pixel;
 		pixel.x() = window_width / 2.0f * ndc.x() + window_width / 2.0f;
 		pixel.y() = window_height / 2.0f * ndc.y() + window_height / 2.0f;
 		//pixel.z() = (far_plane - near_plane) / 2.0f * ndc.z() + (far_plane + near_plane) / 2.0f;
@@ -298,8 +300,8 @@ static void create_depth_buffer(std::vector<double>& depth_buffer, const std::ve
 		const int depth_index = (int)pixel.y() * (int)window_width + (int)pixel.x();
 		if (depth_index > 0 && depth_index < depth_buffer.size())
 		{
-			const double& curr_depth = std::abs(depth_buffer.at(depth_index));
-			const double& new_depth = std::abs(v.z());
+			const Type& curr_depth = std::abs(depth_buffer.at(depth_index));
+			const Type& new_depth = std::abs(v.z());
 			if (new_depth < curr_depth)
 				depth_buffer.at(depth_index) = new_depth;
 		}

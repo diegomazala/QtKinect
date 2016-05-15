@@ -58,6 +58,53 @@ static bool import_obj(const std::string& filename, std::vector<Eigen::Vector3d>
 	return true;
 }
 
+static bool import_obj(const std::string& filename, std::vector<Eigen::Vector3f>& points3D, int max_point_count = INT_MAX)
+{
+	std::ifstream inFile;
+	inFile.open(filename);
+
+	if (!inFile.is_open())
+	{
+		std::cerr << "Error: Could not open obj input file: " << filename << std::endl;
+		return false;
+	}
+
+	points3D.clear();
+
+	int i = 0;
+	while (inFile)
+	{
+		std::string str;
+
+		if (!std::getline(inFile, str))
+		{
+			if (inFile.eof())
+				return true;
+
+			std::cerr << "Error: Problems when reading obj file: " << filename << std::endl;
+			return false;
+		}
+
+		if (str[0] == 'v')
+		{
+			std::stringstream ss(str);
+			std::vector <std::string> record;
+
+			char c;
+			float x, y, z;
+			ss >> c >> x >> y >> z;
+
+			Eigen::Vector3f p(x, y, z);
+			points3D.push_back(p);
+		}
+
+		if (i++ > max_point_count)
+			break;
+	}
+
+	inFile.close();
+	return true;
+}
 
 static bool import_obj(const std::string& filename, std::vector<Eigen::Vector4f>& points3D, int max_point_count = INT_MAX)
 {

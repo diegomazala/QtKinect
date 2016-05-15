@@ -18,12 +18,22 @@
 #include "helper_timer.h"
 #include <cuda_runtime.h>
 
-typedef unsigned char	uchar;
-typedef unsigned int	uint;
-typedef unsigned short	ushort;
 
 
+#ifndef ushort
+typedef unsigned short ushort;
+#endif
+#ifndef uchar
+typedef unsigned char uchar;
+#endif
+#ifndef uint
+typedef unsigned int uint;
+#endif
 
+static int iDivUp(int a, int b)
+{
+	return (a % b != 0) ? (a / b + 1) : (a / b);
+}
 
 extern "C"
 {
@@ -190,6 +200,22 @@ extern "C"
 		const size_t index_pitch,
 		const ushort half_window_search_size);
 
+
+	void raycast_grid(
+		float4* grid_vertices,
+		float2* grid_params,
+		ushort volume_size,
+		ushort voxel_size,
+		float3 origin,
+		float3 direction,
+		float ray_near,
+		float ray_far,
+		uchar3* pixel_bufer,
+		const ushort width,
+		const ushort height
+		);
+
+	
 };
 
 

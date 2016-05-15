@@ -8,6 +8,8 @@
 #include <curand.h>
 #include <thrust/device_vector.h>
 #include "helper_cuda.h"
+#include "helper_math.h"
+
 
 texture<ushort, 2> ushortTexture;
 texture<float4, 2, cudaReadModeElementType> float4Texture;
@@ -146,24 +148,6 @@ extern "C"
 		return make_float4(a.y*b.z - a.z*b.y, a.z*b.x - a.x*b.z, a.x*b.y - a.y*b.x, 1.0f);
 	}
 
-	// dot product
-	inline __host__ __device__ float dot(float4 a, float4 b)
-	{
-		return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
-	}
-
-	// normalize
-	inline __host__ __device__ float4 normalize(float4 v)
-	{
-		float invLen = rsqrtf(dot(v, v));
-		return make_float4(v.x * invLen, v.y * invLen, v.z * invLen, v.w * invLen);
-	}
-
-	// subtract
-	inline __host__ __device__ float4 operator-(float4 a, float4 b)
-	{
-		return make_float4(a.x - b.x, a.y - b.y, a.z - b.z, a.w - b.w);
-	}
 
 
 	__global__ void compute_pixel_depth_kernel(
@@ -954,6 +938,161 @@ extern "C"
 			half_window_search_size);
 	}
 
+	struct Ray
+	{
+		float3 o;   // origin
+		float3 d;   // direction
+	};
+
+	__device__ int intersectBox(Ray r, float3 boxmin, float3 boxmax, float *tnear, float *tfar)
+	{
+		// compute intersection of ray with all six bbox planes
+		float3 invR = make_float3(1.0f) / r.d;
+		float3 tbot = invR * (boxmin - r.o);
+		float3 ttop = invR * (boxmax - r.o);
+
+		// re-order intersections to find smallest and largest on each axis
+		float3 tmin = fminf(ttop, tbot);
+		float3 tmax = fmaxf(ttop, tbot);
+
+		// find the largest tmin and the smallest tmax
+		float largest_tmin = fmaxf(fmaxf(tmin.x, tmin.y), fmaxf(tmin.x, tmin.z));
+		float smallest_tmax = fminf(fminf(tmax.x, tmax.y), fminf(tmax.x, tmax.z));
+
+		*tnear = largest_tmin;
+		*tfar = smallest_tmax;
+
+		return smallest_tmax > largest_tmin;
+	}
+
+	__global__ void raycast_kernel(
+		uchar3* out_pixels,
+		uint image_width,
+		uint image_height,
+		uint vol_size,
+		uint vx_size,
+		const float4* grid_vertices,
+		float3 origin,
+		float3 direction,
+		float ray_near,
+		float ray_far)
+	{
+		int x = blockIdx.x*blockDim.x + threadIdx.x;
+		int y = blockIdx.y*blockDim.y + threadIdx.y;
+
+		if (x >= image_width || y >= image_height)
+			return;
+		
+		float3 half_voxel = make_float3(vx_size * 0.5f, vx_size * 0.5f, vx_size * 0.5f);
+
+		const uint total_voxels = static_cast<uint>((vol_size / vx_size + 1) * (vol_size / vx_size + 1) * (vol_size / vx_size + 1));
+
+		// calculate eye ray in world space
+		Ray eyeRay;
+		eyeRay.o = origin;
+		eyeRay.d = direction;
+
+		uchar p = 128;
+#if 0
+		int prev_voxel = -1;
+		float tnear, tfar;
+		for (int i=0; i<total_voxels; ++i)
+		{
+			const float3 v = make_float3(grid_vertices[i].x, grid_vertices[i].y, grid_vertices[i].z);
+			const float3 corner_min = v - half_voxel;
+			const float3 corner_max = v + half_voxel;
+
+			if (intersectBox(eyeRay, corner_min, corner_max, &tnear, &tfar))
+			{
+				if (p < 245)
+					p += 10;
+			}
+		}
+#endif
+		out_pixels[y * image_width + x].x = p;
+		out_pixels[y * image_width + x].y = 0;
+		out_pixels[y * image_width + x].z = 0;
+
+#if 0
 
 
+
+		uint3 dim;
+		dim.x = vol_size / vx_size + 1;
+		dim.y = vol_size / vx_size + 1;
+		dim.z = vol_size / vx_size + 1;
+
+		const int z = threadId;
+
+		const int half_vol_size = vol_size / 2;
+
+		for (int y = 0; y < dim.y; ++y)
+		{
+			for (int x = 0; x < dim.x; ++x)
+			{
+				const int voxel_index = x + dim.x * (y + dim.z * z);
+
+				//float4 v = {
+				//	grid_matrix[12] + float(x * half_vol_size - half_vol_size),
+				//	grid_matrix[13] + float(y * half_vol_size - half_vol_size),
+				//	grid_matrix[14] - float(z * half_vol_size - half_vol_size),
+				//	1.0f };
+
+
+
+
+				//grid_voxels[voxel_index * 4 + 0] = v.x;
+				//grid_voxels[voxel_index * 4 + 1] = v.y;
+				//grid_voxels[voxel_index * 4 + 2] = v.z;
+				//grid_voxels[voxel_index * 4 + 3] = v.w;
+			}
+		}
+#endif
+
+	}
+
+
+	void raycast_grid(
+		float4* grid_vertices,
+		float2* grid_params,
+		ushort volume_size,
+		ushort voxel_size,
+		float3 origin,
+		float3 direction,
+		float ray_near,
+		float ray_far,
+		uchar3* pixel_bufer,
+		const ushort width,
+		const ushort height
+		)
+	{
+		const uint total_voxels = static_cast<uint>(pow((volume_size / voxel_size + 1), 3));
+
+		thrust::device_vector<float4> d_grid_vertices = thrust::device_vector<float4>(&grid_vertices[0], &grid_vertices[0] + total_voxels);
+		thrust::device_vector<float2> d_grid_params = thrust::device_vector<float2>(&grid_params[0], &grid_params[0] + total_voxels);
+		thrust::device_vector<uchar3> d_pixel_buffer = thrust::device_vector<uchar3>(width * height);
+		
+		//thrust::copy(d_grid_vertices.begin(), d_grid_vertices.end(), &grid_vertices[0]);
+		//thrust::copy(d_grid_params.begin(), d_grid_params.end(), &grid_params[0]);
+
+		const dim3 threads_per_block(32, 32);
+		const dim3 num_blocks = dim3(iDivUp(width, threads_per_block.x), iDivUp(height, threads_per_block.y));
+		//num_blocks.x = (width + threads_per_block.x - 1) / threads_per_block.x;
+		//num_blocks.y = (height + threads_per_block.y - 1) / threads_per_block.y;
+
+		raycast_kernel <<<  num_blocks, threads_per_block >>>(
+			thrust::raw_pointer_cast(&d_pixel_buffer[0]),
+			width,
+			height,
+			volume_size,
+			voxel_size,
+			thrust::raw_pointer_cast(&d_grid_vertices[0]),
+			origin,
+			direction,
+			ray_near,
+			ray_far
+			);
+
+		thrust::copy(d_pixel_buffer.begin(), d_pixel_buffer.end(), &pixel_bufer[0]);
+	}
 };

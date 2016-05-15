@@ -5,36 +5,39 @@
 #include <Eigen/Dense>
 
 
-
+template <typename Type>
 class Ray 
 {
 public:
-	Ray(const Eigen::Vector3d& o, const Eigen::Vector3d& d)
+	Ray(const Eigen::Matrix<Type, 3, 1>& o, const Eigen::Matrix<Type, 3, 1>& d)
 	{
 		origin = o;
 		direction = d;
-		inv_direction = Eigen::Vector3d(1 / d.x(), 1 / d.y(), 1 / d.z());
+		inv_direction = Eigen::Matrix<Type, 3, 1>(1 / d.x(), 1 / d.y(), 1 / d.z());
 		sign[0] = (inv_direction.x() < 0);
 		sign[1] = (inv_direction.y() < 0);
 		sign[2] = (inv_direction.z() < 0);
 	}
-	Eigen::Vector3d origin;
-	Eigen::Vector3d direction;
-	Eigen::Vector3d inv_direction;
+
+	Eigen::Matrix<Type, 3, 1> origin;
+	Eigen::Matrix<Type, 3, 1> direction;
+	Eigen::Matrix<Type, 3, 1> inv_direction;
 	int sign[3];
 };
 
 
+
+template <typename Type>
 class Box
 {
 public:
-	Box(const Eigen::Vector3d &vmin, const Eigen::Vector3d &vmax)
+	Box(const Eigen::Matrix<Type, 3, 1>& vmin, const Eigen::Matrix<Type, 3, 1>& vmax)
 	{
 		bounds[0] = vmin;
 		bounds[1] = vmax;
 	}
 
-	bool intersect(const Ray &r, float t0, float t1) const
+	bool intersect(const Ray<Type> &r, Type t0, Type t1) const
 	{
 		//std::cout << std::fixed << std::endl
 		//	<< "------------ test intersect -------- " << std::endl
@@ -47,7 +50,7 @@ public:
 			//<< std::endl;
 
 
-		float txmin, txmax, tymin, tymax, tzmin, tzmax;
+		Type txmin, txmax, tymin, tymax, tzmin, tzmax;
 
 		txmin = (bounds[r.sign[0]].x() - r.origin.x()) * r.inv_direction.x();
 		txmax = (bounds[1 - r.sign[0]].x() - r.origin.x()) * r.inv_direction.x();
@@ -105,8 +108,8 @@ public:
 		//	std::cout << "BAIXO/CIMA - TRAS " << std::endl;
 		//}
 
-		Eigen::Vector3d tmin(txmin, tymin, tzmin);
-		Eigen::Vector3d tmax(txmax, tymax, tzmax);
+		Eigen::Matrix<Type, 3, 1> tmin(txmin, tymin, tzmin);
+		Eigen::Matrix<Type, 3, 1> tmax(txmax, tymax, tzmax);
 				
 		if ((txmin > tzmax) || (tzmin > txmax))
 			return false;
@@ -131,7 +134,7 @@ public:
 		return ((txmin < t1) && (txmax > t0));
 	}
 
-	Eigen::Vector3d bounds[2];
+	Eigen::Matrix<Type, 3, 1> bounds[2];
 };
 
 

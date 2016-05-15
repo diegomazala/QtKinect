@@ -13,6 +13,7 @@
 #include "Interpolator.hpp"
 #include "RayBox.h"
 #include "Grid.h"
+#include "Timer.h"
 
 
 const float window_width = 512.0f;
@@ -46,28 +47,35 @@ int main(int argc, char **argv)
 	
 	std::vector<int> intersections;
 	
+	Timer t;
+	t.start();
 	grid.recursive_raycast(-1, voxel_index, origin, direction, ray_near, ray_far, intersections);
-
 	std::cout << "\nIntersections Recursive: " << intersections.size() << std::endl;
 	for (const auto i : intersections)
 		std::cout << i << " : " << grid.data[i].point.transpose() << std::endl;
+	std::cout << "Time : " << t.diff_msec() << std::endl;
 
+	t.start();
 	intersections = grid.raycast_all(origin, direction, ray_near, ray_far);
-
 	std::cout << "\nIntersections All: " << intersections.size() << std::endl;
 	for (const auto i : intersections)
 		std::cout << i << " : " << grid.data[i].point.transpose() << std::endl;
+	std::cout << "Time : " << t.diff_msec() << std::endl;
 
+	t.start();
 	//intersections = Grid::find_intersections(grid.data, grid.volume_size, grid.voxel_size, grid.transformation, origin, direction, ray_near, ray_far);
 	intersections = Grid::find_intersections(grid.data, grid.volume_size, grid.voxel_size, Eigen::Matrix4d::Identity(), origin, direction, ray_near, ray_far);
 	std::cout << "\nIntersections Find: " << intersections.size() << std::endl;
 	for (const auto i : intersections)
 		std::cout << i << " : " << grid.data[i].point.transpose() << std::endl;
+	std::cout << "Time : " << t.diff_msec() << std::endl;
 
+	t.start();
 	Grid::sort_intersections(intersections, grid.data, origin);
 	std::cout << "\nIntersections Find Sorted: " << intersections.size() << std::endl;
 	for (const auto i : intersections)
 		std::cout << i << " : " << grid.data[i].point.transpose() << std::endl;
+	std::cout << "Time : " << t.diff_msec() << std::endl;
 
 	return 0;
 }

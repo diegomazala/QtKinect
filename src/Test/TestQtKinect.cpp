@@ -447,8 +447,8 @@ namespace TestQtKinect
 				Eigen::Vector3d corner_min = (volume_transformation * (v.point - half_voxel).homogeneous()).head<3>();
 				Eigen::Vector3d corner_max = (volume_transformation * (v.point + half_voxel).homogeneous()).head<3>();
 
-				Box box(corner_min, corner_max);
-				Ray ray(origin, direction);
+				Box<double> box(corner_min, corner_max);
+				Ray<double> ray(origin, direction);
 
 				if (box.intersect(ray, t0, t1))
 				{
@@ -470,8 +470,8 @@ namespace TestQtKinect
 				Eigen::Vector3d corner_min = (volume_transformation * (v.point - half_voxel).homogeneous()).head<3>();
 				Eigen::Vector3d corner_max = (volume_transformation * (v.point + half_voxel).homogeneous()).head<3>();
 
-				Box box(corner_min, corner_max);
-				Ray ray(origin, direction);
+				Box<double> box(corner_min, corner_max);
+				Ray<double> ray(origin, direction);
 
 				if (box.intersect(ray, t0, t1))
 				{

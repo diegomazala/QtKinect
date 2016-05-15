@@ -35,7 +35,10 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\src\Volumetric.cpp">
+    <ClCompile Include="..\src\Raycasting_gpu.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\GLModelViewer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="GeneratedFiles\Debug\moc_GLModelViewer.cpp">
@@ -44,30 +47,27 @@
     <ClCompile Include="GeneratedFiles\Release\moc_GLModelViewer.cpp">
       <Filter>Generated Files\Release</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\GLModelViewer.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\src\GLModel.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\src\QOpenGLTrackballWidget.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="GeneratedFiles\Debug\moc_GLShaderProgram.cpp">
       <Filter>Generated Files\Debug</Filter>
     </ClCompile>
     <ClCompile Include="GeneratedFiles\Release\moc_GLShaderProgram.cpp">
       <Filter>Generated Files\Release</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\QOpenGLTrackballWidget.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\GLModel.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\src\GLModel.h">
+    <ClInclude Include="..\src\TsdfGridIO.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\src\QOpenGLTrackballWidget.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\src\TsdfGridIO.h">
+    <ClInclude Include="..\src\GLModel.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

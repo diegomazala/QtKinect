@@ -180,8 +180,8 @@ public:
 			Eigen::Vector3d corner_min = (volume_transformation * (v.point - half_voxel).homogeneous()).head<3>();
 			Eigen::Vector3d corner_max = (volume_transformation * (v.point + half_voxel).homogeneous()).head<3>();
 
-			Box box(corner_min, corner_max);
-			Ray ray(origin, direction);
+			Box<double> box(corner_min, corner_max);
+			Ray<double> ray(origin, direction);
 
 			if (box.intersect(ray, ray_near, ray_far))
 			{
@@ -212,8 +212,8 @@ public:
 			Eigen::Vector3d corner_min = (volume_transformation * (v.point - half_voxel).homogeneous()).head<3>();
 			Eigen::Vector3d corner_max = (volume_transformation * (v.point + half_voxel).homogeneous()).head<3>();
 
-			Box box(corner_min, corner_max);
-			Ray ray(origin, direction);
+			Box<double> box(corner_min, corner_max);
+			Ray<double> ray(origin, direction);
 
 			if (box.intersect(ray, ray_near, ray_far))
 			{
@@ -244,8 +244,8 @@ public:
 			Eigen::Vector3d corner_min = (v.point - half_voxel).homogeneous().head<3>();
 			Eigen::Vector3d corner_max = (v.point + half_voxel).homogeneous().head<3>();
 
-			Box box(corner_min, corner_max);
-			Ray ray(origin, direction);
+			Box<double> box(corner_min, corner_max);
+			Ray<double> ray(origin, direction);
 			
 
 			if (box.intersect(ray, ray_near, ray_far))
@@ -338,8 +338,8 @@ public:
 		Eigen::Vector3d corner_min = (v.point - half_voxel).homogeneous().head<3>();
 		Eigen::Vector3d corner_max = (v.point + half_voxel).homogeneous().head<3>();
 
-		Box box(corner_min, corner_max);
-		Ray ray(origin, direction);
+		Box<double> box(corner_min, corner_max);
+		Ray<double> ray(origin, direction);
 
 		return box.intersect(ray, ray_near, ray_far);
 	}
