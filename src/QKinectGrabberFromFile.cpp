@@ -154,7 +154,9 @@ void QKinectGrabberFromFile::run()
 		const QString frame_file_name = folder + "/" + frameFile.next();
 		QKinectFrame kinect_frame(frame_file_name);
 		
-		emit fileLoaded(frameFile.next());
+		emit fileLoaded(frame_file_name);
+
+
 
 		mutex.lock();
 		{
