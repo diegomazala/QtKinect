@@ -28,4 +28,5 @@
 *.app
 /msvc/GeneratedFiles
 /msvc/tmp
+/bin
 
