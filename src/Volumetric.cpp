@@ -66,7 +66,7 @@ void raycast_volume()
 }
 #endif
 
-// Usage: ./Volumetricd.exe ../../data/plane.obj 256 8 2 90
+// Usage: ./Volumetricd.exe ../../data/monkey.obj 256 4 2 90
 int main(int argc, char **argv)
 {
 	if (argc < 6)
@@ -139,7 +139,7 @@ int main(int argc, char **argv)
 	// Update grid with first cloud
 	//
 	timer.start();
-	create_depth_buffer(depth_buffer.first, cloud.first, K, Eigen::Matrix4d::Identity(), far_plane);
+	create_depth_buffer<double>(depth_buffer.first, cloud.first, K, Eigen::Matrix4d::Identity(), far_plane);
 	timer.print_interval("CPU compute depth   : ");
 
 	timer.start();
@@ -170,7 +170,7 @@ int main(int argc, char **argv)
 		//export_obj("../../data/cloud_cpu_2.obj", cloud.second);
 
 		timer.start();
-		create_depth_buffer(depth_buffer.second, cloud.second, K, Eigen::Matrix4d::Identity(), far_plane);
+		create_depth_buffer<double>(depth_buffer.second, cloud.second, K, Eigen::Matrix4d::Identity(), far_plane);
 		timer.print_interval("Compute depth buffer: ");
 
 		//export_depth_buffer("../../data/cpu_depth_buffer_2.obj", depth_buffer.second);
@@ -223,7 +223,7 @@ int main(int argc, char **argv)
 	// 
 	GLModelViewer glwidget;
 	glwidget.resize(640, 480);
-	glwidget.setPerspective(60.0f, 0.1f, 1024.0f);
+	glwidget.setPerspective(60.0f, 0.1f, 10240.0f);
 	glwidget.move(320, 0);
 	glwidget.setWindowTitle("Point Cloud");
 	glwidget.setWeelSpeed(0.1f);
@@ -246,29 +246,19 @@ int main(int argc, char **argv)
 			{
 				const float tsdf = grid.data.at(i).tsdf;
 
+				//Eigen::Vector4d p = grid_affine.matrix() * to_origin * Eigen::Vector4d(x, y, z, 1);
+				Eigen::Vector4d p = to_origin * Eigen::Vector4d(x, y, z, 1);
+				p /= p.w();
+
 				if (tsdf > 0.1)
 				{
-					Eigen::Vector4d p = grid_affine.matrix() * to_origin * Eigen::Vector4d(x, y, z, 1);
-					p /= p.w();
 					vertices.push_back(p.cast<float>());
-
 					colors.push_back(Eigen::Vector4f(0, 1, 0, 1));
 				}
 				else if (tsdf < -0.1)
 				{
-					Eigen::Vector4d p = grid_affine.matrix() * to_origin * Eigen::Vector4d(x, y, z, 1);
-					p /= p.w();
 					vertices.push_back(p.cast<float>());
-
 					colors.push_back(Eigen::Vector4f(1, 0, 0, 1));
-				}
-
-
-				if (tsdf > -0.1 && tsdf < 0.1)
-				{
-					
-
-					
 				}
 			}
 		}
