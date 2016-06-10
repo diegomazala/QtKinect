@@ -66,6 +66,8 @@ public:
 	unsigned short depth_min_distance() const { return info[DepthMinDistance]; }
 	unsigned short depth_max_distance() const { return info[DepthMaxDistance]; }
 
+	unsigned short depth_at(unsigned short x, unsigned short y) { return depth[y * depth_width() + x]; }
+
 	void load(const std::string& filename);
 
 	static void KinectFrame::load(
