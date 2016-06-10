@@ -52,3 +52,11 @@ void QImageWidget::keyReleaseEvent(QKeyEvent *e)
 	if (e->key() == Qt::Key_Q || e->key() == Qt::Key_Escape)
 		this->close();
 }
+
+
+
+void QImageWidget::closeEvent(QCloseEvent *event)
+{
+	QLabel::closeEvent(event);
+	emit closed();
+}

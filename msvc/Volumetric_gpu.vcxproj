@@ -11,9 +11,11 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\src\KinectFrame.cpp" />
     <ClCompile Include="..\src\Volumetric_gpu.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\src\KinectFrame.h" />
     <ClInclude Include="..\src\Volumetric_helper.h" />
   </ItemGroup>
   <ItemGroup>

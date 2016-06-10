@@ -18,9 +18,15 @@ public slots:
 	bool loadFile(const QString &);
 	void setImage(const QImage& image);
 
+
+Q_SIGNALS:
+	void closed();
+
 protected:
 	//virtual void paintEvent(QPaintEvent *);
 	virtual void keyReleaseEvent(QKeyEvent *);
+
+	virtual void closeEvent(QCloseEvent *event);
 };
 
 #endif	// _Q_IMAGE_WIDGET_H

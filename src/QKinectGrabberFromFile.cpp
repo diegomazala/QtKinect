@@ -7,9 +7,11 @@
 #include <iostream>
 
 QKinectGrabberFromFile::QKinectGrabberFromFile(QObject *parent)
-	: QThread(parent),
-	emitImageEnabled(true),
-	running(false)
+	: QThread(parent)
+	, emitImageEnabled(true)
+	, running(false)
+	, paused(false)
+	, stopAndGoing(false)
 {
 	
 }
@@ -149,6 +151,8 @@ void QKinectGrabberFromFile::run()
 
 	QStringListIterator frameFile(frameFiles);
 
+
+	int l = 0;
 	while (running)
 	{
 		const QString frame_file_name = folder + "/" + frameFile.next();
@@ -156,7 +160,7 @@ void QKinectGrabberFromFile::run()
 		
 		emit fileLoaded(frame_file_name);
 
-
+		std::cout << l++  << " : " << frame_file_name.toStdString() << std::endl;
 
 		mutex.lock();
 		{
@@ -199,14 +203,46 @@ void QKinectGrabberFromFile::run()
 			mutex.unlock();
 		}
 
-		msleep(1000 / framesPerSecond);
+		sync.lock();
+		{
+			if (paused)
+				pauseCond.wait(&sync); // in this place, your thread will stop to execute until someone calls resume
+			else
+				pauseCond.wait(&sync, 1000 / framesPerSecond); // in this place, your thread will stop to execute until someone calls resume
+		}
+		sync.unlock();
 	}
-
 
 }
 
 
+void QKinectGrabberFromFile::pause()
+{
+	sync.lock();
+	paused = true;
+	sync.unlock();
+}
 
 
+void QKinectGrabberFromFile::resume()
+{
+	sync.lock();
+	paused = false;
+	sync.unlock();
+	pauseCond.wakeAll();
+
+	sync.lock();
+	paused = stopAndGoing;
+	sync.unlock();
+}
+
+
+void QKinectGrabberFromFile::stopAndGo(bool stop_and_go)
+{
+	sync.lock();
+	paused = 
+	stopAndGoing = stop_and_go;
+	sync.unlock();
+}
 
 

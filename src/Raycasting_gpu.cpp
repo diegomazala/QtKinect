@@ -23,6 +23,19 @@
 
 typedef float Decimal;
 
+StopWatchInterface *cuda_timer = 0;
+float invViewMatrix[12];
+
+dim3 blockSize(16, 16);
+dim3 gridSize;
+uint cuda_width = 512, cuda_height = 512;
+
+float density = 0.05f;
+float brightness = 1.0f;
+float transferOffset = 0.0f;
+float transferScale = 1.0f;
+bool linearFiltering = true;
+
 
 const Decimal window_width = 512.0f;
 const Decimal window_height = 424.0f;
@@ -222,6 +235,84 @@ void export_monkey_volume()
 //	saveRawFile("../../data/sphere_float_32.raw", sizeof(float) * raw.size(), &raw[0]);
 }
 
+
+
+
+bool runSingleTest()
+{
+	bool bTestResult = true;
+
+	uint *d_output;
+	checkCudaErrors(cudaMalloc((void **)&d_output, cuda_width*cuda_height*sizeof(uint)));
+	checkCudaErrors(cudaMemset(d_output, 0, cuda_width*cuda_height*sizeof(uint)));
+
+	float modelView[16] =
+	{
+		1.0f, 0.0f, 0.0f, 0.0f,
+		0.0f, 1.0f, 0.0f, 0.0f,
+		0.0f, 0.0f, 1.0f, 0.0f,
+		0.0f, 0.0f, 4.0f, 1.0f
+	};
+
+	invViewMatrix[0] = modelView[0];
+	invViewMatrix[1] = modelView[4];
+	invViewMatrix[2] = modelView[8];
+	invViewMatrix[3] = modelView[12];
+	invViewMatrix[4] = modelView[1];
+	invViewMatrix[5] = modelView[5];
+	invViewMatrix[6] = modelView[9];
+	invViewMatrix[7] = modelView[13];
+	invViewMatrix[8] = modelView[2];
+	invViewMatrix[9] = modelView[6];
+	invViewMatrix[10] = modelView[10];
+	invViewMatrix[11] = modelView[14];
+
+	// call CUDA kernel, writing results to PBO
+	copyInvViewMatrix(invViewMatrix, sizeof(float4) * 3);
+
+	gridSize = dim3(iDivUp(cuda_width, blockSize.x), iDivUp(cuda_height, blockSize.y));
+
+	// Start timer 0 and process n loops on the GPU
+	int nIter = 10;
+
+	for (int i = -1; i < nIter; i++)
+	{
+		if (i == 0)
+		{
+			cudaDeviceSynchronize();
+			sdkStartTimer(&cuda_timer);
+		}
+
+		render_volume(gridSize, blockSize, d_output, cuda_width, cuda_height, density, brightness, transferOffset, transferScale);
+	}
+
+	cudaDeviceSynchronize();
+	sdkStopTimer(&cuda_timer);
+	// Get elapsed time and throughput, then log to sample and master logs
+	double dAvgTime = sdkGetTimerValue(&cuda_timer) / (nIter * 1000.0);
+	printf("volumeRender, Throughput = %.4f MTexels/s, Time = %.5f s, Size = %u Texels, NumDevsUsed = %u, Workgroup = %u\n",
+		(1.0e-6 * cuda_width * cuda_height) / dAvgTime, dAvgTime, (cuda_width * cuda_height), 1, blockSize.x * blockSize.y);
+
+
+	getLastCudaError("Error: render_kernel() execution FAILED");
+	checkCudaErrors(cudaDeviceSynchronize());
+
+	unsigned char *h_output = (unsigned char *)malloc(cuda_width*cuda_height * 4);
+	checkCudaErrors(cudaMemcpy(h_output, d_output, cuda_width*cuda_height * 4, cudaMemcpyDeviceToHost));
+
+	sdkSavePPM4ub("../../data/volume.ppm", h_output, cuda_width, cuda_height);
+
+	cudaFree(d_output);
+	free(h_output);
+
+	sdkDeleteTimer(&cuda_timer);
+
+	return bTestResult;
+}
+
+
+
+
 // Usage: ./Raycastingd.exe 2 1 0 2 -3 0.72 -1.2 2 7
 int main(int argc, char **argv)
 {
@@ -252,6 +343,7 @@ int main(int argc, char **argv)
 	Eigen::Matrix<Decimal, 3, 1> target(atof(argv[6]), atof(argv[7]), atof(argv[8]));
 	Eigen::Matrix<Decimal, 3, 1> direction = (target - origin).normalized();
 
+#if 0
 	Decimal ray_near = 0; // atof(argv[1]);
 	Decimal ray_far = 100; // atof(argv[2]);
 
@@ -262,7 +354,7 @@ int main(int argc, char **argv)
 		std::cout << i << ' ';
 
 	cpu_raycast(volume_size, voxel_size, origin, target, grid_vertices);
-
+#endif
 
 
 
@@ -337,9 +429,30 @@ int main(int argc, char **argv)
 		//timer.print_interval("Exporting volume    : ");
 		//return 0;
 		
-	save_raw_file("../../data/monkey_tsdf_float2_33.raw", sizeof(float) * 2 * grid_params.size(), &grid_params[0][0]);
-	void* data_ptr = load_raw_file("../../data/monkey_tsdf_float2_33.raw", sizeof(float) * 2 * grid_params.size());
-	save_raw_file("../../data/monkey_tsdf_float2_33_2.raw", sizeof(float) * 2 * grid_params.size(), data_ptr);
+//	save_raw_file("../../data/monkey_tsdf_float2_33.raw", sizeof(float) * 2 * grid_params.size(), &grid_params[0][0]);
+//	void* data_ptr = load_raw_file("../../data/monkey_tsdf_float2_33.raw", sizeof(float) * 2 * grid_params.size());
+//	save_raw_file("../../data/monkey_tsdf_float2_33_2.raw", sizeof(float) * 2 * grid_params.size(), data_ptr);
+
+
+
+	int v_size = volume_size.x() / voxel_size.x() + 1;
+	cudaExtent cudaVolumeSize = make_cudaExtent(v_size, v_size, v_size);
+	initCuda_render_volume(&grid_params[0][0], cudaVolumeSize);
+
+
+	runSingleTest();
+	
+	freeCudaBuffers_render_volume();
+	// cudaDeviceReset causes the driver to clean up all state. While
+	// not mandatory in normal operation, it is good practice.  It is also
+	// needed to ensure correct operation when the application is being
+	// profiled. Calling cudaDeviceReset causes all profile data to be
+	// flushed before the application exits
+	cudaDeviceReset();
+
+
+
+
 
 	//
 	// setup model
@@ -390,6 +503,8 @@ int main(int argc, char **argv)
 	////image.fill(Qt::white);
 	//std::cout << "Saving to image..." << std::endl;
 	//image.save("../../data/raycasting_gpu.png");
+
+	
 
 	
 

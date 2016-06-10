@@ -56,6 +56,12 @@ public slots:
 	void setFolder(const QString& input_folder);
 	void setFramesPerSecond(int fps = 30);
 
+	void pause();
+	void resume();
+	void stopAndGo(bool stop_and_go);
+
+
+
 signals:
 	void colorImage(const QImage &image);
 	void depthImage(const QImage &image);
@@ -81,6 +87,13 @@ private:
 	QString						folder;
 	QStringList					frameFiles;
 	int							framesPerSecond;
+
+
+	// To pause and resume thread
+	QMutex sync;
+	QWaitCondition pauseCond;
+	bool paused;
+	bool stopAndGoing;
 };
 
 
