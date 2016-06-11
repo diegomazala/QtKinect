@@ -160,8 +160,6 @@ void QKinectGrabberFromFile::run()
 		
 		emit fileLoaded(frame_file_name);
 
-		std::cout << l++  << " : " << frame_file_name.toStdString() << std::endl;
-
 		mutex.lock();
 		{
 			kinectFrame.info = kinect_frame.info;
@@ -234,6 +232,11 @@ void QKinectGrabberFromFile::resume()
 	sync.lock();
 	paused = stopAndGoing;
 	sync.unlock();
+
+	if (!isRunning())
+	{
+		start();
+	}
 }
 
 

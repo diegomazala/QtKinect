@@ -8,22 +8,22 @@
 class GLPointCloud : public QOpenGLFunctions
 {
 public:
-	GLPointCloud();
+	explicit GLPointCloud();
 	virtual ~GLPointCloud();
 
-	void render(QOpenGLShaderProgram *program);
+	virtual void render(QOpenGLShaderProgram *program);
 	
 	QMatrix4x4& transform();
 
-	void setShaderProgram(const std::shared_ptr<QOpenGLShaderProgram>& shader_program);
-	std::shared_ptr<QOpenGLShaderProgram> getShaderProgram();
+	virtual void setShaderProgram(const std::shared_ptr<QOpenGLShaderProgram>& shader_program);
+	virtual std::shared_ptr<QOpenGLShaderProgram> getShaderProgram();
 
-	void setVertices(const float* vertices, uint count, uint tuple_size);
-	void updateVertices(const float* vertices);
+	virtual void setVertices(const float* vertices, uint count, uint tuple_size);
+	virtual void updateVertices(const float* vertices);
 	GLuint vertexBufferId() const;
 
-	void setNormals(const float* normals, uint count, uint tuple_size);
-	void updateNormals(const float* vertices);
+	virtual void setNormals(const float* normals, uint count, uint tuple_size);
+	virtual void updateNormals(const float* vertices);
 	GLuint normalBufferId() const;
 
 	void setColor(const QVector3D& c){ color = c; }
@@ -33,7 +33,7 @@ public slots:
 	virtual void initGL();
 	virtual void cleanupGL();
 
-private:
+protected:
 	std::shared_ptr<QOpenGLShaderProgram>	shaderProgram;
 	QMatrix4x4								transformMatrix;
 

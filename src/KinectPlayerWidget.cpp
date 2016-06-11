@@ -20,12 +20,16 @@ KinectPlayerWidget::KinectPlayerWidget(QKinectGrabberFromFile* grabber, QWidget 
 
     setWindowTitle(tr("Kinect Player Controls"));
     resize(400, 120);
+
+	pauseButton->setChecked(true);
+	pauseButton->clicked(true);
 }
 
 void KinectPlayerWidget::setKinectGrabber(QKinectGrabberFromFile* grabber)
 {
 	kinectGrabber = grabber;
 }
+
 
 void KinectPlayerWidget::open()
 {
@@ -46,8 +50,9 @@ void KinectPlayerWidget::openFile(const QString &fileName)
 
 void KinectPlayerWidget::updateButtons()
 {
-    playButton->setEnabled(false);
-    pauseButton->setEnabled(false);
+    playButton->setEnabled(true);
+    pauseButton->setEnabled(true);
+	pauseButton->setCheckable(true);
     stopButton->setEnabled(false);
 	backwardButton->setEnabled(false);
 }
@@ -67,7 +72,7 @@ void KinectPlayerWidget::createButtons()
 	backwardButton = new QToolButton;
 	backwardButton->setIcon(style()->standardIcon(QStyle::SP_MediaSeekBackward));
 	backwardButton->setIconSize(iconSize);
-	backwardButton->setToolTip(tr("Forward"));
+	backwardButton->setToolTip(tr("Backward"));
 	//connect(backwardButton, SIGNAL(clicked()), movie, SLOT(backwardButton()));
 
 	forwardButton = new QToolButton;
@@ -82,12 +87,14 @@ void KinectPlayerWidget::createButtons()
     playButton->setIconSize(iconSize);
     playButton->setToolTip(tr("Play"));
     //connect(playButton, SIGNAL(clicked()), movie, SLOT(start()));
+	connect(playButton, SIGNAL(clicked()), kinectGrabber, SLOT(resume()));
 		
     pauseButton = new QToolButton;
     pauseButton->setCheckable(true);
     pauseButton->setIcon(style()->standardIcon(QStyle::SP_MediaPause));
     pauseButton->setIconSize(iconSize);
     pauseButton->setToolTip(tr("Pause"));
+	connect(pauseButton, SIGNAL(clicked(bool)), kinectGrabber, SLOT(stopAndGo(bool)));
     //connect(pauseButton, SIGNAL(clicked(bool)), movie, SLOT(setPaused(bool)));
 
     stopButton = new QToolButton;

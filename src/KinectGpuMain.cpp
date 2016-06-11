@@ -5,6 +5,7 @@
 #include "QImageWidget.h"
 #include "GLModelViewer.h"
 #include "QKinectFile.h"
+#include "KinectPlayerWidget.h"
 #include "QKinectGrabberFromFile.h"
 #include "QKinectIO.h"
 #include "QKinectGpu.h"
@@ -79,6 +80,16 @@ int main(int argc, char **argv)
 	if (argc > 2)
 		fps = atoi(argv[2]);
 
+	//
+	// check if the path is a valid folder
+	// 
+	if (!QFileInfo(input_folder).isDir())
+	{
+		std::cerr << "Error: A valid folder is required" << std::endl;
+		return EXIT_FAILURE;
+	}
+
+
 	QApplication app(argc, argv);
 
 	int width = 640;
@@ -87,24 +98,28 @@ int main(int argc, char **argv)
 	QKinectGrabberFromFile* kinect = new QKinectGrabberFromFile();
 	kinect->setFolder(input_folder);
 	kinect->setFramesPerSecond(fps);
-	kinect->start();
-
-
-
 
 	QImageWidget colorWidget;
 	colorWidget.setMinimumSize(320, 240);
 	colorWidget.move(0, 0);
 	colorWidget.show();
 	QApplication::connect(kinect, SIGNAL(colorImage(QImage)), &colorWidget, SLOT(setImage(QImage)));
+	QApplication::connect(kinect, SIGNAL(fileLoaded(QString)), &colorWidget, SLOT(setWindowTitle(QString)));
 
 	QImageWidget depthWidget;
 	depthWidget.setMinimumSize(320, 240);
 	depthWidget.move(0, 240);
 	depthWidget.show();
 	QApplication::connect(kinect, SIGNAL(depthImage(QImage)), &depthWidget, SLOT(setImage(QImage)));
+	QApplication::connect(kinect, SIGNAL(fileLoaded(QString)), &depthWidget, SLOT(setWindowTitle(QString)));
 
+	KinectPlayerWidget player(kinect);
+	player.move(320, 500);
+	player.show();
 
+	//kinect->stopAndGo(true);
+	kinect->start();
+	
 	//
 	// setup opengl viewer
 	// 
@@ -147,6 +162,11 @@ int main(int argc, char **argv)
 	kinectGpu.setPointCloudViewer(&glwidget);
 	QApplication::connect(kinect, SIGNAL(frameUpdated()), &kinectGpu, SLOT(onFrameUpdate()));
 
+
+
+	QApplication::connect(&player, SIGNAL(quit()), &depthWidget, SLOT(close()));
+	QApplication::connect(&player, SIGNAL(quit()), &colorWidget, SLOT(close()));
+	QApplication::connect(&player, SIGNAL(quit()), &glwidget, SLOT(close()));
 
 #if 1
 	int app_exit = app.exec();

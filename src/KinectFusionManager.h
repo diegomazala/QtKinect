@@ -5,30 +5,34 @@
 
 #include <QObject>
 #include <QSharedPointer>
-#include "QKinectGrabberFromFile.h"
-#include "QImageWidget.h"
 
+class QKinectGrabberFromFile;
 
 class KinectFusionManager : public QObject
 {
 	Q_OBJECT
 
 public:
-	explicit KinectFusionManager(const QString& folder_path, QObject* parent = nullptr);
+	explicit KinectFusionManager(QKinectGrabberFromFile* kinect_grabber, QObject* parent = nullptr);
 	~KinectFusionManager();
-
-	//QKinectGrabberFromFile* grabber(){ return kinectGrabber.data(); }
 
 
 public slots :
-	void finish();
+	
+	//void allocateGpu();
+	//void releaseGpu();
+
+	//void copyToGpu();
+	//void copyFromGpu();
+
+	void onNewFrame();
+
+	
 
 
 protected:
 	
-	//QSharedPointer<QKinectGrabberFromFile> kinectGrabber;
-	//QSharedPointer<QImageWidget> depthWidget;
-	//QSharedPointer<QImageWidget> colorWidget;
+	QKinectGrabberFromFile* kinectGrabber;
 };
 
 #endif // __KINECT_FUSION_MANAGER_H__
