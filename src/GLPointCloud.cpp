@@ -72,6 +72,7 @@ void GLPointCloud::setVertices(const float* vertices, uint count, uint tuple_siz
 
 	vertexBuf.bind();
 	vertexBuf.allocate(vertices, static_cast<float>(vertexCount * vertexStride));
+	vertexBuf.release();
 }
 
 
@@ -82,6 +83,7 @@ void GLPointCloud::updateVertices(const float* vertices)
 
 	vertexBuf.bind();
 	vertexBuf.write(0, vertices, static_cast<float>(vertexCount * vertexStride));
+	vertexBuf.release();
 }
 
 
@@ -93,6 +95,7 @@ void GLPointCloud::setNormals(const float* normals, uint count, uint tuple_size)
 
 	normalBuf.bind();
 	normalBuf.allocate(normals, static_cast<float>(normalCount * normalStride));
+	normalBuf.release();
 }
 
 
@@ -103,11 +106,14 @@ void GLPointCloud::updateNormals(const float* normals)
 
 	normalBuf.bind();
 	normalBuf.allocate(normals, static_cast<float>(normalCount * normalStride));
+	normalBuf.release();
 }
 
 
 void GLPointCloud::render(QOpenGLShaderProgram *program)
 {
+	program->bind();
+
 	if (!vertexBuf.isCreated())
 		return;
 
@@ -133,5 +139,7 @@ void GLPointCloud::render(QOpenGLShaderProgram *program)
 
 	vertexBuf.release();
 	normalBuf.release();
+
+	program->release();
 }
 

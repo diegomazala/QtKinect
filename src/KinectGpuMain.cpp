@@ -180,7 +180,7 @@ int main(int argc, char **argv)
 	}
 	QCoreApplication::exit(app_exit);
 #endif
-	kinect->stop();
+	
 
 
 	

@@ -13,7 +13,7 @@ public:
 	GLModel();
 	virtual ~GLModel();
 
-	void render(QOpenGLShaderProgram *program);
+	virtual void render(QOpenGLShaderProgram *program);
 
 	QMatrix4x4& transform();
 

@@ -25,7 +25,7 @@ public:
 	}
 
 protected:
-	virtual void keyReleaseEvent(QKeyEvent *);
+	virtual void keyReleaseEvent(QKeyEvent *) Q_DECL_OVERRIDE;
 	virtual void mousePressEvent(QMouseEvent *e) Q_DECL_OVERRIDE;
 	virtual void mouseMoveEvent(QMouseEvent *e) Q_DECL_OVERRIDE;
 	virtual void mouseReleaseEvent(QMouseEvent *e) Q_DECL_OVERRIDE;
