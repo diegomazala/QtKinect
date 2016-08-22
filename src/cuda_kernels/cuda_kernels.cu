@@ -10,16 +10,66 @@
 #include "helper_cuda.h"
 #include "helper_math.h"
 
-
 texture<ushort, 2> ushortTexture;
 texture<float4, 2, cudaReadModeElementType> float4Texture;
 
+
+//typedef unsigned char VolumeType;
+typedef float2 VolumeType;
+texture<VolumeType, 3, cudaReadModeElementType> texVolumeType;         // 3D texture
+texture<float4, 1, cudaReadModeElementType>         transferTex; // 1D transfer function texture
+cudaArray *d_volumeArray = 0;
+cudaArray *d_transferFuncArray;
+
+typedef struct
+{
+	float4 m[3];
+} float3x4;
+
+__constant__ float3x4 c_invViewMatrix;  // inverse view matrix
+
+
+__device__
+float3 mul(const float3x4 &M, const float3 &v)
+{
+	float3 r;
+	r.x = dot(v, make_float3(M.m[0]));
+	r.y = dot(v, make_float3(M.m[1]));
+	r.z = dot(v, make_float3(M.m[2]));
+	return r;
+}
+
+// transform vector by matrix with translation
+__device__
+float4 mul(const float3x4 &M, const float4 &v)
+{
+	float4 r;
+	r.x = dot(v, M.m[0]);
+	r.y = dot(v, M.m[1]);
+	r.z = dot(v, M.m[2]);
+	r.w = 1.0f;
+	return r;
+}
+
+
+__device__ uint saturate_rgbaFloatToInt(float4 rgba)
+{
+	rgba.x = __saturatef(rgba.x);   // clamp to [0.0, 1.0]
+	rgba.y = __saturatef(rgba.y);
+	rgba.z = __saturatef(rgba.z);
+	rgba.w = __saturatef(rgba.w);
+	return (uint(rgba.w * 255) << 24) | (uint(rgba.z * 255) << 16) | (uint(rgba.y * 255) << 8) | uint(rgba.x * 255);
+}
+
+
 extern "C"
 {
+
 	#define MinTruncation 0.5f
 	#define MaxTruncation 1.1f
 	#define MaxWeight 10.0f
 
+	
 	cublasHandle_t cublas_handle = nullptr;
 
 	unsigned short volume_size;
@@ -147,6 +197,9 @@ extern "C"
 	{
 		return make_float4(a.y*b.z - a.z*b.y, a.z*b.x - a.x*b.z, a.x*b.y - a.y*b.x, 1.0f);
 	}
+
+
+	
 
 
 
@@ -1095,4 +1148,161 @@ extern "C"
 
 		thrust::copy(d_pixel_buffer.begin(), d_pixel_buffer.end(), &pixel_bufer[0]);
 	}
-};
+
+
+
+
+	__global__ void	d_render_volume_kernel(
+		uint *d_output, 
+		uint imageW, 
+		uint imageH,
+		float density, 
+		float brightness,
+		float transferOffset, 
+		float transferScale)
+	{
+		const int maxSteps = 500;
+		const float tstep = 0.01f;
+		const float opacityThreshold = 0.95f;
+		const float3 boxMin = make_float3(-1.0f, -1.0f, -1.0f);
+		const float3 boxMax = make_float3(1.0f, 1.0f, 1.0f);
+
+		uint x = blockIdx.x*blockDim.x + threadIdx.x;
+		uint y = blockIdx.y*blockDim.y + threadIdx.y;
+
+		if ((x >= imageW) || (y >= imageH)) return;
+
+		float u = (x / (float)imageW)*2.0f - 1.0f;
+		float v = (y / (float)imageH)*2.0f - 1.0f;
+
+
+		// calculate eye ray in world space
+		Ray eyeRay;
+		eyeRay.o = make_float3(mul(c_invViewMatrix, make_float4(0.0f, 0.0f, 0.0f, 1.0f)));
+		eyeRay.d = normalize(make_float3(u, v, -2.0f));
+		eyeRay.d = mul(c_invViewMatrix, eyeRay.d);
+
+		// find intersection with box
+		float tnear, tfar;
+		int hit = intersectBox(eyeRay, boxMin, boxMax, &tnear, &tfar);
+
+		if (!hit) return;
+
+		if (tnear < 0.0f) tnear = 0.0f;     // clamp to near plane
+
+		// march along ray from front to back, accumulating color
+		float4 sum = make_float4(0.0f);
+		float t = tnear;
+		float3 pos = eyeRay.o + eyeRay.d*tnear;
+		float3 step = eyeRay.d*tstep;
+
+		float last_tsdf = tex3D(texVolumeType, pos.x*0.5f + 0.5f, pos.y*0.5f + 0.5f, pos.z*0.5f + 0.5f).x;
+
+
+		for (int i = 0; i<maxSteps; i++)
+		{
+			// read from 3D texture
+			// remap position to [0, 1] coordinates
+			float2 sample = tex3D(texVolumeType, pos.x*0.5f + 0.5f, pos.y*0.5f + 0.5f, pos.z*0.5f + 0.5f);
+
+			//sample *= 64.0f;    // scale for 10-bit data
+
+			float tsdf = sample.x;
+			if (std::signbit(tsdf) != std::signbit(last_tsdf))
+			{
+				sum = make_float4(1);
+				break;
+			}
+			else
+			{
+				last_tsdf = tsdf;
+			}
+
+			t += tstep;
+
+			if (t > tfar) break;
+
+			pos += step;
+		}
+
+		sum *= brightness;
+
+		// write output color
+		d_output[y*imageW + x] = saturate_rgbaFloatToInt(sum);
+
+	}
+
+	
+
+	void render_volume(
+		dim3 gridSize, 
+		dim3 blockSize, 
+		uint *d_output, 
+		uint imageW, 
+		uint imageH,
+		float density, 
+		float brightness, 
+		float transferOffset, 
+		float transferScale)
+	{
+		d_render_volume_kernel <<<gridSize, blockSize >>>
+			(d_output, imageW, imageH, density, brightness, transferOffset, transferScale);
+	}
+
+
+	void initCuda_render_volume(void *h_volume, cudaExtent volumeSize)
+	{
+		// create 3D array
+		cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc<VolumeType>();
+		checkCudaErrors(cudaMalloc3DArray(&d_volumeArray, &channelDesc, volumeSize));
+
+		// copy data to 3D array
+		cudaMemcpy3DParms copyParams = { 0 };
+		copyParams.srcPtr = make_cudaPitchedPtr(h_volume, volumeSize.width*sizeof(VolumeType), volumeSize.width, volumeSize.height);
+		copyParams.dstArray = d_volumeArray;
+		copyParams.extent = volumeSize;
+		copyParams.kind = cudaMemcpyHostToDevice;
+		checkCudaErrors(cudaMemcpy3D(&copyParams));
+
+		// set texture parameters
+		texVolumeType.normalized = true;                      // access with normalized texture coordinates
+		texVolumeType.filterMode = cudaFilterModeLinear;      // linear interpolation
+		texVolumeType.addressMode[0] = cudaAddressModeClamp;  // clamp texture coordinates
+		texVolumeType.addressMode[1] = cudaAddressModeClamp;
+
+		// bind array to 3D texture
+		checkCudaErrors(cudaBindTextureToArray(texVolumeType, d_volumeArray, channelDesc));
+
+		// create transfer function texture
+		float4 transferFunc[] =
+		{
+		{ 0.0, 0.0, 0.0, 0.0, },
+		{ 1.0, 1.0, 1.0, 1.0, },
+		};
+
+		cudaChannelFormatDesc channelDesc2 = cudaCreateChannelDesc<float4>();
+		cudaArray *d_transferFuncArray;
+		checkCudaErrors(cudaMallocArray(&d_transferFuncArray, &channelDesc2, sizeof(transferFunc) / sizeof(float4), 1));
+		checkCudaErrors(cudaMemcpyToArray(d_transferFuncArray, 0, 0, transferFunc, sizeof(transferFunc), cudaMemcpyHostToDevice));
+
+		transferTex.filterMode = cudaFilterModeLinear;
+		transferTex.normalized = true;    // access with normalized texture coordinates
+		transferTex.addressMode[0] = cudaAddressModeClamp;   // wrap texture coordinates
+
+		// Bind the array to the texture
+		checkCudaErrors(cudaBindTextureToArray(transferTex, d_transferFuncArray, channelDesc2));
+	}
+
+	void freeCudaBuffers_render_volume()
+	{
+		checkCudaErrors(cudaFreeArray(d_volumeArray));
+		checkCudaErrors(cudaFreeArray(d_transferFuncArray));
+	}
+
+	void copyInvViewMatrix(float *invViewMatrix, size_t sizeofMatrix)
+	{
+		checkCudaErrors(cudaMemcpyToSymbol(c_invViewMatrix, invViewMatrix, sizeofMatrix));
+	}
+
+
+};	// extern "C"

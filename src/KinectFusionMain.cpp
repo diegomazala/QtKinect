@@ -13,7 +13,7 @@ int volumetricRenderTest(int argc, char **argv)
 {
 	if (argc < 2)
 	{
-		std::cerr << "Usage: QtCudaOpenGL.exe ../../data/monkey_tsdf_float2_33.raw 33" << std::endl;
+		std::cerr << "Usage: KinectFusiion.exe ../../data/monkey_tsdf_float2_33.raw 33" << std::endl;
 		return EXIT_FAILURE;
 	}
 
@@ -69,7 +69,7 @@ int volumetricRenderTest(int argc, char **argv)
 // Usage: ./KinectLoadd.exe ../knt_frames/frame_33.knt
 int main(int argc, char **argv)
 {
-	return volumetricRenderTest(argc, argv);
+	//return volumetricRenderTest(argc, argv);
 
 	QString input_path = QDir::currentPath();
 	int fps = 30;

@@ -52,23 +52,31 @@ static void export_obj_float4(const std::string& filename, const std::vector<flo
 
 void test_kinect_gpu()
 {
-	KinectFrame frame;
-	QKinectIO::loadFrame("../knt_frames/frame_11.knt", frame);
+	try
+	{
+		KinectFrame frame;
+		QKinectIO::loadFrame("../../data/knt_frames/frame_27.knt", frame);
 
-	KinectCuda kcuda;
-	kcuda.set_depth_buffer(frame.depth.data(), frame.depth_width(), frame.depth_height(), frame.depth_min_distance(), frame.depth_max_distance());
-	kcuda.allocate();
-	kcuda.copyHostToDevice();
-	kcuda.runKernel();
-	kcuda.copyDeviceToHost();
-	export_obj_float4("../../data/room_normals_kcuda.obj", kcuda.vertices, kcuda.normals);
+		KinectCuda kcuda;
+		kcuda.set_depth_buffer(frame.depth.data(), frame.depth_width(), frame.depth_height(), frame.depth_min_distance(), frame.depth_max_distance());
+		kcuda.allocate();
+		kcuda.copyHostToDevice();
+		kcuda.runKernel();
+		kcuda.copyDeviceToHost();
+		export_obj_float4("../../data/room_normals_kcuda.obj", kcuda.vertices, kcuda.normals);
+	}
+	catch (const std::exception& ex)
+	{
+		std::cerr << "Exception: " << ex.what() << std::endl;
+	}
+
 }
 
 
 int main(int argc, char **argv)
 {
-//	test_kinect_gpu();
-//	return 0;
+	test_kinect_gpu();
+	return 0;
 
 	QDateTime now = QDateTime::currentDateTime();
 	QString input_folder = ".";

@@ -216,6 +216,19 @@ extern "C"
 		);
 
 	
+	void render_volume(
+		dim3 gridSize,
+		dim3 blockSize,
+		uint *d_output,
+		uint imageW,
+		uint imageH,
+		float density,
+		float brightness,
+		float transferOffset,
+		float transferScale);
+	void initCuda_render_volume(void *h_volume, cudaExtent volumeSize);
+	void freeCudaBuffers_render_volume();
+	void copyInvViewMatrix(float *invViewMatrix, size_t sizeofMatrix);
 };
 
 
