@@ -157,26 +157,6 @@ VolumeRenderWidget::~VolumeRenderWidget()
 
 	volume_render_cleanup();
 
-#if 0
-	if (pbo)
-	{
-		cudaGraphicsUnregisterResource(cuda_pbo_resource);
-		glDeleteBuffers(1, &pbo);
-		glDeleteTextures(1, &tex);
-	}
-#else
-
-	//if (pixelBuf)
-	//{
-	//	// unregister this buffer object from CUDA C
-	//	cudaGraphicsUnregisterResource(cuda_pbo_resource);
-
-	//	pixelBuf->destroy();
-	//	texture->destroy();
-	//	delete pixelBuf;
-	//	delete texture;
-	//}
-#endif
 	// cudaDeviceReset causes the driver to clean up all state. While
 	// not mandatory in normal operation, it is good practice.  It is also
 	// needed to ensure correct operation when the application is being
@@ -192,35 +172,6 @@ void VolumeRenderWidget::setup(const std::string& buffer_file_path, const size_t
 	volume_file_path = buffer_file_path;
 }
 
-
-
-void VolumeRenderWidget::cudaInit()
-{
-	cudaInitialized = false;
-	int devID = gpuGetMaxGflopsDeviceId();
-	if (devID < 0)
-		std::cerr << "Error: No CUDA capable devices found" << std::endl;
-	else
-		checkCudaErrors(cudaGLSetGLDevice(devID));
-
-	cudaInitialized = true;
-
-	size_t size = volumeSize.width * volumeSize.height * volumeSize.depth * sizeof(VolumeType);
-	VolumeType *h_volume = (VolumeType*)loadRawFile(volume_file_path.c_str(), size);
-
-	if (!h_volume)
-		std::cerr << "Error: Could not load volume buffer: " << volume_file_path << std::endl;
-	else
-	{
-		volume_render_init(h_volume, volumeSize.width, volumeSize.height, volumeSize.depth);
-		free(h_volume);
-	}
-
-	sdkCreateTimer(&cuda_timer);
-
-	// calculate new grid size
-	gridSize = dim3(iDivUp(g_width, blockSize.x), iDivUp(g_height, blockSize.y));
-}
 
 void VolumeRenderWidget::initializeGL()
 {
@@ -248,28 +199,57 @@ void VolumeRenderWidget::initializeGL()
 	}
 
 
+	
+
+
+
     glClearColor(0, 0, 0, 1);
 
-    //initShaders();
-
-    //// Enable depth buffer
-    //glEnable(GL_DEPTH_TEST);
-
-    //// Enable back face culling
-    //glEnable(GL_CULL_FACE);
 
 	quad = new GLQuad();
 	quad->initGL();
-
 
 	QList<QOpenGLDebugMessage> messages = logger->loggedMessages();
 	foreach(const QOpenGLDebugMessage &message, messages)
 		qDebug() << "Init GL: " << message << "\n";
 
 
+
+
+
 	cudaInit();
 
 	initPixelBuffer();
+}
+
+
+
+void VolumeRenderWidget::cudaInit()
+{
+	cudaInitialized = false;
+	int devID = gpuGetMaxGflopsDeviceId();
+	if (devID < 0)
+		std::cerr << "Error: No CUDA capable devices found" << std::endl;
+	else
+		checkCudaErrors(cudaGLSetGLDevice(devID));
+
+	cudaInitialized = true;
+
+	size_t size = volumeSize.width * volumeSize.height * volumeSize.depth * sizeof(VolumeType);
+	VolumeType *h_volume = (VolumeType*)loadRawFile(volume_file_path.c_str(), size);
+
+	if (!h_volume)
+		std::cerr << "Error: Could not load volume buffer: " << volume_file_path << std::endl;
+	else
+	{
+		volume_render_setup(h_volume, volumeSize.width, volumeSize.height, volumeSize.depth);
+		free(h_volume);
+	}
+
+	sdkCreateTimer(&cuda_timer);
+
+	// calculate new grid size
+	gridSize = dim3(iDivUp(g_width, blockSize.x), iDivUp(g_height, blockSize.y));
 }
 
 
@@ -362,60 +342,12 @@ void VolumeRenderWidget::initPixelBuffer()
 
 
 
-void VolumeRenderWidget::initShaders()
-{
-#if 0
-    // Compile vertex shader
-	if (!program.addShaderFromSourceFile(QOpenGLShader::Vertex, ":/resources/shaders/quad.vert"))
-	//if (!program.addShaderFromSourceCode(QOpenGLShader::Vertex, vertexShader))
-        close();
-
-    // Compile fragment shader
-	if (!program.addShaderFromSourceFile(QOpenGLShader::Fragment, ":/resources/shaders/quad.frag"))
-	//if (!program.addShaderFromSourceCode(QOpenGLShader::Fragment, fragmentShader))
-		close();
-
-
-    // Link shader pipeline
-    if (!program.link())
-        close();
-
-    // Bind shader pipeline for use
-    if (!program.bind())
-        close();
-
-	program.release();
-#endif
-}
-
-
 
 
 
 void VolumeRenderWidget::resizeGL(int w, int h)
 {
-	//g_width = w;
-	//g_height = h;
-	//initPixelBuffer();
-
-	//// calculate new grid size
-	//gridSize = dim3(iDivUp(g_width, blockSize.x), iDivUp(g_height, blockSize.y));
-
 	glViewport(0, 0, w, h);
-
-#if 0
-	const float fovy = 40.0f;
-	const float aspect_ratio = 1.77f;
-	const float near_plane = 0.1f;
-	const float far_plane = 10240.0f;
-
-    // Reset projection
-    projection.setToIdentity();
-
-    // Set perspective projection
-	projection.perspective(fovy, aspect_ratio, near_plane, far_plane);
-#endif
-
 }
 
 void VolumeRenderWidget::cudaRender()
@@ -431,8 +363,7 @@ void VolumeRenderWidget::cudaRender()
 	// map PBO to get CUDA device pointer
 	checkCudaErrors(cudaGraphicsMapResources(1, &cuda_pbo_resource, 0));
 	size_t num_bytes;
-	checkCudaErrors(cudaGraphicsResourceGetMappedPointer((void **)&d_output, &num_bytes,
-		cuda_pbo_resource));
+	checkCudaErrors(cudaGraphicsResourceGetMappedPointer((void **)&d_output, &num_bytes, cuda_pbo_resource));
 	//printf("CUDA mapped PBO: May access %ld bytes\n", num_bytes);
 
 	// clear image
@@ -460,8 +391,6 @@ void VolumeRenderWidget::paintGL()
 
 #if 1
 	memcpy(invViewMatrix, view_matrix.transposed().data(), 12 * sizeof(float));
-	
-
 #else
 	invViewMatrix[0] = 1.f;
 	invViewMatrix[1] = 0.f;

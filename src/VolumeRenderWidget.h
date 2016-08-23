@@ -36,8 +36,6 @@ protected:
     void paintGL() Q_DECL_OVERRIDE;
 	void keyPressEvent(QKeyEvent* e);
 
-    void initShaders();
-
 	void cudaInit();
 	void cudaRender();
 
