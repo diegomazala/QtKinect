@@ -494,7 +494,7 @@ namespace TestQtKinect
 			const Eigen::Vector3d volume_size(vol_size, vol_size, vol_size);
 			const Eigen::Vector3d voxel_size(vx_size, vx_size, vx_size);
 
-			Grid grid(volume_size, voxel_size, Eigen::Matrix4d::Identity());
+			Grid<double> grid(volume_size, voxel_size, Eigen::Matrix4d::Identity());
 
 			const float ray_near = 0;
 			const float ray_far = 100;
@@ -519,7 +519,7 @@ namespace TestQtKinect
 			Eigen::Vector3d volume_size(vol_size, vol_size, vol_size);
 			Eigen::Vector3d voxel_size(vx_size, vx_size, vx_size);
 
-			Grid grid(volume_size, voxel_size, Eigen::Matrix4d::Identity());
+			Grid<double> grid(volume_size, voxel_size, Eigen::Matrix4d::Identity());
 
 			float ray_near = 0; 
 			float ray_far = 100;
@@ -545,7 +545,7 @@ namespace TestQtKinect
 			const int vx_size = 1;
 			Eigen::Vector3d volume_size(vol_size, vol_size, vol_size);
 			Eigen::Vector3d voxel_size(vx_size, vx_size, vx_size);
-			Grid grid(volume_size, voxel_size, Eigen::Matrix4d::Identity());
+			Grid<double> grid(volume_size, voxel_size, Eigen::Matrix4d::Identity());
 
 			int voxel_index;
 			std::vector<int> neighbours_expected, neighbours;
@@ -584,7 +584,7 @@ namespace TestQtKinect
 			const int vx_size = 1;
 			Eigen::Vector3d volume_size(vol_size, vol_size, vol_size);
 			Eigen::Vector3d voxel_size(vx_size, vx_size, vx_size);
-			Grid grid(volume_size, voxel_size, Eigen::Matrix4d::Identity());
+			Grid<double> grid(volume_size, voxel_size, Eigen::Matrix4d::Identity());
 
 			int voxel_index;
 			Eigen::Vector3i index_3d, index_3d_expected;
@@ -637,7 +637,7 @@ namespace TestQtKinect
 			const int vx_size = 1;
 			Eigen::Vector3d volume_size(vol_size, vol_size, vol_size);
 			Eigen::Vector3d voxel_size(vx_size, vx_size, vx_size);
-			Grid grid(volume_size, voxel_size, Eigen::Matrix4d::Identity());
+			Grid<double> grid(volume_size, voxel_size, Eigen::Matrix4d::Identity());
 
 			int voxel_index, voxel_index_expected;
 			Eigen::Vector3i index_3d;

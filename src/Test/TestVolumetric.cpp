@@ -243,7 +243,7 @@ static void export_volume(const std::string& filename, const std::vector<Voxeld>
 }
 
 
-static void update_volume(Grid& grid, std::vector<double>& depth_buffer, const Eigen::Matrix4d& proj, const Eigen::Matrix4d& view)
+static void update_volume(Grid<double>& grid, std::vector<double>& depth_buffer, const Eigen::Matrix4d& proj, const Eigen::Matrix4d& view)
 {
 	const Eigen::Vector4d& ti = view.col(3);
 
@@ -393,7 +393,7 @@ namespace TestVolumetric
 			Eigen::Affine3d grid_affine = Eigen::Affine3d::Identity();
 			grid_affine.translate(Eigen::Vector3d(0, 0, -256));
 			grid_affine.scale(Eigen::Vector3d(1, 1, -1));	// z is negative inside of screen
-			Grid grid(volume_size, voxel_size, grid_affine.matrix());
+			Grid<double> grid(volume_size, voxel_size, grid_affine.matrix());
 
 			//
 			// Creating depth buffer for input clouds
@@ -446,7 +446,7 @@ namespace TestVolumetric
 			Eigen::Affine3d grid_affine = Eigen::Affine3d::Identity();
 			grid_affine.translate(Eigen::Vector3d(0, 0, -256));
 			grid_affine.scale(Eigen::Vector3d(1, 1, -1));	// z is negative inside of screen
-			Grid grid(volume_size, voxel_size, grid_affine.matrix());
+			Grid<double> grid(volume_size, voxel_size, grid_affine.matrix());
 
 
 			//
@@ -566,7 +566,7 @@ namespace TestVolumetric
 			Eigen::Affine3d grid_affine = Eigen::Affine3d::Identity();
 			grid_affine.translate(Eigen::Vector3d(0, 0, -256));
 			grid_affine.scale(Eigen::Vector3d(1, 1, -1));	// z is negative inside of screen
-			Grid grid(volume_size, voxel_size, grid_affine.matrix());
+			Grid<double> grid(volume_size, voxel_size, grid_affine.matrix());
 
 
 			timer.start();

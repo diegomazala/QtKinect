@@ -105,7 +105,7 @@ int main(int argc, char **argv)
 	grid_affine.scale(Eigen::Vector3d(1, 1, -1));	// z is negative inside of screen
 
 
-	Grid grid(volume_size, voxel_size, grid_affine.matrix());
+	Grid<double> grid(volume_size, voxel_size, grid_affine.matrix());
 
 
 	//

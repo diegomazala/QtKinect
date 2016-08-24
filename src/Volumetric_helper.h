@@ -347,7 +347,7 @@ static double compute_tsdf(const Eigen::Vector3d& pt, std::vector<double>& depth
 }
 
 
-static void update_volume(Grid& grid, std::vector<double>& depth_buffer, const Eigen::Matrix4d& proj, const Eigen::Matrix4d& view)
+static void update_volume(Grid<double>& grid, std::vector<double>& depth_buffer, const Eigen::Matrix4d& proj, const Eigen::Matrix4d& view)
 {
 	const Eigen::Vector4d& ti = view.col(3);
 
