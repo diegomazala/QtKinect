@@ -209,23 +209,34 @@ void convertDepthBuffer2QImage(const std::vector<ushort>& depth_buffer, uint wid
 
 int main(int argc, char **argv)
 {
+	int iterations = 10;
+	float gaussian_delta = 4.0f;
+	float euclidean_delta = 0.1f;
+	int filter_radius = 5;
+	std::string filename = "../../data/room.knt";
+
 	if (argc < 6)
 	{
 		std::cerr << "Usage: BilateralFilter_gpu.exe ../../data/room.knt number_of_iterations gaussian_delta euclidean_delta filter_radius" << std::endl;
-		std::cerr << "Usage: BilateralFilter_gpu.exe ../../data/room.knt 10 4.0 0.1 5" << std::endl;
-		return EXIT_FAILURE;
+		std::cerr << "Usage: BilateralFilter_gpu.exe ../../data/room.knt 10 4.0 0.1 5"
+		<< std::endl
+		<< "The app will continue with default parameters."
+		<< std::endl;
 	}
+	else
+	{
+		iterations = atoi(argv[2]);
+		gaussian_delta = atof(argv[3]);
+		euclidean_delta = atof(argv[4]);
+		filter_radius = atoi(argv[5]);
+		filename = argv[1];
+	}
+
+
 
 	QApplication app(argc, argv);
 	app.setApplicationName("Bilateral Filter");
 
-
-	int iterations = atoi(argv[2]);
-	float gaussian_delta = atof(argv[3]);
-	float euclidean_delta = atof(argv[4]);
-	int filter_radius = atoi(argv[5]);
-
-	std::string filename = argv[1];
 	Timer timer;
 
 

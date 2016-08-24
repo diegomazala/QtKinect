@@ -414,19 +414,27 @@ int main(int argc, char **argv)
 {
 	srand(time(NULL));
 
+	std::string filename_0 = "../../data/knt_frames/frame_27.knt";
+	std::string filename_1 = "../../data/knt_frames/frame_27.knt";
+	ushort half_window_search_size = 3;
+	ushort max_distance = 10;
+
 	if (argc < 3)
 	{
-		std::cerr << "Usage: ICP_gpu.exe ../../data/room.knt ../../data/room.knt " << std::endl;
-		return EXIT_FAILURE;
+		std::cerr << "Usage: ICP_gpu.exe ../../data/knt_frames/frame_27.knt ../../data/knt_frames/frame_27.knt 3 10"
+		<< std::endl
+		<< "The app will continue with default parameters."
+		<< std::endl;
 	}
-
-	std::string filename_0 = argv[1];
-	std::string filename_1 = argv[2];
-	ushort half_window_search_size = 3;
+	else
+	{
+		filename_0 = argv[1];
+		filename_1 = argv[2];
+	}
+	
 	if (argc > 3)
 		half_window_search_size = atoi(argv[3]);
 
-	ushort max_distance = 10;
 	if (argc > 4)
 		max_distance = atoi(argv[4]);
 
