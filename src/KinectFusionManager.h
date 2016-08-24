@@ -7,6 +7,7 @@
 #include <QSharedPointer>
 
 class QKinectGrabberFromFile;
+class VolumeWidget;
 
 class KinectFusionManager : public QObject
 {
@@ -33,6 +34,7 @@ public slots :
 protected:
 	
 	QKinectGrabberFromFile* kinectGrabber;
+	VolumeWidget*			volumeWidget;
 };
 
 #endif // __KINECT_FUSION_MANAGER_H__

@@ -52,6 +52,7 @@ int volumetricRenderTest(int argc, char **argv)
 	QSurfaceFormat::setDefaultFormat(format);
 
 
+
 	VolumeRenderWidget widget;
 	widget.setup(filename, vol_width, vol_height, vol_depth);
 	widget.setFixedSize(512, 512);
@@ -92,6 +93,24 @@ int main(int argc, char **argv)
 
 	QApplication app(argc, argv);
 
+	QSurfaceFormat format;
+	format.setDepthBufferSize(24);
+	format.setProfile(QSurfaceFormat::CoreProfile);
+	format.setOption(QSurfaceFormat::DebugContext);
+	QSurfaceFormat::setDefaultFormat(format);
+
+	std::string filename = "../../data/monkey_tsdf_float2_33.raw"; // argv[1];
+	size_t vol_width = 33;
+	size_t vol_height = 33;
+	size_t vol_depth = 33;
+	VolumeRenderWidget volumeWidget;
+	volumeWidget.setup(filename, vol_width, vol_height, vol_depth);
+	volumeWidget.setFixedSize(512, 512);
+	volumeWidget.setWindowTitle("Volume Render Widget");
+	volumeWidget.move(1280, 0);
+	volumeWidget.show();
+
+
 
 	QImageWidget colorWidget;
 	colorWidget.setMinimumSize(640, 480);
@@ -124,6 +143,7 @@ int main(int argc, char **argv)
 
 	QApplication::connect(&player, SIGNAL(quit()), &depthWidget, SLOT(close()));
 	QApplication::connect(&player, SIGNAL(quit()), &colorWidget, SLOT(close()));
+	QApplication::connect(&player, SIGNAL(quit()), &volumeWidget, SLOT(close()));
 
 	QApplication::connect(kinectGrabber, SIGNAL(frameUpdated()), &kinectMngr, SLOT(onNewFrame()));
 

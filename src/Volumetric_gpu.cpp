@@ -18,6 +18,7 @@
 // includes, system
 #include <iostream>
 #include <stdlib.h>
+#include <cassert>
 
 // Required to include CUDA vector types
 #include <cuda_runtime.h>
@@ -43,19 +44,27 @@ std::size_t point_count = 0;
 std::size_t pixel_count = 0;
 Eigen::Matrix4f K;
 
-
-
-static void export_volume(const std::string& filename, const std::vector<Eigen::Vector4f>& points) //, const Eigen::Matrix4f& transformation = Eigen::Matrix4f::Identity())
+static void export_knt_frame(const std::string& filename, const KinectFrame& knt)
 {
-	Eigen::Affine3f rotation;
-	Eigen::Vector4f rgb;
 	std::ofstream file;
 	file.open(filename);
-	for (int i = 0; i < points.size(); ++i)
+	for (ushort y = 0; y < knt.depth_height(); ++y)
 	{
-		const Eigen::Vector4f& v = points[i];
-		//file << std::fixed << "v " << (transformation * v).head<3>().transpose() << std::endl;
-		file << std::fixed << "v " << v.head<3>().transpose() << std::endl;
+		for (ushort x = 0; x < knt.depth_width(); ++x)
+		{
+			file << std::fixed << "v " << x << ' ' << y << ' ' << knt.depth_at(x, y) << std::endl;
+		}
+	}
+	file.close();
+}
+
+static void export_params(const std::string& filename, const std::vector<Eigen::Vector2f>& params) //, const Eigen::Matrix4f& transformation = Eigen::Matrix4f::Identity())
+{
+	std::ofstream file;
+	file.open(filename);
+	for (int i = 0; i < params.size(); ++i)
+	{
+		file << std::fixed << params[i].x() << ' ' << params[i].y() << std::endl;
 	}
 	file.close();
 }
@@ -200,7 +209,6 @@ void run_for_obj()
 	//}
 	//std::cout << "------- // --------" << std::endl;
 
-
 	//
 	// Compute next clouds
 	Eigen::Matrix4f cloud_mat = Eigen::Matrix4f::Identity();
@@ -296,11 +304,16 @@ void run_for_obj()
 
 void run_for_knt()
 {
+	timer.start();
 	float knt_near_plane = 0.1f;
-	float knt_far_plane = 512.0f;
+	float knt_far_plane = 10240.0f;
 
 	KinectFrame knt(filepath);
 	std::cout << "KinectFrame loaded: " << knt.depth.size() << std::endl;
+	timer.print_interval("Importing knt frame : ");
+
+	//export_knt_frame("../../data/knt_frame_depth.obj", knt);
+	//return;
 
 	//std::pair<Eigen::Matrix4f, Eigen::Matrix4f>	T(Eigen::Matrix4f::Identity(), Eigen::Matrix4f::Identity());
 	
@@ -308,13 +321,13 @@ void run_for_knt()
 	Eigen::Matrix4f proj_inv = K.inverse();
 	
 	
-	std::cout << "Perspective: " << std::endl << K << std::endl;
+	//std::cout << "Perspective: " << std::endl << K << std::endl;
 
 
 	//K = perspective_matrix<float>(fov_y, aspect_ratio, near_plane, far_plane);
 	//std::cout << "Perspective: " << std::endl << K << std::endl;
 
-
+#if 0
 	std::vector<Eigen::Vector3f> vertices;
 	std::cout << "depth : " << knt.depth_width() << ", " << knt.depth_height() << std::endl;
 
@@ -322,28 +335,32 @@ void run_for_knt()
 	{
 		for (ushort x = 0; x < knt.depth_width(); ++x)
 		{
-			const float depth = -(float)knt.depth_at(x, y);
+			const float depth = -(float)knt.depth_at(x, y) * 0.1f;
 			const Eigen::Vector2f pixel(x, y);
 			const Eigen::Vector3f v = window_coord_to_3d(pixel, depth, proj_inv, (float)knt.depth_width(), (float)knt.depth_height());
-			points3DOrig.push_back((v * 0.025f).homogeneous());
-			//points3DOrig.push_back(v.homogeneous());
+			//points3DOrig.push_back((v * 0.025f).homogeneous());
+			points3DOrig.push_back(v.homogeneous());
 		}
 	}
 
-	export_obj("../../data/knt_frame.obj", points3DOrig);
-	return;
+	//export_obj("../../data/knt_frame.obj", points3DOrig);
+	//return;
 
 
 	timer.print_interval("Importing knt frame : ");
 	std::cout << filepath << " point count  : " << points3DOrig.size() << std::endl;
 
 	point_count = points3DOrig.size();
-	pixel_count = static_cast<const std::size_t>(window_width * window_height);
+#endif
+
+
+	pixel_count = static_cast<const std::size_t>(knt.depth_width() * knt.depth_height());
 
 
 	std::pair<std::vector<float>, std::vector<float>> depth_buffer;
 	depth_buffer.first.resize(pixel_count, far_plane);
 	depth_buffer.second.resize(pixel_count, far_plane);
+
 
 	//
 	// converting depth buffer to float
@@ -370,8 +387,8 @@ void run_for_knt()
 	const float half_vol_size = vol_size * 0.5f;
 
 	Eigen::Affine3f grid_affine = Eigen::Affine3f::Identity();
-	grid_affine.translate(Eigen::Vector3f(0, 0, -half_vol_size));
-	grid_affine.scale(Eigen::Vector3f(1, 1, -1));	// z is negative inside of screen
+	grid_affine.translate(Eigen::Vector3f(0, 0, half_vol_size));
+	//grid_affine.scale(Eigen::Vector3f(1, 1, -1));	// z is negative inside of screen
 
 	std::vector<Eigen::Vector4f> grid_voxels_points(total_voxels);
 	std::vector<Eigen::Vector2f> grid_voxels_params(total_voxels, Eigen::Vector2f(0.0f, 1.0f));
@@ -388,10 +405,11 @@ void run_for_knt()
 	grid_init(vol_size, vx_size, &grid_voxels_points[0][0], &grid_voxels_params[0][0], grid_matrix.data(), grid_matrix_inv.data(), K.data());
 	timer.print_interval("GPU create grid         : ");
 
+
 	//
 	// Update volume
 	//
-	timer.start();
+	//timer.start();
 	Eigen::Matrix4f view_matrix = Eigen::Matrix4f::Identity();
 	Eigen::Matrix4f view_matrix_inv = view_matrix.inverse();
 	grid_update(view_matrix.data(), view_matrix_inv.data(), &depth_buffer.first.data()[0], knt.depth_width(), knt.depth_height());
@@ -406,9 +424,10 @@ void run_for_knt()
 	
 	
 	timer.start();
-	//export_volume("../../data/grid_volume_gpu.obj", grid_voxels_points, grid_voxels_params);
-	export_volume("../../data/grid_volume_gpu_knt.obj", grid_voxels_points);
+	export_volume("../../data/grid_volume_gpu_knt.obj", grid_voxels_points, grid_voxels_params);
+	export_params("../../data/grid_volume_gpu_params.txt", grid_voxels_params);
 	timer.print_interval("Exporting volume        : ");
+
 
 
 	//std::cout << "------- // --------" << std::endl;
@@ -433,18 +452,30 @@ int main(int argc, char **argv)
 		std::cerr << "Missing parameters. Abort."
 			<< std::endl
 			<< "Usage:  ./Volumetricd.exe ../../data/monkey.obj 256 8 2 90"
+			<< std::endl
+			<< "The app will continue with default parameters."
 			<< std::endl;
-		return EXIT_FAILURE;
+		
+		filepath = "../../data/monkey.obj";
+		vol_size = 256;
+		vx_size = 8;
+		cloud_count = 2;
+		rot_interval = 90;
+	}
+	else
+	{
+		filepath = argv[1];
+		vol_size = atoi(argv[2]);
+		vx_size = atoi(argv[3]);
+		cloud_count = atoi(argv[4]);
+		rot_interval = atoi(argv[5]);
 	}
 
-
-	timer;
-	filepath = argv[1];
-	vol_size = atoi(argv[2]);
-	vx_size = atoi(argv[3]);
-	cloud_count = atoi(argv[4]);
-	rot_interval = atoi(argv[5]);
-
+	if (vol_size / vx_size >= 512)
+	{
+		std::cerr << "Error: This resolution is not supported due to max number of threads per block. (wip)" << std::endl;
+		return EXIT_FAILURE;
+	}
 
 	//
 	// Importing file

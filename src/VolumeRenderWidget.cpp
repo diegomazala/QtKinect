@@ -6,8 +6,6 @@
 #include <QTimer>
 #include <math.h>
 
-#include "KinectFusionKernels/KinectFusionKernels.h"
-
 // CUDA Runtime, Interop, and includes
 #include <cuda_runtime.h>
 #include <cuda_gl_interop.h>
@@ -24,19 +22,11 @@
 #include <helper_functions.h>
 #include <helper_timer.h>
 
-typedef struct
-{
-	float XYZW[4];
-	float UV[4];
-} Vertex;
+#include "KinectFusionKernels/KinectFusionKernels.h"
 
 
-#define MAX_EPSILON_ERROR 5.00f
-#define THRESHOLD         0.30f
 
 
-//typedef unsigned char VolumeType;
-typedef float2 VolumeType;
 static VolumeType *h_volume = nullptr;
 static const char *volumeFilename = "Bucky.raw";
 static std::string volume_file_path = "";
@@ -57,8 +47,6 @@ float transferOffset = 0.0f;
 float transferScale = 1.0f;
 bool linearFiltering = true;
 
-//GLuint pbo = 0;     // OpenGL pixel buffer object
-//GLuint tex = 0;     // OpenGL texture object
 struct cudaGraphicsResource *cuda_pbo_resource; // CUDA Graphics Resource (to transfer PBO)
 
 StopWatchInterface *cuda_timer = 0;

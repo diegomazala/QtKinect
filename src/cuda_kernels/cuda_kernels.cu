@@ -605,8 +605,6 @@ extern "C"
 						vg[j] += grid_matrix_16f[i * m + j] * g[i];		// col major
 
 
-				//printf("%f %f %f \n", vg[0], vg[1], vg[2]);
-
 				// to camera space
 				for (short i = 0; i < m; i++)
 					for (short j = 0; j < k; j++)
@@ -646,7 +644,7 @@ extern "C"
 				
 
 				// get depth buffer value
-				const float Dp = fabs(depth_buffer[depth_pixel_index]);
+				const float Dp = fabs(depth_buffer[depth_pixel_index]) * 0.1f;
 
 				// compute distance from vertex to camera
 				float distance_vertex_camera = sqrt(
@@ -658,6 +656,8 @@ extern "C"
 
 				//// compute signed distance function
 				const float sdf = Dp - distance_vertex_camera;
+
+
 
 				//const double half_voxel_size = voxel_size;// *0.5;
 				if (fabs(sdf) > vx_size)
@@ -687,10 +687,9 @@ extern "C"
 				// update grid with the new values
 				grid_voxels_params_2f[voxel_index * 2 + 0] = tsdf_avg;
 				grid_voxels_params_2f[voxel_index * 2 + 1] = weight;
-
-
 			}
 		}
+
 	}
 
 
@@ -703,27 +702,15 @@ extern "C"
 		unsigned short window_height
 		)
 	{
+
 		const unsigned int total_pixels = window_width * window_height;
 		
 		thrust::device_vector<float> d_view_matrix_16f(&view_matrix_16f[0], &view_matrix_16f[0] + 16);
 		thrust::device_vector<float> d_view_matrix_inv_16f(&view_matrix_inv_16f[0], &view_matrix_inv_16f[0] + 16);
 		thrust::device_vector<float> d_depth_buffer(&depth_buffer[0], &depth_buffer[0] + total_pixels);
 
+
 		const unsigned int total_voxels = static_cast<unsigned int>(pow((volume_size / voxel_size + 1), 3));
-
-		//for (int i = 0; i < total_voxels; ++i)
-		//{
-		//	std::cout << " --  "
-		//		<< d_grid_voxels_points_4f[i * 4 + 0] << "  " << d_grid_voxels_points_4f[i * 4 + 1]
-		//		<< d_grid_voxels_points_4f[i * 4 + 2] 
-		//		<< " --  " << d_grid_voxels_params_2f[i * 2 + 0] << "      " << d_grid_voxels_params_2f[i * 2 + 1] << std::endl;
-		//}
-
-		//std::cout << std::endl;
-		//std::cout << std::endl;
-		//print_matrix(view_matrix_16f, 4, 4);
-		//std::cout << std::endl;
-		//print_matrix(view_matrix_inv_16f, 4, 4);
 
 		grid_update_kernel <<< 1, volume_size / voxel_size + 1 >>>(
 			thrust::raw_pointer_cast(&d_grid_voxels_params_2f[0]),
@@ -737,14 +724,7 @@ extern "C"
 			window_width, 
 			window_height
 			);
-
-		//for (int i = 0; i < total_voxels; ++i)
-		//	std::cout << " ++  "
-		//	<< d_grid_voxels_points_4f[i * 4 + 0] << "  " << d_grid_voxels_points_4f[i * 4 + 1]
-		//	<< d_grid_voxels_points_4f[i * 4 + 2] 
-		//	<< " ++  " << d_grid_voxels_params_2f[i * 2 + 0] << "      " << d_grid_voxels_params_2f[i * 2 + 1] << std::endl;
-		//
-		//std::cout << "Total Voxels: " << total_voxels << std::endl;
+			
 	}
 
 

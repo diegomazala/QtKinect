@@ -4,7 +4,9 @@
 #include <iostream>
 
 
-KinectFusionManager::KinectFusionManager(QKinectGrabberFromFile* kinect_grabber, QObject* parent) :
+KinectFusionManager::KinectFusionManager(
+	QKinectGrabberFromFile* kinect_grabber, 
+	QObject* parent) :
 	QObject(parent)
 	, kinectGrabber(kinect_grabber)
 {
@@ -28,5 +30,8 @@ void KinectFusionManager::onNewFrame()
 		KinectFrame knt;
 		kinectGrabber->getDepthBuffer(knt.info, knt.depth);
 		std::cout << "onFileInfo: " << knt.info.size() << ", " << knt.depth.size() << std::endl;
+
+
+
 	}
 }

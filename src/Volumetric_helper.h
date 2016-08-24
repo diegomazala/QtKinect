@@ -138,6 +138,12 @@ static void export_volume(const std::string& filename, const std::vector<Eigen::
 			rgb = Eigen::Vector3i(255, 0, 0);
 			file << std::fixed << "v " << (transformation * v).head<3>().transpose() << ' ' << rgb.transpose() << std::endl;
 		}
+		//else
+		//{
+		//	rgb = Eigen::Vector3i(255, 255, 255);
+		//	file << std::fixed << "v " << (transformation * v).head<3>().transpose() << ' ' << rgb.transpose() << std::endl;
+		//}
+		
 	}
 	file.close();
 }
