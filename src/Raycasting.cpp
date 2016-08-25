@@ -87,19 +87,22 @@ template <typename Type>
 void raycast_test(
 	const Eigen::Matrix<Type, 3, 1>& ray_origin,
 	const Eigen::Matrix<Type, 3, 1>& ray_direction,
-	const Eigen::Matrix<Type, 3, 1>& volume_size,
-	const Eigen::Matrix<Type, 3, 1>& voxel_size
+	const Eigen::Vector3i& voxel_count,
+	const Eigen::Vector3i& voxel_size
 	)
 {
 
-	Eigen::Vector3i voxel_count = volume_size.cast<int>();
-	Eigen::Matrix<Type, 3, 1> volume_center(0, 0, 0);
-	Eigen::Matrix<Type, 3, 1> half_volume_size = volume_size * (Type)0.5;
+	Eigen::Vector3i volume_size(
+		voxel_count.x() * voxel_size.x(), 
+		voxel_count.y() * voxel_size.y(), 
+		voxel_count.z() * voxel_size.z());
+
+	Eigen::Matrix<Type, 3, 1> half_volume_size = volume_size.cast<Type>() * (Type)0.5;
 	int total_voxels = voxel_count.x() * voxel_count.y() * voxel_count.z();
 	Type half_total_voxels = total_voxels / (Type)2.0;
 
-	Eigen::Matrix<Type, 3, 1> half_voxel_size = voxel_size * (Type)0.5;
-	Eigen::Matrix<Type, 3, 1> to_origin = (-volume_size * (Type)0.5);
+	Eigen::Matrix<Type, 3, 1> half_voxel_size = voxel_size.cast<Type>() * (Type)0.5;
+	Eigen::Matrix<Type, 3, 1> to_origin = (-volume_size.cast<Type>() * (Type)0.5);
 
 	Eigen::Matrix<Type, 3, 1> hit1;
 	Eigen::Matrix<Type, 3, 1> hit2;
@@ -141,7 +144,7 @@ void raycast_test(
 #endif
 
 	int loop_count = 0;
-	std::cout << "First Voxel Intersected : " << voxel_index << std::endl;
+	std::cout << "First Intersected : " << voxel_index << std::endl;
 
 	// 
 	// Check intersection with each box inside of volume
@@ -179,8 +182,9 @@ void raycast_test(
 			<< "Hit Out Normal  : " << hit2_normal.transpose() << std::endl
 			<< std::endl;
 #endif
-		//std::cout << "Voxel Intersected : " << voxel_index << std::endl;
+		std::cout << "Voxel Intersected : " << voxel_index << std::endl;
 	}
+
 }
 
 
@@ -217,18 +221,22 @@ template <typename Type>
 void raycast_test2(
 	const Eigen::Matrix<Type, 3, 1>& ray_origin,
 	const Eigen::Matrix<Type, 3, 1>& ray_direction,
-	const Eigen::Matrix<Type, 3, 1>& volume_size,
-	const Eigen::Matrix<Type, 3, 1>& voxel_size
+	const Eigen::Vector3i& voxel_count,
+	const Eigen::Vector3i& voxel_size
 	)
 {
-	Eigen::Vector3i voxel_count = volume_size.cast<int>();
-	Eigen::Matrix<Type, 3, 1> volume_center(0, 0, 0);
-	Eigen::Matrix<Type, 3, 1> half_volume_size = volume_size * (Type)0.5;
+
+	Eigen::Vector3i volume_size(
+		voxel_count.x() * voxel_size.x(),
+		voxel_count.y() * voxel_size.y(),
+		voxel_count.z() * voxel_size.z());
+
+	Eigen::Matrix<Type, 3, 1> half_volume_size = volume_size.cast<Type>() * (Type)0.5;
 	int total_voxels = voxel_count.x() * voxel_count.y() * voxel_count.z();
 	Type half_total_voxels = total_voxels / (Type)2.0;
 
-	Eigen::Matrix<Type, 3, 1> half_voxel_size = voxel_size * (Type)0.5;
-	Eigen::Matrix<Type, 3, 1> to_origin = (-volume_size * (Type)0.5);
+	Eigen::Matrix<Type, 3, 1> half_voxel_size = voxel_size.cast<Type>() * (Type)0.5;
+	Eigen::Matrix<Type, 3, 1> to_origin = (-volume_size.cast<Type>() * (Type)0.5);
 
 	Eigen::Matrix<Type, 3, 1> hit1;
 	Eigen::Matrix<Type, 3, 1> hit2;
@@ -254,8 +262,9 @@ void raycast_test2(
 	int voxel_index = get_index_test(hit_int, voxel_count);
 	Eigen::Matrix<Type, 3, 1> last_voxel = hit_int.cast<Type>();
 
+
 	int loop_count = 0;
-	std::cout << "First Voxel Intersected : " << voxel_index << std::endl;
+	std::cout << "First Intersected : " << voxel_index << std::endl;
 
 	// 
 	// Check intersection with each box inside of volume
@@ -292,7 +301,7 @@ void raycast_test2(
 			<< "Face            : " << face << std::endl
 			<< std::endl;
 #endif
-		//std::cout << "Voxel Intersected : " << voxel_index << std::endl;
+		std::cout << "Voxel Intersected : " << voxel_index << std::endl;
 	}
 
 }
@@ -303,8 +312,8 @@ int main(int argc, char **argv)
 	int vol_size = atoi(argv[1]); 
 	int vx_size = atoi(argv[2]);
 	
-	Eigen::Vector3f volume_size(vol_size, vol_size, vol_size);
-	Eigen::Vector3f voxel_size(vx_size, vx_size, vx_size);
+	Eigen::Vector3i voxel_count(vol_size, vol_size, vol_size);
+	Eigen::Vector3i voxel_size(vx_size, vx_size, vx_size);
 	
 	Eigen::Vector3f origin(atof(argv[3]), atof(argv[4]), atof(argv[5]));
 	Eigen::Vector3f target(atof(argv[6]), atof(argv[7]), atof(argv[8]));
@@ -312,10 +321,10 @@ int main(int argc, char **argv)
 	
 	Timer t;
 	t.start();
-	raycast_test(origin, direction, volume_size, voxel_size);
+	raycast_test(origin, direction, voxel_count, voxel_size);
 	double t1 = t.diff_msec();
 	t.start();
-	raycast_test2(origin, direction, volume_size, voxel_size);
+	raycast_test2(origin, direction, voxel_count, voxel_size);
 	double t2 = t.diff_msec();
 
 	std::cout << "Time using triangle intersection : " << t1 << std::endl;
