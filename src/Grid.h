@@ -43,6 +43,7 @@ public:
 
 	void reset(const Eigen::Matrix<Type, 3, 1>& _volume_size, const Eigen::Matrix<Type, 3, 1>& _voxel_size, const Eigen::Matrix<Type, 4, 4>& _transformation)
 	{
+		this->transformation = _transformation;
 		this->volume_size = _volume_size;
 		this->voxel_size = _voxel_size;
 		this->voxel_count = Eigen::Vector3i(volume_size.x() / voxel_size.x(), volume_size.y() / voxel_size.y(), volume_size.z() / voxel_size.z());
@@ -372,13 +373,11 @@ public:
 
 
 
-
-
 	Eigen::Matrix<Type, 3, 1> volume_size;			// size of volume
 	Eigen::Matrix<Type, 3, 1> voxel_size;				// size of voxels
 	Eigen::Vector3i voxel_count;			// count of voxels
 	std::vector<Voxel<Type>> data;				// array of voxels
-	//Eigen::Matrix<Type, 4, 4> transformation;			// volume transformation matrix
+	Eigen::Matrix<Type, 4, 4> transformation;			// volume transformation matrix
 };
 
 

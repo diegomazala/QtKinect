@@ -199,14 +199,59 @@ static bool quad_intersection(
 	const Eigen::Matrix<Type, 3, 1>& p4,
 	Eigen::Matrix<Type, 3, 1>& hit)
 {
-
 	return (triangle_intersection(p, d, p1, p2, p3, hit) || triangle_intersection(p, d, p3, p4, p1, hit));
+}
+
+
+template <typename Type>
+static bool quad_intersection(
+	const Eigen::Matrix<Type, 3, 1>& p,
+	const Eigen::Matrix<Type, 3, 1>& d,
+	const Eigen::Matrix<Type, 3, 1>& p1,
+	const Eigen::Matrix<Type, 3, 1>& p2,
+	const Eigen::Matrix<Type, 3, 1>& p3)
+{
+
+	// 
+	// Computing normal of quad
+	//
+	Eigen::Matrix<Type, 3, 1> e21 = p2 - p1;		// compute edge 
+	Eigen::Matrix<Type, 3, 1> e31 = p3 - p1;		// compute edge
+	Eigen::Matrix<Type, 3, 1> n = e21.cross(e31);	// compute normal
+
+	float ndotd = n.dot(d);
+
+	//
+	// check if dot == 0, 
+	// i.e, plane is parallel to the ray
+	//
+	if (std::fabs(ndotd) < 1e-6f)					// Choose your tolerance
+		return false;
+
+	float t = -n.dot(p - p1) / ndotd;
+	Eigen::Matrix<Type, 3, 1> M = p + d * t;
+
+	// 
+	// Projecting vector M - p1 onto e21 and e31
+	//
+	Eigen::Matrix<Type, 3, 1> Mp = M - p;
+	float u = Mp.dot(e21);
+	float v = Mp.dot(e31);
+
+	//
+	// If 0 <= u <= | p2 - p1 | ^ 2 and 0 <= v <= | p3 - p1 | ^ 2,
+	// then the point of intersection M lies inside the square, 
+	// else it's outside.
+	//
+	return (u >= 0.0f && u <= e21.dot(e21)
+		&& v >= 0.0f && v <= e31.dot(e31));
 }
 
 
 
 template <typename Type>
-static int box_ntersection(const Eigen::Vector3f& p,
+static int box_intersection(
+	const Eigen::Matrix<Type, 3, 1>& p,
 	const Eigen::Matrix<Type, 3, 1>& dir,
 	const Eigen::Matrix<Type, 3, 1>& boxCenter,
 	Type boxWidth,
@@ -248,7 +293,7 @@ static int box_ntersection(const Eigen::Vector3f& p,
 	if (quad_intersection(p,
 		dir,
 		p1, p2, p3, p4,
-		&hit[hitCount]))
+		hit[hitCount]))
 	{
 		hitNormal[hitCount] = get_normal(p1, p2, p3);
 		hitCount++;
@@ -258,7 +303,7 @@ static int box_ntersection(const Eigen::Vector3f& p,
 	if (quad_intersection(p,
 		dir,
 		p5, p8, p7, p6,
-		&hit[hitCount]))
+		hit[hitCount]))
 	{
 		hitNormal[hitCount] = get_normal(p5, p8, p7);
 		hitCount++;
@@ -268,7 +313,7 @@ static int box_ntersection(const Eigen::Vector3f& p,
 	if (hitCount < 2 && quad_intersection(p,
 		dir,
 		p4, p3, p7, p8,
-		&hit[hitCount]))
+		hit[hitCount]))
 	{
 		hitNormal[hitCount] = get_normal(p4, p3, p7);
 		hitCount++;
@@ -278,7 +323,7 @@ static int box_ntersection(const Eigen::Vector3f& p,
 	if (hitCount < 2 && quad_intersection(p,
 		dir,
 		p1, p5, p6, p2,
-		&hit[hitCount]))
+		hit[hitCount]))
 	{
 		hitNormal[hitCount] = get_normal(p1, p5, p6);
 		hitCount++;
@@ -288,7 +333,7 @@ static int box_ntersection(const Eigen::Vector3f& p,
 	if (hitCount < 2 && quad_intersection(p,
 		dir,
 		p1, p4, p8, p5,
-		&hit[hitCount]))
+		hit[hitCount]))
 	{
 		hitNormal[hitCount] = get_normal(p1, p4, p8);
 		hitCount++;
@@ -298,7 +343,7 @@ static int box_ntersection(const Eigen::Vector3f& p,
 	if (hitCount < 2 && quad_intersection(p,
 		dir,
 		p2, p6, p7, p3,
-		&hit[hitCount]))
+		hit[hitCount]))
 	{
 		hitNormal[hitCount] = get_normal(p2, p6, p7);
 		hitCount++;
@@ -335,47 +380,136 @@ static int box_ntersection(const Eigen::Vector3f& p,
 	return hitCount;
 }
 
-
-
+// 
+// Face Index
+// 0-Top, 1-Bottom, 2-Front, 3-Back, 4-Left, 5-Right
+//
 template <typename Type>
 static int box_intersection(
-	const Eigen::Vector3f& p,
-	const Eigen::Vector3f& dir,
-	const Eigen::Vector3f& boxCenter,
+	const Eigen::Matrix<Type, 3, 1>& p,
+	const Eigen::Matrix<Type, 3, 1>& dir,
+	const Eigen::Matrix<Type, 3, 1>& boxCenter,
 	Type boxWidth,
 	Type boxHeigth,
 	Type boxDepth,
-	Eigen::Vector3f& hit1, 
-	Eigen::Vector3f& hit2,
-	Eigen::Vector3f& hit1Normal,
-	Eigen::Vector3f& hit2Normal)
+	Eigen::Matrix<Type, 3, 1>& hit1Normal,
+	Eigen::Matrix<Type, 3, 1>& hit2Normal, 
+	int& face)
 {
-	Eigen::Vector3f hitRet1, hitRet2;
-	Eigen::Vector3f hitRet1Normal, hitRet2Normal;
+	Type x2 = boxWidth * 0.5f;
+	Type y2 = boxHeigth * 0.5f;
+	Type z2 = boxDepth * 0.5f;
 
-	int ret = box_intersection(
-		p, 
+	Eigen::Matrix<Type, 3, 1> p1(-x2, y2, -z2);
+	Eigen::Matrix<Type, 3, 1> p2(x2, y2, -z2);
+	Eigen::Matrix<Type, 3, 1> p3(x2, y2, z2);
+	Eigen::Matrix<Type, 3, 1> p4(-x2, y2, z2);
+
+	Eigen::Matrix<Type, 3, 1> p5(-x2, -y2, -z2);
+	Eigen::Matrix<Type, 3, 1> p6(x2, -y2, -z2);
+	Eigen::Matrix<Type, 3, 1> p7(x2, -y2, z2);
+	Eigen::Matrix<Type, 3, 1> p8(-x2, -y2, z2);
+
+	p1 += boxCenter;
+	p2 += boxCenter;
+	p3 += boxCenter;
+	p4 += boxCenter;
+	p5 += boxCenter;
+	p6 += boxCenter;
+	p7 += boxCenter;
+	p8 += boxCenter;
+
+	Eigen::Matrix<Type, 3, 1> hit[2];
+	Eigen::Matrix<Type, 3, 1> hitNormal[2];
+	int hitCount = 0;
+
+	// check top
+	if (quad_intersection(
+		p,
 		dir,
-		boxCenter,
-		boxWidth, boxHeigth, boxDepth,
-		&hitRet1, 
-		&hitRet2,
-		&hitRet1Normal, 
-		&hitRet2Normal);
-
-	if (ret > 0)
+		p1, p2, p3))
 	{
-		hit1 = hitRet1;
-		hit1Normal = hitRet1Normal;
-
-		if (ret > 1)
-		{
-			hit2 = hitRet2;
-			hit2Normal = hitRet2Normal;
-		}
+		hitNormal[hitCount] = get_normal(p1, p2, p3);
+		hitCount++;
+		face = 0;
 	}
 
-	return ret;
+	// check bottom
+	if (quad_intersection(
+		p,
+		dir,
+		p5, p8, p7))
+	{
+		hitNormal[hitCount] = get_normal(p5, p8, p7);
+		hitCount++;
+		face = 1;
+	}
+
+	// check front
+	if (hitCount < 2 && quad_intersection(
+		p,
+		dir,
+		p4, p3, p7))
+	{
+		hitNormal[hitCount] = get_normal(p4, p3, p7);
+		hitCount++;
+		face = 2;
+	}
+
+	// check back
+	if (hitCount < 2 && quad_intersection(
+		p,
+		dir,
+		p1, p5, p6))
+	{
+		hitNormal[hitCount] = get_normal(p1, p5, p6);
+		hitCount++;
+		face = 3;
+	}
+
+	// check left
+	if (hitCount < 2 && quad_intersection(
+		p,
+		dir,
+		p1, p4, p8))
+	{
+		hitNormal[hitCount] = get_normal(p1, p4, p8);
+		hitCount++;
+		face = 4;
+	}
+
+	// check right
+	if (hitCount < 2 && quad_intersection(
+		p,
+		dir,
+		p2, p6, p7))
+	{
+		hitNormal[hitCount] = get_normal(p2, p6, p7);
+		hitCount++;
+		face = 5;
+	}
+
+	if (hitCount > 0)
+	{
+		if (hitCount > 1)
+		{
+			if ((p - hit[0]).norm() < (p - hit[1]).norm())
+			{
+				hit1Normal = hitNormal[0];
+				hit2Normal = hitNormal[1];
+			}
+			else
+			{
+				hit1Normal = hitNormal[1];
+				hit2Normal = hitNormal[0];
+			}
+		}
+		else
+		{
+			hit1Normal = hitNormal[0];
+		}
+	}
+	return hitCount;
 }
 
 

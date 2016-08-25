@@ -313,7 +313,7 @@ bool runSingleTest()
 
 
 
-// Usage: ./Raycastingd.exe 2 1 0 2 -3 0.72 -1.2 2 7
+// Usage: ./Raycasting_gpud.exe 2 1 0 2 -3 0.72 -1.2 2 7
 int main(int argc, char **argv)
 {
 	//export_sphere_volume();
@@ -323,11 +323,16 @@ int main(int argc, char **argv)
 	int vol_size = atoi(argv[1]); //16;
 	int vx_size = atoi(argv[2]); //1;
 	
-
+	//
+	// Define volume size
+	//
 	Eigen::Matrix<Decimal, 3, 1> volume_size(vol_size, vol_size, vol_size);
 	Eigen::Matrix<Decimal, 3, 1> voxel_size(vx_size, vx_size, vx_size);
+
+	//
+	// Grid Transformation
+	//
 	std::vector<Eigen::Matrix<Decimal, 4, 1>> grid_vertices;
-	
 	Eigen::Transform<Decimal, 3, Eigen::Affine> grid_affine = Eigen::Transform<Decimal, 3, Eigen::Affine>::Identity();
 	grid_affine.translate(Eigen::Matrix<Decimal, 3, 1>(0, 0, -256));
 	grid_affine.scale(Eigen::Matrix<Decimal, 3, 1>(1, 1, -1));	// z is negative inside of screen
@@ -335,9 +340,15 @@ int main(int argc, char **argv)
 	Eigen::Matrix<Decimal, 4, 4> to_origin = Eigen::Matrix<Decimal, 4, 4>::Identity();
 	to_origin.col(3) << -(volume_size.x() / 2.0), -(volume_size.y() / 2.0), -(volume_size.z() / 2.0), 1.0;	// set translate
 	
+	//
+	// Create grid structure
+	//
 	const Eigen::Vector3i voxel_count = Eigen::Vector3i(volume_size.x() / voxel_size.x(), volume_size.y() / voxel_size.y(), volume_size.z() / voxel_size.z());
 	create_grid<Decimal>(volume_size, voxel_size, Eigen::Matrix<Decimal, 4, 4>::Identity(), grid_vertices);
 
+	//
+	// Setup origin, target and direction of ray
+	//
 	std::vector<int> intersections;
 	Eigen::Matrix<Decimal, 3, 1> origin(atof(argv[3]), atof(argv[4]), atof(argv[5]));
 	Eigen::Matrix<Decimal, 3, 1> target(atof(argv[6]), atof(argv[7]), atof(argv[8]));
@@ -352,13 +363,13 @@ int main(int argc, char **argv)
 	std::cout << "\nIntersections All: " << intersections.size() << '\t' << timer.diff_msec() << " msec" << std::endl;
 	for (const auto i : intersections)
 		std::cout << i << ' ';
-
-	cpu_raycast(volume_size, voxel_size, origin, target, grid_vertices);
 #endif
+	cpu_raycast(volume_size, voxel_size, origin, target, grid_vertices);
 
 
 
 
+	return 0;
 
 
 
