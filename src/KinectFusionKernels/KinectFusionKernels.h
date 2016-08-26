@@ -33,6 +33,7 @@ extern "C"
 	void knt_cuda_allocate();
 	void knt_cuda_free();
 
+	void raycast(float* origin_float3, float* direction_float3, int* voxel_count_int3, int* voxel_size_int3);
 };
 
 

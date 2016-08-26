@@ -18,6 +18,9 @@
     <CudaCompile Include="..\src\KinectFusionKernels\KinectFusionKernels.cu">
       <Filter>Cuda Files</Filter>
     </CudaCompile>
+    <CudaCompile Include="..\src\KinectFusionKernels\Raycasting.cu">
+      <Filter>Cuda Files</Filter>
+    </CudaCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\KinectFusionKernels\KinectFusionKernels.h">
