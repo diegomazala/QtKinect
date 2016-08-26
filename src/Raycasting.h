@@ -23,29 +23,6 @@ enum BoxFace
 	Right
 };
 
-static void test_quad_intersection()
-{
-	Eigen::Vector3f R1(0.0f, 0.0f, -1.0f);
-	Eigen::Vector3f R2(0.0f, 0.0f, 1.0f);
-
-	Eigen::Vector3f S1(-1.0f, 1.0f, 0.0f);
-	Eigen::Vector3f S2(1.0f, 1.0f, 0.0f);
-	Eigen::Vector3f S3(-1.0f, -1.0f, 0.0f);
-
-	if (!quad_intersection<float>(R1, R2, S1, S2, S3))
-	{
-		std::cout << "something is wrong" << std::endl;
-	}
-
-
-	R1 = Eigen::Vector3f(1.5f, 1.5f, -1.0f);
-	R2 = Eigen::Vector3f(1.5f, 1.5f, 1.0f);
-
-	if (quad_intersection<float>(R1, R2, S1, S2, S3))
-	{
-		std::cout << "something is wrong" << std::endl;
-	}
-}
 
 static Eigen::Vector3f eigen_fminf(Eigen::Vector3f a, Eigen::Vector3f b)
 {

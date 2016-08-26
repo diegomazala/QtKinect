@@ -16,6 +16,34 @@ using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 
 namespace TestRaycast
 {		
+	TEST_CLASS(Intersections)
+	{
+	public:
+
+		TEST_METHOD(QuadIntersections)
+		{
+			Eigen::Vector3f R1(0.0f, 0.0f, -1.0f);
+			Eigen::Vector3f R2(0.0f, 0.0f, 1.0f);
+
+			Eigen::Vector3f S1(-1.0f, 1.0f, 0.0f);
+			Eigen::Vector3f S2(1.0f, 1.0f, 0.0f);
+			Eigen::Vector3f S3(-1.0f, -1.0f, 0.0f);
+
+			Assert::IsTrue(
+				quad_intersection<float>(R1, R2, S1, S2, S3), 
+				L"\n<Quad intersection returned false when true was expected>\n", 
+				LINE_INFO());
+
+
+			R1 = Eigen::Vector3f(1.5f, 1.5f, -1.0f);
+			R2 = Eigen::Vector3f(1.5f, 1.5f, 1.0f);
+
+			Assert::IsFalse(
+				quad_intersection<float>(R1, R2, S1, S2, S3),
+				L"\n<Quad intersection returned true when false was expected>\n",
+				LINE_INFO());
+		}
+	};
 	TEST_CLASS(RaycastCpu)
 	{
 	public:
