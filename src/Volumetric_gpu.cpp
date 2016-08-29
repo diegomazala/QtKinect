@@ -425,7 +425,7 @@ void run_for_knt()
 	
 	timer.start();
 	export_volume("../../data/grid_volume_gpu_knt.obj", grid_voxels_points, grid_voxels_params);
-	export_params("../../data/grid_volume_gpu_params.txt", grid_voxels_params);
+	//export_params("../../data/grid_volume_gpu_params.txt", grid_voxels_params);
 	timer.print_interval("Exporting volume        : ");
 
 

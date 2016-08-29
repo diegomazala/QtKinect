@@ -15,12 +15,16 @@
     <ClCompile Include="..\src\Volumetric_gpu.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\KinectFrame.cpp" />
+    <ClCompile Include="..\src\KinectFrame.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\Volumetric_helper.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\src\KinectFrame.h" />
+    <ClInclude Include="..\src\KinectFrame.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
