@@ -14,6 +14,10 @@
 __host__ __device__ float deg2rad(float deg) { return deg*PI / 180.0;}
 __host__ __device__ float rad2deg(float rad) { return 180.0*rad / PI; }
 
+
+
+
+
 static int3 get_index_3d_from_array(
 	int array_index,
 	const int3& voxel_count)
@@ -46,6 +50,7 @@ static int get_index_from_box_face(int face, int last_index, int3 voxel_count)
 		default: return -1;
 	}
 }
+
 
 inline __host__ __device__ float3 compute_normal(
 	const float3& p1,
@@ -510,20 +515,50 @@ extern "C"
 		float3 direction = normalize(dir);	
 
 #if 1
-		float z = -2;
-		float3 S1 = make_float3(-1.0f, 1.0f, z);
-		float3 S2 = make_float3(1.0f, 1.0f, z);
-		float3 S3 = make_float3(-1.0f, -1.0f, z);
-		float3 hit;
 
-		if (triangle_intersection(camera_pos, direction, S1, S2, S3, hit))
+
+		float3 hit;
+		float3 v1 = make_float3(0.0f, -1.0f, -2.0f);
+		float3 v2 = make_float3(0.0f, 1.0f, -4.0f);
+		float3 v3 = make_float3(-1.0f, -1.0f, -3.0f);
+		float3 v4 = make_float3(0.0f, -1.0f, -2.0f);
+		float3 v5 = make_float3(0.0f, 1.0f, -4.0f);
+		float3 v6 = make_float3(1.0f, -1.0f, -3.0f);
+
+		float3 diff_color = make_float3(1, 0, 0);
+		float3 spec_color = make_float3(1, 1, 0);
+		float spec_shininess = 1.0f;
+		float3 E = make_float3(0, 0, -1);				// view direction
+		float3 L = normalize(make_float3(0.2, -1, -1));	// light direction
+		float3 N[2] = {
+			compute_normal(v1, v2, v3),
+			compute_normal(v4, v5, v6) };
+		float3 R[2] = {
+			normalize(-reflect(L, N[0])),
+			normalize(-reflect(L, N[1])) };
+
+		bool intersec[2] = {
+			triangle_intersection(camera_pos, direction, v1, v2, v3, hit),
+			triangle_intersection(camera_pos, direction, v4, v5, v6, hit) };
+
+		// clear pixel
+		d_output_image[y * image_width + x] = make_uchar3(8, 16, 32);
+
+		for (int i = 0; i < 2; ++i)
 		{
-			d_output_image[y * image_width + x] = make_uchar3(255, 255, 255);
+			if (intersec[i])
+			{
+				float3 diff = diff_color * saturate(dot(N[i], L));
+				float3 spec = spec_color * pow(saturate(dot(R[i], E)), spec_shininess);
+
+				float3 color = clamp(diff + spec, 0.f, 1.f);
+
+				//d_output_image[y * image_width + x] = make_uchar3(255, 255, 255);
+				//d_output_image[y * image_width + x] = make_uchar3(N[i].x * 255, N[i].y * 255, N[i].z * 255);
+				d_output_image[y * image_width + x] = make_uchar3(color.x * 255, color.y * 255, color.z * 255);
+			}
 		}
-		else
-		{
-			d_output_image[y * image_width + x] = make_uchar3(8, 16, 32);
-		}
+
 
 		//d_output_image[y * image_width + x].x = (uchar)(((direction.x + 1) * 0.5) * 255);
 		//d_output_image[y * image_width + x].y = (uchar)(((direction.y + 1) * 0.5) * 255);
