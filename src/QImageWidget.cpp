@@ -51,6 +51,16 @@ void QImageWidget::keyReleaseEvent(QKeyEvent *e)
 {
 	if (e->key() == Qt::Key_Q || e->key() == Qt::Key_Escape)
 		this->close();
+
+	if (e->modifiers() == Qt::ControlModifier && e->key() == Qt::Key_S)
+	{
+		const QString& filename = QFileDialog::getSaveFileName(this,
+			tr("Save Image File"), "",
+			tr("Images (*.png);;Images (*.jpg)"));
+
+		this->save(filename);
+	}
+
 }
 
 
@@ -59,4 +69,11 @@ void QImageWidget::closeEvent(QCloseEvent *event)
 {
 	QLabel::closeEvent(event);
 	emit closed();
+}
+
+
+void QImageWidget::save(const QString& filename)
+{
+	if (!filename.isEmpty())
+		this->pixmap()->save(filename);
 }

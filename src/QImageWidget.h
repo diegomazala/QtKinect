@@ -17,6 +17,7 @@ public:
 public slots:
 	bool loadFile(const QString &);
 	void setImage(const QImage& image);
+	void save(const QString& filename);
 
 
 Q_SIGNALS:
