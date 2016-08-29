@@ -4,9 +4,15 @@
 #include "KinectFusionKernels.h"
 #include <iostream>
 #include <cuda_runtime.h>
+#include <thrust/device_vector.h>
 #include <helper_cuda.h>
 #include <helper_math.h>
 
+
+#define PI 3.14159265359
+
+__host__ __device__ float deg2rad(float deg) { return deg*PI / 180.0;}
+__host__ __device__ float rad2deg(float rad) { return 180.0*rad / PI; }
 
 static int3 get_index_3d_from_array(
 	int array_index,
@@ -120,9 +126,9 @@ __host__ __device__ bool quad_intersection(
 	// 
 	// Computing normal of quad
 	//
-	float3 e21 = p2 - p1;		// compute edge 
-	float3 e31 = p3 - p1;		// compute edge
-	float3 n = cross(e21, e31);	// compute normal
+	float3 e21 = p2 - p1;					// compute edge 
+	float3 e31 = p3 - p1;					// compute edge
+	float3 n = normalize(cross(e21, e31));	// compute normal
 
 	float ndotd = dot(n, d);
 
@@ -301,12 +307,9 @@ __host__ __device__ int box_intersection(
 	p7 += boxCenter;
 	p8 += boxCenter;
 
-	
-	float3 hit[2];
 	float3 hitNormal[2];
 	int hitCount = 0;
 
-	
 	// check top
 	if (quad_intersection(p, dir, p1, p2, p3))
 	{
@@ -359,16 +362,8 @@ __host__ __device__ int box_intersection(
 	{
 		if (hitCount > 1)
 		{
-			if (length(p - hit[0]) < length(p - hit[1]))
-			{
-				hit1Normal = hitNormal[0];
-				hit2Normal = hitNormal[1];
-			}
-			else
-			{
-				hit1Normal = hitNormal[1];
-				hit2Normal = hitNormal[0];
-			}
+			hit1Normal = hitNormal[0];
+			hit2Normal = hitNormal[1];
 		}
 		else
 		{
@@ -379,10 +374,16 @@ __host__ __device__ int box_intersection(
 	return hitCount;
 }
 
+
+
+
 extern "C"
 {
-	//void raycast(float origin[3], float direction[3], int voxel_count[3], int voxel_size[3])
-	void raycast(float* origin_float3, float* direction_float3, int* voxel_count_int3, int* voxel_size_int3)
+	void raycast_one(
+		const float* origin_float3, 
+		const float* direction_float3, 
+		const int* voxel_count_int3, 
+		const int* voxel_size_int3)
 	{
 		float3 origin = make_float3(origin_float3[0], origin_float3[1], origin_float3[2]);
 		float3 direction = make_float3(direction_float3[0], direction_float3[1], direction_float3[2]);
@@ -456,10 +457,158 @@ extern "C"
 			int3 last_voxel_index = get_index_3d_from_array(voxel_index, voxel_count);
 			loop_count++;
 
-			//std::cout << "Voxel Intersected : " << voxel_index << std::endl;
+			std::cout << "Voxel Intersected : " << voxel_index << std::endl;
 		}
 	
 	}
+
+	__device__ float3 mul_vec_dir_matrix(const float* M_3x4, const float3& v)
+	{
+		return make_float3(
+			dot(v, make_float3(M_3x4[0], M_3x4[4], M_3x4[8])),
+			dot(v, make_float3(M_3x4[1], M_3x4[5], M_3x4[9])),
+			dot(v, make_float3(M_3x4[2], M_3x4[6], M_3x4[10])));
+	}
+
+	__global__ void	raycast_box_kernel(
+		uchar3 *d_output_image,
+		uint image_width,
+		uint image_height,
+		uint box_size,
+		float fovy,
+		const float* camera_to_world_mat4x4,
+		const float* box_transf_mat4x4)
+	{
+		float3 camera_pos = make_float3(camera_to_world_mat4x4[12], camera_to_world_mat4x4[13], camera_to_world_mat4x4[14]);
+
+		float scale = tan(deg2rad(fovy * 0.5f));
+		float aspect_ratio = (float)image_width / (float)image_height;
+
+		float near_plane = 0.3f;
+		float far_plane = 512.0f;
+
+		uint x = blockIdx.x * blockDim.x + threadIdx.x;
+		uint y = blockIdx.y * blockDim.y + threadIdx.y;
+
+		if ((x >= image_width) || (y >= image_height)) 
+			return;
+
+		// Convert from image space (in pixels) to screen space
+		// Screen Space alon X axis = [-aspect ratio, aspect ratio] 
+		// Screen Space alon Y axis = [-1, 1]
+		float3 screen_coord = make_float3(
+			(2 * (x + 0.5f) / (float)image_width - 1) * aspect_ratio * scale,
+			(1 - 2 * (y + 0.5f) / (float)image_height) * scale,
+			-1.0f);
+
+		// transform vector by matrix (no translation)
+		// multDirMatrix
+		float3 dir = mul_vec_dir_matrix(camera_to_world_mat4x4, screen_coord);
+		
+
+		//float3 direction = normalize(screen_coord - camera_pos);
+		float3 direction = normalize(dir);	
+
+#if 1
+		float z = -2;
+		float3 S1 = make_float3(-1.0f, 1.0f, z);
+		float3 S2 = make_float3(1.0f, 1.0f, z);
+		float3 S3 = make_float3(-1.0f, -1.0f, z);
+		float3 hit;
+
+		if (triangle_intersection(camera_pos, direction, S1, S2, S3, hit))
+		{
+			d_output_image[y * image_width + x] = make_uchar3(255, 255, 255);
+		}
+		else
+		{
+			d_output_image[y * image_width + x] = make_uchar3(8, 16, 32);
+		}
+
+		//d_output_image[y * image_width + x].x = (uchar)(((direction.x + 1) * 0.5) * 255);
+		//d_output_image[y * image_width + x].y = (uchar)(((direction.y + 1) * 0.5) * 255);
+		//d_output_image[y * image_width + x].z = (uchar)(((direction.z + 1) * 0.5) * 255);
+#else
+
+		//float3 box_center = make_float3(box_size * 0.5f);
+		float3 box_center = make_float3(0.0f, 0.0f, 1.0f);
+		float3 hit1;
+		float3 hit2;
+		float3 hit1Normal;
+		float3 hit2Normal;
+		int face = -1;
+
+		int intersections = box_intersection(
+			camera_pos,
+			direction,
+			box_center,
+			box_size,
+			box_size,
+			box_size,
+			hit1,
+			hit1,
+			hit1Normal,
+			hit2Normal
+			);
+
+		if (intersections > 0)
+		{
+			d_output_image[y * image_width + x] = make_uchar3(0, 255, 255);
+		}
+		else
+		{
+			d_output_image[y * image_width + x] = make_uchar3(64, 32, 32);
+		}
+#endif
+
+		//uchar xx = uchar((float)x / (float)image_width * 255);
+		//uchar yy = uchar((float)y / (float)image_height * 255);
+
+		//uchar xx = uchar(window_coord_norm.x * 255);
+		//uchar yy = uchar(window_coord_norm.y * 255);
+
+		//uchar xx = uchar(screen_coord.x * 255);
+		//uchar yy = uchar(screen_coord.y * 255);
+
+		//uchar xx = uchar(ndc.x * 255);
+		//uchar yy = uchar(ndc.y * 255);
+
+		// write output color
+		//d_output_image[y * image_width + x] = make_uchar3(0, 255, 255);
+		//d_output_image[y * image_width + x] = make_uchar3(xx, yy, 0);
+	}
+
+	void raycast_box(
+		void* image_rgb_output_uchar3,
+		uint width,
+		uint height,
+		uint box_size,
+		float fovy,
+		const float* camera_to_world_mat4f,
+		const float* box_transf_mat4f)
+	{
+		std::cout << "fov " << fovy << std::endl;
+
+		thrust::device_vector<uchar3> d_image_rgb = thrust::device_vector<uchar3>(width * height);
+		thrust::device_vector<float> d_camera_to_world_mat4f = thrust::device_vector<float>(&camera_to_world_mat4f[0], &camera_to_world_mat4f[0] + 16);
+		thrust::device_vector<float> d_box_transform_mat4f = thrust::device_vector<float>(&box_transf_mat4f[0], &box_transf_mat4f[0] + 16);
+
+		const dim3 threads_per_block(32, 32);
+		const dim3 num_blocks = dim3(iDivUp(width, threads_per_block.x), iDivUp(height, threads_per_block.y));
+
+		raycast_box_kernel << <  num_blocks, threads_per_block >> >(
+			thrust::raw_pointer_cast(&d_image_rgb[0]),
+			width,
+			height,
+			box_size,
+			fovy,
+			thrust::raw_pointer_cast(&d_camera_to_world_mat4f[0]),
+			thrust::raw_pointer_cast(&d_box_transform_mat4f[0])
+			);
+
+		thrust::copy(d_image_rgb.begin(), d_image_rgb.end(), (uchar3*)image_rgb_output_uchar3);
+	}
+
 
 };	// extern "C"
 

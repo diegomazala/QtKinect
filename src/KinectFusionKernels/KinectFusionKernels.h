@@ -33,7 +33,22 @@ extern "C"
 	void knt_cuda_allocate();
 	void knt_cuda_free();
 
-	void raycast(float* origin_float3, float* direction_float3, int* voxel_count_int3, int* voxel_size_int3);
+
+	void raycast_one(
+		const float* origin_float3, 
+		const float* direction_float3, 
+		const int* voxel_count_int3, 
+		const int* voxel_size_int3);
+
+
+	void raycast_box(
+		void* image_rgb_output_uchar3, 
+		uint width, 
+		uint height,
+		uint box_size,
+		float fov,
+		const float* camera_to_world_mat4f,
+		const float* box_transf_mat4f);
 };
 
 

@@ -419,7 +419,6 @@ static int box_intersection(
 	p7 += boxCenter;
 	p8 += boxCenter;
 
-	Eigen::Matrix<Type, 3, 1> hit[2];
 	Eigen::Matrix<Type, 3, 1> hitNormal[2];
 	int hitCount = 0;
 
@@ -493,16 +492,8 @@ static int box_intersection(
 	{
 		if (hitCount > 1)
 		{
-			if ((p - hit[0]).norm() < (p - hit[1]).norm())
-			{
-				hit1Normal = hitNormal[0];
-				hit2Normal = hitNormal[1];
-			}
-			else
-			{
-				hit1Normal = hitNormal[1];
-				hit2Normal = hitNormal[0];
-			}
+			hit1Normal = hitNormal[0];
+			hit2Normal = hitNormal[1];
 		}
 		else
 		{
