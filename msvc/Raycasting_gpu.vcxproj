@@ -71,8 +71,8 @@
     <ClInclude Include="..\src\TsdfGridIO.h" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="KinectFusionKernels.vcxproj">
-      <Project>{4a8dfec1-dedf-4fe7-921f-8af7b0aa6d58}</Project>
+    <ProjectReference Include="RaycastKernels.vcxproj">
+      <Project>{28e08b07-4cdf-41d4-b6e6-8d71d701c352}</Project>
     </ProjectReference>
   </ItemGroup>
   <PropertyGroup Label="Globals">

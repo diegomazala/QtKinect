@@ -19,15 +19,14 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\src\KinectFusionKernels\KinectFusionKernels.h" />
+    <CudaCompile Include="..\src\Kernels\Raycasting.cu" />
   </ItemGroup>
   <ItemGroup>
-    <CudaCompile Include="..\src\KinectFusionKernels\KinectFusionKernels.cu" />
-    <CudaCompile Include="..\src\KinectFusionKernels\VolumeRender.cu" />
+    <ClInclude Include="..\src\Kernels\RaycastKernels.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{4A8DFEC1-DEDF-4FE7-921F-8AF7B0AA6D58}</ProjectGuid>
-    <RootNamespace>KinectFusionKernels</RootNamespace>
+    <ProjectGuid>{28E08B07-4CDF-41D4-B6E6-8D71D701C352}</ProjectGuid>
+    <RootNamespace>RaycastKernels</RootNamespace>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">

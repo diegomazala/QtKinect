@@ -11,7 +11,7 @@
 #include <vector_types.h>
 #include "helper_cuda.h"
 #include "helper_image.h"
-#include "KinectFusionKernels/KinectFusionKernels.h"
+#include "Kernels/RaycastKernels.h"
 
 #define DegToRad(angle_degrees) (angle_degrees * M_PI / 180.0)		// Converts degrees to radians.
 #define RadToDeg(angle_radians) (angle_radians * 180.0 / M_PI)		// Converts radians to degrees.

@@ -12,15 +12,12 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <CudaCompile Include="..\src\KinectFusionKernels\VolumeRender.cu">
-      <Filter>Cuda Files</Filter>
-    </CudaCompile>
-    <CudaCompile Include="..\src\KinectFusionKernels\KinectFusionKernels.cu">
+    <CudaCompile Include="..\src\Kernels\Raycasting.cu">
       <Filter>Cuda Files</Filter>
     </CudaCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\src\KinectFusionKernels\KinectFusionKernels.h">
+    <ClInclude Include="..\src\Kernels\RaycastKernels.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

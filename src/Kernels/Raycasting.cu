@@ -1,7 +1,7 @@
 #ifndef _RAYCASTING_KERNEL_CU_
 #define _RAYCASTING_KERNEL_CU_
 
-#include "KinectFusionKernels.h"
+#include "RaycastKernels.h"
 #include <iostream>
 #include <cuda_runtime.h>
 #include <thrust/device_vector.h>
@@ -611,6 +611,11 @@ extern "C"
 		// write output color
 		//d_output_image[y * image_width + x] = make_uchar3(0, 255, 255);
 		//d_output_image[y * image_width + x] = make_uchar3(xx, yy, 0);
+	}
+	
+	static int iDivUp(int a, int b)
+	{
+		return (a % b != 0) ? (a / b + 1) : (a / b);
 	}
 
 	void raycast_box(
