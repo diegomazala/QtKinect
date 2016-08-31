@@ -9,6 +9,7 @@
 #include "Timer.h"
 #include "Projection.h"
 #include "ComputeRigidTransform.h"
+#include "Raycasting.h"
 
 
 #define DegToRad(angle_degrees) (angle_degrees * M_PI / 180.0)		// Converts degrees to radians.
@@ -115,7 +116,11 @@ static void export_volume(const std::string& filename, const std::vector<Voxeld>
 	file.close();
 }
 
-static void export_volume(const std::string& filename, const std::vector<Eigen::Vector4f>& points, const std::vector<Eigen::Vector2f>& params, const Eigen::Matrix4f& transformation = Eigen::Matrix4f::Identity())
+static void export_volume(
+	const std::string& filename, 
+	const std::vector<Eigen::Vector4f>& points, 
+	const std::vector<Eigen::Vector2f>& params, 
+	const Eigen::Matrix4f& transformation = Eigen::Matrix4f::Identity())
 {
 	Eigen::Affine3f rotation;
 	Eigen::Vector4f rgb;
@@ -144,6 +149,46 @@ static void export_volume(const std::string& filename, const std::vector<Eigen::
 		//	file << std::fixed << "v " << (transformation * v).head<3>().transpose() << ' ' << rgb.transpose() << std::endl;
 		//}
 		
+	}
+	file.close();
+}
+
+
+static void export_volume(
+	const std::string& filename, 
+	const Eigen::Vector3i voxel_count, 
+	const Eigen::Vector3i voxel_size, 
+	const std::vector<Eigen::Vector2f>& params, 
+	const Eigen::Matrix4f& transformation = Eigen::Matrix4f::Identity())
+{
+	Eigen::Affine3f rotation;
+	Eigen::Vector4f rgb;
+	std::ofstream file;
+	file.open(filename);
+	int i = 0;
+	for (int i = 0; i < params.size(); ++i)
+	{
+		const Eigen::Vector3i ind = index_3d_from_array(i, voxel_count, voxel_size);
+		const float tsdf = params[i][0];
+		Eigen::Vector4f v = ind.homogeneous().cast<float>();
+
+		Eigen::Vector3i rgb(255, 255, 255);
+		if (tsdf > 0.1f)
+		{
+			rgb = Eigen::Vector3i(0, 255, 0);
+			file << std::fixed << "v " << (transformation * v).head<3>().transpose() << ' ' << rgb.transpose() << std::endl;
+		}
+		else if (tsdf < -0.1f)
+		{
+			rgb = Eigen::Vector3i(255, 0, 0);
+			file << std::fixed << "v " << (transformation * v).head<3>().transpose() << ' ' << rgb.transpose() << std::endl;
+		}
+		else
+		{
+			rgb = Eigen::Vector3i(0, 255, 255);
+			file << std::fixed << "v " << (transformation * v).head<3>().transpose() << ' ' << rgb.transpose() << std::endl;
+		}
+
 	}
 	file.close();
 }
