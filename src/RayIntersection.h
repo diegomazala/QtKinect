@@ -382,7 +382,7 @@ static int box_intersection(
 
 // 
 // Face Index
-// 0-Top, 1-Bottom, 2-Front, 3-Back, 4-Left, 5-Right
+// 0-Top, 1-Bottom, 2-Front, 3-Rear, 4-Left, 5-Right
 //
 template <typename Type>
 static int box_intersection(

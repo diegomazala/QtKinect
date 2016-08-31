@@ -47,9 +47,6 @@
     <ClCompile Include="..\src\Test\TestRaycast.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\Test\TestComputeRigidTransform.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="..\src\QImageWidget.h">

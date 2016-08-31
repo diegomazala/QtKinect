@@ -5,27 +5,54 @@
 // Usage: ./Raycastingd.exe 3 1 1.5 1.5 -15 1.5 1.5 -10
 int main(int argc, char **argv)
 {
-	int vol_size = atoi(argv[1]); 
-	int vx_size = atoi(argv[2]);
+	int vx_count = 3;	
+	int vx_size = 1;
 	
-	Eigen::Vector3i voxel_count(vol_size, vol_size, vol_size);
+	Eigen::Vector3i voxel_count(vx_count, vx_count, vx_count);
 	Eigen::Vector3i voxel_size(vx_size, vx_size, vx_size);
 	
-	Eigen::Vector3f origin(atof(argv[3]), atof(argv[4]), atof(argv[5]));
-	Eigen::Vector3f target(atof(argv[6]), atof(argv[7]), atof(argv[8]));
-	Eigen::Vector3f direction = (target - origin).normalized();
-	
+	Eigen::Vector3f ray_origin(0.5f, 0.5f, -1.0f);
+	//Eigen::Vector3f ray_target(0.5f, 0.0f, 0.5f);	// { 0 }
+	//Eigen::Vector3f ray_target(0.5f, 0.0f, 1.5f);	// { 0, 9 }
+	//Eigen::Vector3f ray_target(0.5f, 3.0f, 0.5f);	// { 6 }
+	//Eigen::Vector3f ray_target(0.5f, 2.5f, 0.5f);	// { 3, 6 }
+	//Eigen::Vector3f ray_target(2.5f, 0.0f, 2.5f);	// 
+	//Eigen::Vector3f ray_target(0.0f, 0.5f, 0.5f);	// { 0 }
+	//Eigen::Vector3f ray_target(4.0f, 0.5f, 0.5f);	// { 2 }
+	Eigen::Vector3f ray_target(0.5f, 2.0f, 1.f);	// { 3, 6, 15, 24 }
+	Eigen::Vector3f ray_direction = (ray_target - ray_origin).normalized();
+
+	std::vector<int> voxels_intersected;
+
+	raycast_volume<float>(ray_origin, ray_direction, voxel_count, voxel_size, voxels_intersected);
+
+#if 0
+	if (argc > 8)
+	{
+		vx_count = atoi(argv[1]);
+		vx_size = atoi(argv[2]);
+
+		voxel_count = Eigen::Vector3i(vx_count, vx_count, vx_count);
+		voxel_size = Eigen::Vector3i(vx_size, vx_size, vx_size);
+
+		origin = Eigen::Vector3f(atof(argv[3]), atof(argv[4]), atof(argv[5]));
+		target = Eigen::Vector3f(atof(argv[6]), atof(argv[7]), atof(argv[8]));
+		direction = Eigen::Vector3f(target - origin).normalized();
+	}
+#endif
+
+#if 0
 	Timer t;
 	t.start();
 	raycast_with_triangle_intersections(origin, direction, voxel_count, voxel_size);
 	double t1 = t.diff_msec();
-	t.start();
-	raycast_with_quad_intersections(origin, direction, voxel_count, voxel_size);
-	double t2 = t.diff_msec();
-
-	std::cout << "Time using triangle intersection : " << t1 << std::endl;
-	std::cout << "Time using quad intersection     : " << t2 << std::endl;
-
+	//t.start();
+	//raycast_with_quad_intersections(origin, direction, voxel_count, voxel_size);
+	//double t2 = t.diff_msec();
+		
+	//std::cout << "Time using triangle intersection : " << t1 << std::endl;
+	//std::cout << "Time using quad intersection     : " << t2 << std::endl;
+#endif
 	return 0;
 }
 

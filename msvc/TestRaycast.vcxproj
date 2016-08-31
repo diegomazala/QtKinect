@@ -12,7 +12,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\QImageWidget.cpp" />
-    <ClCompile Include="..\src\Test\TestComputeRigidTransform.cpp" />
     <ClCompile Include="..\src\Test\TestRaycast.cpp" />
     <ClCompile Include="GeneratedFiles\Debug\moc_QImageWidget.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
