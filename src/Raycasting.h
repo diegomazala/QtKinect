@@ -80,6 +80,23 @@ BoxFace box_face_in_face_out(const BoxFace& face_out)
 }
 
 
+static int get_index_from_3d(const Eigen::Vector3i pt, const Eigen::Vector3i& voxel_count, const Eigen::Vector3i& voxel_size)
+{
+	return pt.z() / voxel_size.z() * voxel_count.x() * voxel_count.y() + pt.y() / voxel_size.y() * voxel_count.y() + pt.x() / voxel_size.x();
+}
+
+
+static Eigen::Vector3i index_3d_from_array(
+	int array_index,
+	const Eigen::Vector3i& voxel_count,
+	const Eigen::Vector3i& voxel_size)
+{
+	return Eigen::Vector3i(
+		int(std::fmod(array_index, voxel_count.x())) * voxel_size.x(),
+		int(std::fmod(array_index / voxel_count.y(), voxel_count.y())) * voxel_size.y(),
+		int(array_index / (voxel_count.x() * voxel_count.y())) * voxel_size.z());
+}
+
 
 Eigen::Vector3f eigen_clamp(Eigen::Vector3f v, float a, float b)
 {
@@ -128,11 +145,6 @@ static int intersectBox(Ray<float> r, Eigen::Vector3f boxmin, Eigen::Vector3f bo
 }
 
 
-static int get_index_test(Eigen::Vector3i pt, Eigen::Vector3i voxel_count)
-{
-	return pt.z() * voxel_count.x() * voxel_count.y() + pt.y() * voxel_count.y() + pt.x();
-}
-
 template <typename Type>
 void raycast_with_triangle_intersections(
 	const Eigen::Matrix<Type, 3, 1>& ray_origin,
@@ -150,7 +162,6 @@ void raycast_with_triangle_intersections(
 
 	Eigen::Matrix<Type, 3, 1> half_volume_size = volume_size.cast<Type>() * (Type)0.5;
 	int total_voxels = voxel_count.x() * voxel_count.y() * voxel_count.z();
-	Type half_total_voxels = total_voxels / (Type)2.0;
 
 	Eigen::Matrix<Type, 3, 1> half_voxel_size = voxel_size.cast<Type>() * (Type)0.5;
 	Eigen::Matrix<Type, 3, 1> to_origin = (-volume_size.cast<Type>() * (Type)0.5);
@@ -178,7 +189,7 @@ void raycast_with_triangle_intersections(
 		hit2_normal);
 
 	Eigen::Vector3i hit_int = hit1.cast<int>();
-	int voxel_index = get_index_test(hit_int, voxel_count);
+	int voxel_index = get_index_from_3d(hit_int, voxel_count, voxel_size);
 	Eigen::Matrix<Type, 3, 1> last_voxel = hit_int.cast<Type>();
 
 #if 1
@@ -223,7 +234,7 @@ void raycast_with_triangle_intersections(
 			hit2_normal);
 
 		hit_int = hit1.cast<int>();
-		int hit_voxel_index = get_index_test(hit_int, voxel_count);
+		int hit_voxel_index = get_index_from_3d(hit_int, voxel_count, voxel_size);
 		
 		last_voxel = hit_int.cast<Type>();
 		loop_count++;
@@ -263,15 +274,7 @@ void raycast_with_triangle_intersections(
 }
 
 
-static Eigen::Vector3i index_3d_from_array(
-	int array_index, 
-	const Eigen::Vector3i& voxel_count)
-{
-	return Eigen::Vector3i(
-		int(std::fmod(array_index, voxel_count.x())),
-		int(std::fmod(array_index / voxel_count.y(), voxel_count.y())),
-		int(array_index / (voxel_count.x() * voxel_count.y())));
-}
+
 
 // 
 // Face Index
@@ -309,7 +312,6 @@ void raycast_with_quad_intersections(
 
 	Eigen::Matrix<Type, 3, 1> half_volume_size = volume_size.cast<Type>() * (Type)0.5;
 	int total_voxels = voxel_count.x() * voxel_count.y() * voxel_count.z();
-	Type half_total_voxels = total_voxels / (Type)2.0;
 
 	Eigen::Matrix<Type, 3, 1> half_voxel_size = voxel_size.cast<Type>() * (Type)0.5;
 	Eigen::Matrix<Type, 3, 1> to_origin = (-volume_size.cast<Type>() * (Type)0.5);
@@ -335,7 +337,7 @@ void raycast_with_quad_intersections(
 		hit2_normal);
 
 	Eigen::Vector3i hit_int = hit1.cast<int>();
-	int voxel_index = get_index_test(hit_int, voxel_count);
+	int voxel_index = get_index_from_3d(hit_int, voxel_count, voxel_size);
 	Eigen::Matrix<Type, 3, 1> last_voxel = hit_int.cast<Type>();
 
 
@@ -362,7 +364,7 @@ void raycast_with_quad_intersections(
 
 
 		voxel_index = get_index_from_face(face, voxel_index, voxel_count);
-		Eigen::Vector3i last_voxel_index = index_3d_from_array(voxel_index, voxel_count);
+		Eigen::Vector3i last_voxel_index = index_3d_from_array(voxel_index, voxel_count, voxel_size);
 		loop_count++;
 
 #if 0
@@ -409,7 +411,7 @@ int face_intersections(
 	};
 
 	Eigen::Matrix<Type, 3, 1> hit;
-	Eigen::Matrix<Type, 3, 1> voxel_pos = index_3d_from_array(voxel_index, voxel_count).cast<Type>();
+	Eigen::Matrix<Type, 3, 1> voxel_pos = index_3d_from_array(voxel_index, voxel_count, voxel_size).cast<Type>();
 	//voxel_pos += (voxel_size * 0.5f);	// only if using the center of face
 
 	BoxFace face = BoxFace::Undefined;
@@ -426,7 +428,7 @@ int face_intersections(
 			face_out = face;
 			hit_out = hit;
 			float half_voxel_y = voxel_size.y() * 0.5f;
-			if (hit.y() > voxel_count.y() - half_voxel_y)
+			if (hit.y() > voxel_count.y() * voxel_size.y() - half_voxel_y)
 				next_voxel_index = -1;
 			else
 				next_voxel_index = voxel_index + voxel_count.y();
@@ -492,10 +494,10 @@ int face_intersections(
 			face_out = face;
 			hit_out = hit;
 			float half_voxel_z = voxel_size.z() * 0.5f;
-			if (hit.z() > voxel_count.z() - half_voxel_z)
+			if (hit.z() > voxel_count.z() * voxel_size.z() - half_voxel_z)
 				next_voxel_index = -1;
 			else
-				next_voxel_index = voxel_index + voxel_count.x() * voxel_count.y();
+				next_voxel_index = voxel_index + voxel_count.x()* voxel_count.y();
 
 			float dist = (hit_out - hit_in).norm();
 			face_list.push_back(FaceData(face, hit, next_voxel_index, dist));
@@ -536,7 +538,7 @@ int face_intersections(
 			face_out = face;
 			hit_out = hit;
 			float half_voxel_x = voxel_size.x() * 0.5f;
-			if (hit.x() > voxel_count.x() - half_voxel_x)
+			if (hit.x() > voxel_count.x() * voxel_size.x() - half_voxel_x)
 				next_voxel_index = -1;
 			else
 				next_voxel_index = voxel_index + 1;
@@ -547,17 +549,17 @@ int face_intersections(
 		}
 	}
 
-
 	if (face_list.size() > 1)
 	{
 		float max_dist = -1;
 		for (auto d : face_list)
 		{
-			if (max_dist < d.dist)
+			if (d.dist > max_dist)
 			{
 				face_out = d.face;
 				hit_out = d.hit;
 				next_voxel_index = d.voxel_index;
+				max_dist = d.dist;
 			}
 		}
 	}
@@ -583,7 +585,6 @@ BoxFace raycast_face_volume(
 
 	Eigen::Matrix<Type, 3, 1> half_volume_size = volume_size.cast<Type>() * (Type)0.5;
 	int total_voxels = voxel_count.x() * voxel_count.y() * voxel_count.z();
-	Type half_total_voxels = total_voxels / (Type)2.0;
 
 	Eigen::Matrix<Type, 3, 1> half_voxel_size = voxel_size.cast<Type>() * (Type)0.5;
 	Eigen::Matrix<Type, 3, 1> to_origin = (-volume_size.cast<Type>() * (Type)0.5);
@@ -611,7 +612,7 @@ BoxFace raycast_face_volume(
 	if (intersections_count > 0)
 	{
 		Eigen::Vector3i hit_int = hit1.cast<int>();
-		voxel_index = get_index_test(hit_int, voxel_count);
+		voxel_index = get_index_from_3d(hit_int, voxel_count, voxel_size);
 		hit = hit1;
 		return box_face_from_normal<float>(hit1_normal);
 	}
@@ -646,7 +647,6 @@ int raycast_face_in_out(
 
 	Eigen::Matrix<Type, 3, 1> half_volume_size = volume_size.cast<Type>() * (Type)0.5;
 	int total_voxels = voxel_count.x() * voxel_count.y() * voxel_count.z();
-	Type half_total_voxels = total_voxels / (Type)2.0;
 
 	Eigen::Matrix<Type, 3, 1> half_voxel_size = voxel_size.cast<Type>() * (Type)0.5;
 	Eigen::Matrix<Type, 3, 1> to_origin = (-volume_size.cast<Type>() * (Type)0.5);
@@ -703,6 +703,7 @@ int raycast_volume(
 	const Eigen::Vector3i& voxel_size,
 	std::vector<int>& voxels_intersected)
 {
+
 	int voxel_index = -1;
 	int next_voxel_index = -1;
 	int intersections_count = 0;

@@ -109,7 +109,7 @@ namespace TestRaycast
 				hit2_normal);
 
 			Eigen::Vector3i hit_int = hit1.cast<int>();
-			int voxel_index = get_index_test(hit_int, voxel_count);
+			int voxel_index = get_index_from_3d(hit_int, voxel_count, voxel_size);
 			Eigen::Matrix<Decimal, 3, 1> last_voxel = hit_int.cast<Decimal>();
 
 			bool is_inside = intersections_count > 0;
@@ -135,7 +135,7 @@ namespace TestRaycast
 					hit2_normal);
 
 				hit_int = hit1.cast<int>();
-				const int hit_voxel_index = get_index_test(hit_int, voxel_count);
+				const int hit_voxel_index = get_index_from_3d(hit_int, voxel_count, voxel_size);
 				last_voxel = hit_int.cast<Decimal>();
 
 				is_inside = IsInside(intersections_count, voxel_index, hit_voxel_index, total_voxels);
@@ -143,7 +143,7 @@ namespace TestRaycast
 				if (is_inside)
 				{
 					voxel_index = hit_voxel_index;
-					Eigen::Vector3i last_voxel_index = index_3d_from_array(voxel_index, voxel_count);
+					Eigen::Vector3i last_voxel_index = index_3d_from_array(voxel_index, voxel_count, voxel_size);
 					voxels_intersected.push_back(voxel_index);
 				}
 			}
@@ -203,7 +203,7 @@ namespace TestRaycast
 				hit2_normal);
 
 			Eigen::Vector3i hit_int = hit1.cast<int>();
-			int voxel_index = get_index_test(hit_int, voxel_count);
+			int voxel_index = get_index_from_3d(hit_int, voxel_count, voxel_size);
 			Eigen::Matrix<Decimal, 3, 1> last_voxel = hit_int.cast<Decimal>();
 
 			bool is_inside = intersections_count > 0;
@@ -229,7 +229,7 @@ namespace TestRaycast
 					hit2_normal);
 
 				hit_int = hit1.cast<int>();
-				int hit_voxel_index = get_index_test(hit_int, voxel_count);
+				int hit_voxel_index = get_index_from_3d(hit_int, voxel_count, voxel_size);
 				last_voxel = hit_int.cast<Decimal>();
 
 				is_inside = IsInside(intersections_count, voxel_index, hit_voxel_index, total_voxels);
@@ -237,7 +237,7 @@ namespace TestRaycast
 				if (is_inside)
 				{
 					voxel_index = hit_voxel_index;
-					Eigen::Vector3i last_voxel_index = index_3d_from_array(voxel_index, voxel_count);
+					Eigen::Vector3i last_voxel_index = index_3d_from_array(voxel_index, voxel_count, voxel_size);
 					voxels_intersected.push_back(voxel_index);
 				}
 			}
@@ -297,7 +297,7 @@ namespace TestRaycast
 				hit2_normal);
 
 			Eigen::Vector3i hit_int = hit1.cast<int>();
-			int voxel_index = get_index_test(hit_int, voxel_count);
+			int voxel_index = get_index_from_3d(hit_int, voxel_count, voxel_size);
 			Eigen::Matrix<Decimal, 3, 1> last_voxel = hit_int.cast<Decimal>();
 
 			bool is_inside = intersections_count > 0;
@@ -323,7 +323,7 @@ namespace TestRaycast
 					hit2_normal);
 
 				hit_int = hit1.cast<int>();
-				int hit_voxel_index = get_index_test(hit_int, voxel_count);
+				int hit_voxel_index = get_index_from_3d(hit_int, voxel_count, voxel_size);
 				last_voxel = hit_int.cast<Decimal>();
 
 				is_inside = IsInside(intersections_count, voxel_index, hit_voxel_index, total_voxels);
@@ -331,7 +331,7 @@ namespace TestRaycast
 				if (is_inside)
 				{
 					voxel_index = hit_voxel_index;
-					Eigen::Vector3i last_voxel_index = index_3d_from_array(voxel_index, voxel_count);
+					Eigen::Vector3i last_voxel_index = index_3d_from_array(voxel_index, voxel_count, voxel_size);
 					voxels_intersected.push_back(voxel_index);
 				}
 			}
@@ -391,7 +391,7 @@ namespace TestRaycast
 				hit2_normal);
 
 			Eigen::Vector3i hit_int = hit1.cast<int>();
-			int voxel_index = get_index_test(hit_int, voxel_count);
+			int voxel_index = get_index_from_3d(hit_int, voxel_count, voxel_size);
 			Eigen::Matrix<Decimal, 3, 1> last_voxel = hit_int.cast<Decimal>();
 
 			bool is_inside = intersections_count > 0;
@@ -417,7 +417,7 @@ namespace TestRaycast
 					hit2_normal);
 
 				hit_int = hit1.cast<int>();
-				int hit_voxel_index = get_index_test(hit_int, voxel_count);
+				int hit_voxel_index = get_index_from_3d(hit_int, voxel_count, voxel_size);
 				last_voxel = hit_int.cast<Decimal>();
 
 				is_inside = IsInside(intersections_count, voxel_index, hit_voxel_index, total_voxels);
@@ -425,7 +425,7 @@ namespace TestRaycast
 				if (is_inside)
 				{
 					voxel_index = hit_voxel_index;
-					Eigen::Vector3i last_voxel_index = index_3d_from_array(voxel_index, voxel_count);
+					Eigen::Vector3i last_voxel_index = index_3d_from_array(voxel_index, voxel_count, voxel_size);
 					voxels_intersected.push_back(voxel_index);
 				}
 			}
@@ -489,7 +489,7 @@ namespace TestRaycast
 				hit2_normal);
 
 			Eigen::Vector3i hit_int = hit1.cast<int>();
-			int voxel_index = get_index_test(hit_int, voxel_count);
+			int voxel_index = get_index_from_3d(hit_int, voxel_count, voxel_size);
 			Eigen::Matrix<Decimal, 3, 1> last_voxel = hit_int.cast<Decimal>();
 
 
@@ -522,7 +522,7 @@ namespace TestRaycast
 
 				if (is_inside)
 				{
-					Eigen::Vector3i last_voxel_index = index_3d_from_array(voxel_index, voxel_count);
+					Eigen::Vector3i last_voxel_index = index_3d_from_array(voxel_index, voxel_count, voxel_size);
 					voxels_intersected.push_back(voxel_index);
 				}
 			}
@@ -580,7 +580,7 @@ namespace TestRaycast
 				hit2_normal);
 
 			Eigen::Vector3i hit_int = hit1.cast<int>();
-			int voxel_index = get_index_test(hit_int, voxel_count);
+			int voxel_index = get_index_from_3d(hit_int, voxel_count, voxel_size);
 			Eigen::Matrix<Decimal, 3, 1> last_voxel = hit_int.cast<Decimal>();
 
 			
@@ -613,7 +613,7 @@ namespace TestRaycast
 				
 				if (is_inside)
 				{
-					Eigen::Vector3i last_voxel_index = index_3d_from_array(voxel_index, voxel_count);
+					Eigen::Vector3i last_voxel_index = index_3d_from_array(voxel_index, voxel_count, voxel_size);
 					voxels_intersected.push_back(voxel_index);
 				}
 			}
@@ -671,7 +671,7 @@ namespace TestRaycast
 				hit2_normal);
 
 			Eigen::Vector3i hit_int = hit1.cast<int>();
-			int voxel_index = get_index_test(hit_int, voxel_count);
+			int voxel_index = get_index_from_3d(hit_int, voxel_count, voxel_size);
 			Eigen::Matrix<Decimal, 3, 1> last_voxel = hit_int.cast<Decimal>();
 
 
@@ -704,7 +704,7 @@ namespace TestRaycast
 
 				if (is_inside)
 				{
-					Eigen::Vector3i last_voxel_index = index_3d_from_array(voxel_index, voxel_count);
+					Eigen::Vector3i last_voxel_index = index_3d_from_array(voxel_index, voxel_count, voxel_size);
 					voxels_intersected.push_back(voxel_index);
 				}
 			}
@@ -762,7 +762,7 @@ namespace TestRaycast
 				hit2_normal);
 
 			Eigen::Vector3i hit_int = hit1.cast<int>();
-			int voxel_index = get_index_test(hit_int, voxel_count);
+			int voxel_index = get_index_from_3d(hit_int, voxel_count, voxel_size);
 			Eigen::Matrix<Decimal, 3, 1> last_voxel = hit_int.cast<Decimal>();
 
 
@@ -795,7 +795,7 @@ namespace TestRaycast
 
 				if (is_inside)
 				{
-					Eigen::Vector3i last_voxel_index = index_3d_from_array(voxel_index, voxel_count);
+					Eigen::Vector3i last_voxel_index = index_3d_from_array(voxel_index, voxel_count, voxel_size);
 					voxels_intersected.push_back(voxel_index);
 				}
 			}
@@ -1011,7 +1011,7 @@ namespace TestRaycast
 			raycast_volume<float>(ray_origin, ray_direction, voxel_count, voxel_size, voxels_intersected);
 			Assert::IsTrue(voxels_intersected == voxels_expected, L"\n<Raycast did not result with the expected voxel list>\n", LINE_INFO());
 
-			voxels_expected = { 3, 12, 15, 24 };
+			voxels_expected = { 3, 6, 15, 24 };
 			voxels_intersected.clear();
 			ray_target = Eigen::Matrix<Decimal, 3, 1>(0.5f, 2.0f, 1.f);
 			ray_direction = (ray_target - ray_origin).normalized();
@@ -1024,6 +1024,16 @@ namespace TestRaycast
 			voxels_intersected.clear();
 			ray_origin = Eigen::Matrix<Decimal, 3, 1>(1.f, 1.f, -1.f);
 			ray_target = Eigen::Matrix<Decimal, 3, 1>(1.f, 1.f, 10.f);
+			ray_direction = (ray_target - ray_origin).normalized();
+			raycast_volume<float>(ray_origin, ray_direction, voxel_count, voxel_size, voxels_intersected);
+			Assert::IsTrue(voxels_intersected == voxels_expected, L"\n<Raycast did not result with the expected voxel list>\n", LINE_INFO());
+
+			voxel_count = Eigen::Vector3i(3, 3, 3);
+			voxel_size = Eigen::Vector3i(16, 16, 16);
+			voxels_expected = { 8, 5, 4, 13, 10, 9, 18 };
+			voxels_intersected.clear();
+			ray_origin = Eigen::Matrix<Decimal, 3, 1>(64.f, 64.f, -32.0f);
+			ray_target = Eigen::Matrix<Decimal, 3, 1>(8.f, 8.f, 40.f);
 			ray_direction = (ray_target - ray_origin).normalized();
 			raycast_volume<float>(ray_origin, ray_direction, voxel_count, voxel_size, voxels_intersected);
 			Assert::IsTrue(voxels_intersected == voxels_expected, L"\n<Raycast did not result with the expected voxel list>\n", LINE_INFO());
