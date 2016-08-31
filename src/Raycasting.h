@@ -412,8 +412,6 @@ int face_intersections(
 	Eigen::Matrix<Type, 3, 1> voxel_pos = index_3d_from_array(voxel_index, voxel_count).cast<Type>();
 	//voxel_pos += (voxel_size * 0.5f);	// only if using the center of face
 
-	std::cout << voxel_pos.transpose() << std::endl;
-
 	BoxFace face = BoxFace::Undefined;
 	std::vector<FaceData> face_list;
 
@@ -550,11 +548,6 @@ int face_intersections(
 	}
 
 
-	std::cout << std::endl << "--------- faces: " << face_list.size() << std::endl;
-	for (auto d : face_list)
-		std::cout << box_face_to_string(d.face) << ' ' << d.dist << std::endl;
-	
-
 	if (face_list.size() > 1)
 	{
 		float max_dist = -1;
@@ -568,8 +561,6 @@ int face_intersections(
 			}
 		}
 	}
-
-	std::cout << std::endl;
 
 	return face_list.size();
 }
@@ -730,10 +721,6 @@ int raycast_volume(
 
 	bool is_inside = intersections_count > 0;
 
-	std::cout
-		<< "Face In   : " << box_face_to_string(face_in) << std::endl
-		<< "Voxel In  : " << voxel_index << std::endl << std::endl;
-
 
 	while (is_inside)
 	{
@@ -741,6 +728,7 @@ int raycast_volume(
 
 		if (face_intersections(ray_origin, ray_direction, voxel_count, voxel_size, voxel_index, face_in, hit_in, face_out, hit_out, next_voxel_index))
 		{
+#if 0
 			std::cout << std::fixed
 				<< "Face In   : " << box_face_to_string(face_in) << std::endl
 				<< "Face Out  : " << box_face_to_string(face_out) << std::endl
@@ -748,9 +736,8 @@ int raycast_volume(
 				<< "Voxel Out : " << next_voxel_index << std::endl
 				<< "Hit In    : " << hit_in.transpose() << std::endl
 				<< "Hit Out   : " << hit_out.transpose() << std::endl
-				<< "Direction : " << (hit_out - hit_in).normalized().dot(ray_direction) << std::endl
 				<< std::endl;
-
+#endif
 			
 			if (next_voxel_index < 0)
 				is_inside = false;
@@ -759,12 +746,10 @@ int raycast_volume(
 				voxel_index = next_voxel_index;
 				face_in = box_face_in_face_out(face_out);
 				hit_in = hit_out;
-				std::cout << "face switch: " << box_face_to_string(face_out) << " -> " << box_face_to_string(face_in) << std::endl;
 			}
 		}
 		else
 		{
-			std::cout << "No face intersected  " << std::endl;
 			is_inside = false;
 		}
 	}
