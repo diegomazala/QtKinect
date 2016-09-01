@@ -564,7 +564,7 @@ int face_intersections(
 		}
 	}
 
-	return face_list.size();
+	return (int)face_list.size();
 }
 
 
@@ -755,9 +755,99 @@ int raycast_volume(
 		}
 	}
 
-	return voxels_intersected.size();
+	return (int)voxels_intersected.size();
 }
 
+
+
+static bool has_same_sign_tsdf(const std::vector<Eigen::Vector2f>& voxels_params, int prev_voxel_index, int next_voxel_index)
+{
+	if (prev_voxel_index < 0 || prev_voxel_index > voxels_params.size() - 1 ||
+		next_voxel_index < 0 || next_voxel_index > voxels_params.size() - 1)
+		return false;
+
+	return (voxels_params.at(prev_voxel_index).x() > 0 && voxels_params.at(next_voxel_index).x() > 0) ||
+		(voxels_params.at(prev_voxel_index).x() < 0 && voxels_params.at(next_voxel_index).x() < 0);
+}
+
+
+static bool has_same_sign_tsdf_float(const std::vector<float>& tsdf, int prev_voxel_index, int next_voxel_index)
+{
+	if (prev_voxel_index < 0 || prev_voxel_index > tsdf.size() - 1 ||
+		next_voxel_index < 0 || next_voxel_index > tsdf.size() - 1)
+		return false;
+
+	return (tsdf.at(prev_voxel_index) > 0 && tsdf.at(next_voxel_index) > 0) ||
+		(tsdf.at(prev_voxel_index) < 0 && tsdf.at(next_voxel_index) < 0);
+}
+
+
+
+template <typename Type>
+int raycast_tsdf_volume(
+	const Eigen::Matrix<Type, 3, 1> ray_origin,
+	const Eigen::Matrix<Type, 3, 1> ray_direction,
+	const Eigen::Vector3i& voxel_count,
+	const Eigen::Vector3i& voxel_size,
+	const std::vector<Eigen::Matrix<Type, 2, 1>>& params,
+	std::vector<int>& voxels_zero_crossing)
+{
+	voxels_zero_crossing.clear();
+
+	int voxel_index = -1;
+	int next_voxel_index = -1;
+	int intersections_count = 0;
+	Eigen::Matrix<Type, 3, 1> hit_in;
+	Eigen::Matrix<Type, 3, 1> hit_out;
+	BoxFace face_in = BoxFace::Undefined;
+	BoxFace face_out = BoxFace::Undefined;
+
+	face_in = raycast_face_volume(ray_origin, ray_direction, voxel_count, voxel_size, voxel_index, hit_in);
+
+	// the ray does not hits the volume
+	if (face_in == BoxFace::Undefined || voxel_index < 0)
+		return -1;
+
+	intersections_count = raycast_face_in_out(ray_origin, ray_direction, voxel_count, voxel_size, face_in, face_out, hit_in, hit_out);
+
+	bool is_inside = intersections_count > 0;
+
+	while (is_inside)
+	{
+		if (face_intersections(ray_origin, ray_direction, voxel_count, voxel_size, voxel_index, face_in, hit_in, face_out, hit_out, next_voxel_index))
+		{
+			if (next_voxel_index < 0)
+			{
+				is_inside = false;
+			}
+			else
+			{
+				intersections_count++;
+
+				face_in = box_face_in_face_out(face_out);
+				hit_in = hit_out;
+
+				if (!has_same_sign_tsdf(params, voxel_index, next_voxel_index))
+				{
+					voxels_zero_crossing.push_back(voxel_index);
+					voxels_zero_crossing.push_back(next_voxel_index);
+					voxel_index = next_voxel_index;
+					return intersections_count;
+				}
+				else
+				{
+					voxel_index = next_voxel_index;
+				}
+			}
+		}
+		else
+		{
+			is_inside = false;
+		}
+	}
+
+	return intersections_count;
+}
 
 
 #endif	// _RAYCASTING_H_

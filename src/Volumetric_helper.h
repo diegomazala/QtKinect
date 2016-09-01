@@ -23,7 +23,7 @@ const double fov_y = 70.0f;
 const double window_width = 512.0f;
 const double window_height = 424.0f;
 const double near_plane = 0.1f; // 0.1f;
-const double far_plane = 512.0f; // 10240.0f;
+const double far_plane = 10240.0f;
 const double aspect_ratio = window_width / window_height;
 //Eigen::Matrix4d	K(Eigen::Matrix4d::Zero());
 //std::pair<Eigen::Matrix4d, Eigen::Matrix4d>	T(Eigen::Matrix4d::Zero(), Eigen::Matrix4d::Zero());
@@ -109,9 +109,6 @@ static void export_volume(const std::string& filename, const std::vector<Voxeld>
 			rgb = Eigen::Vector3i(255, 0, 0);
 			file << std::fixed << "v " << (transformation * v.point.homogeneous()).head<3>().transpose() << ' ' << rgb.transpose() << std::endl;
 		}
-		
-		
-		
 	}
 	file.close();
 }
@@ -183,11 +180,11 @@ static void export_volume(
 			rgb = Eigen::Vector3i(255, 0, 0);
 			file << std::fixed << "v " << (transformation * v).head<3>().transpose() << ' ' << rgb.transpose() << std::endl;
 		}
-		else
-		{
-			rgb = Eigen::Vector3i(0, 255, 255);
-			file << std::fixed << "v " << (transformation * v).head<3>().transpose() << ' ' << rgb.transpose() << std::endl;
-		}
+		//else
+		//{
+		//	rgb = Eigen::Vector3i(0, 255, 255);
+		//	file << std::fixed << "v " << (transformation * v).head<3>().transpose() << ' ' << rgb.transpose() << std::endl;
+		//}
 
 	}
 	file.close();

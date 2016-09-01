@@ -2,6 +2,7 @@
 #include <QApplication>
 #include "QImageWidget.h"
 #include "Raycasting.h"
+#include "KinectSpecs.h"
 
 
 #define DegToRad(angle_degrees) (angle_degrees * M_PI / 180.0)		// Converts degrees to radians.
@@ -40,10 +41,102 @@ static Eigen::Matrix<Type, 3, 1> reflect(const Eigen::Matrix<Type, 3, 1>& i, con
 }
 
 
+int raycast_and_render_grid(int argc, char* argv[])
+{
+	int vx_count = 3;
+	int vx_size = 1;
+
+	Eigen::Vector3i voxel_count(vx_count, vx_count, vx_count);
+	Eigen::Vector3i voxel_size(vx_size, vx_size, vx_size);
+
+	Eigen::Vector3f ray_origin(64.f, 64.f, -32.0f);
+	Eigen::Vector3f ray_target(8.f, 8.f, 40.f);	// { 3, 7 }
+
+	Eigen::Vector3i volume_size(voxel_count.x() * voxel_size.x(), voxel_count.y() * voxel_size.y(), voxel_count.z() * voxel_size.z());
+	Eigen::Vector3f half_volume_size = volume_size.cast<float>() * 0.5f;
+
+	Eigen::Vector3f ray_direction = (ray_target - ray_origin).normalized();
+
+	if (argc > 8)
+	{
+		vx_count = atoi(argv[1]);
+		vx_size = atoi(argv[2]);
+
+		voxel_count = Eigen::Vector3i(vx_count, vx_count, vx_count);
+		voxel_size = Eigen::Vector3i(vx_size, vx_size, vx_size);
+
+		ray_origin = Eigen::Vector3f(atof(argv[3]), atof(argv[4]), atof(argv[5]));
+		ray_target = Eigen::Vector3f(atof(argv[6]), atof(argv[7]), atof(argv[8]));
+		ray_direction = (ray_target - ray_origin).normalized();
+	}
+
+	//
+	// create the grid params and set a few voxels with different signals 
+	// in order to obtain zero crossings
+	//
+	const int total_voxels = voxel_count.x() * voxel_count.y() * voxel_count.z();
+	std::vector<Eigen::Vector2f> tsdf(total_voxels, Eigen::Vector2f::Ones());
+	tsdf.at(13)[0] = tsdf.at(22)[0] = tsdf.at(18)[0] = tsdf.at(26)[0] = -1.0f;
+
+
+	Eigen::Affine3f camera_to_world = Eigen::Affine3f::Identity();
+	camera_to_world.translate(Eigen::Vector3f(half_volume_size.x(), half_volume_size.y(), -4));
+	Eigen::Vector3f camera_pos = camera_to_world.matrix().col(3).head<3>();
+	float scale = (float)tan(DegToRad(KINECT_V1_FOVY * 0.5f));
+	float aspect_ratio = KINECT_V1_ASPECT_RATIO;
+	unsigned short image_width = KINECT_V1_COLOR_WIDTH / 4;
+	unsigned short image_height = image_width / aspect_ratio;
+	unsigned char* image_data = new unsigned char[image_width * image_height * 3]{0}; // rgb
+	QImage image(image_data, image_width, image_height, QImage::Format_RGB888);
+
+
+	for (int y = 0; y < image_height; ++y)
+	{
+		for (int x = 0; x < image_width; ++x)
+		{
+			// Convert from image space (in pixels) to screen space
+			// Screen Space alon X axis = [-aspect ratio, aspect ratio] 
+			// Screen Space alon Y axis = [-1, 1]
+			Eigen::Vector3f screen_coord(
+				(2 * (x + 0.5f) / (float)image_width - 1) * aspect_ratio * scale,
+				(1 - 2 * (y + 0.5f) / (float)image_height) * scale,
+				1.0f);
+
+			Eigen::Vector3f direction;
+			multDirMatrix(screen_coord, camera_to_world.matrix(), direction);
+			direction.normalize();
+
+
+			std::vector<int> voxels_zero_crossing;
+			if (raycast_tsdf_volume(camera_pos, direction, voxel_count, voxel_size, tsdf, voxels_zero_crossing) > 0)
+			{
+				if (voxels_zero_crossing.size() == 2)
+				{
+					image.setPixel(QPoint(x, y), qRgb(128, 128, 0));
+				}
+				else
+				{
+					image.setPixel(QPoint(x, y), qRgb(128, 0, 0));
+				}
+
+			}
+		}
+	}
+
+	QApplication app(argc, argv);
+	QImageWidget widget;
+	widget.setImage(image);
+	widget.show();
+
+	return app.exec();
+}
+
+
 int raycast_and_render_two_triangles(int argc, char* argv[])
 {
 	Eigen::Affine3f camera_to_world = Eigen::Affine3f::Identity();
-	Eigen::Vector3f camera_pos(0, 0, 0);
+	camera_to_world.translate(Eigen::Vector3f(2, 2, 5));
+	Eigen::Vector3f camera_pos = camera_to_world.matrix().col(3).head<3>();
 	float scale = tan(DegToRad(60.f * 0.5f));
 	float aspect_ratio = 1.7778f;
 	unsigned short image_width = 710;
@@ -117,14 +210,24 @@ int raycast_and_render_two_triangles(int argc, char* argv[])
 
 int raycast_volume_test(int argc, char **argv)
 {
+	//int vx_count = 3;
+	//int vx_size = 1;
+	//int vx_count = 2;
+	//int vx_size = 2;
 	int vx_count = 3;
-	int vx_size = 1;
+	int vx_size = 16;
 
 	Eigen::Vector3i voxel_count(vx_count, vx_count, vx_count);
 	Eigen::Vector3i voxel_size(vx_size, vx_size, vx_size);
 
-	Eigen::Vector3f ray_origin(0.5f, 0.5f, -1.0f);
-	Eigen::Vector3f ray_target(0.5f, 2.0f, 1.f);	// { 3, 6, 15, 24 }
+	//Eigen::Vector3f ray_origin(0.5f, 0.5f, -1.0f);
+	//Eigen::Vector3f ray_target(0.5f, 2.0f, 1.f);	// { 3, 6, 15, 24 }
+	//Eigen::Vector3f ray_origin(2.f, 2.f, -2.0f);
+	//Eigen::Vector3f ray_target(2.f, 2.f, 2.f);	// { 3, 7 }
+
+	Eigen::Vector3f ray_origin(64.f, 64.f, -32.0f);
+	Eigen::Vector3f ray_target(8.f, 8.f, 40.f);	// { 3, 7 }
+	
 	Eigen::Vector3f ray_direction = (ray_target - ray_origin).normalized();
 
 	if (argc > 8)
@@ -156,16 +259,19 @@ int raycast_volume_test(int argc, char **argv)
 }
 
 
+
 // Usage: ./Raycastingd.exe 3 1 1.5 1.5 -15 1.5 1.5 -10
 int main(int argc, char **argv)
 {
+#if 0
 	raycast_volume_test(argc, argv);
 
 	Timer t;
 	t.start();
 	raycast_and_render_two_triangles(argc, argv);
 	t.print_interval("Raycasting and render   : ");
-
+#endif
+	raycast_and_render_grid(argc, argv);
 
 	return 0;
 }
