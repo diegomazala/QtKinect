@@ -552,18 +552,6 @@ static bool has_same_sign_tsdf(const std::vector<Eigen::Vector2f>& voxels_params
 }
 
 
-static bool has_same_sign_tsdf_float(const std::vector<float>& tsdf, int prev_voxel_index, int next_voxel_index)
-{
-	if (prev_voxel_index < 0 || prev_voxel_index > tsdf.size() - 1 ||
-		next_voxel_index < 0 || next_voxel_index > tsdf.size() - 1)
-		return false;
-
-	return (tsdf.at(prev_voxel_index) > 0 && tsdf.at(next_voxel_index) > 0) ||
-		(tsdf.at(prev_voxel_index) < 0 && tsdf.at(next_voxel_index) < 0);
-}
-
-
-
 template <typename Type>
 int raycast_tsdf_volume(
 	const Eigen::Matrix<Type, 3, 1> ray_origin,
