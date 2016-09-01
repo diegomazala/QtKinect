@@ -55,31 +55,11 @@ extern "C"
 		unsigned int window_width, 
 		unsigned int window_height);
 
-	void create_grid(
-		unsigned int vol_size,
-		unsigned int vx_size,
-		float* grid_matrix,
-		float* grid_voxels_points_4f,
-		float* grid_voxels_params_2f);
-
-	void update_grid(
-		unsigned int vol_size, 
-		unsigned int vx_size, 
-		float* grid_matrix, 
-		float* grid_matrix_inv,
-		float* grid_voxels_points_4f,
-		float* grid_voxels_params_2f,
-		float* depth_buffer,
-		const float* projection_mat16f,
-		unsigned int window_width,
-		unsigned int window_height);
-
 
 	void grid_init(
 		unsigned short vol_size,
 		unsigned short vx_size,
-		float* grid_voxels_points_4f,
-		float* grid_voxels_params_2f,
+		float* grid_voxels_params_5f,
 		const float* grid_matrix_16f,
 		const float* grid_matrix_inv_16f,
 		const float* projection_matrix_16f
@@ -96,8 +76,7 @@ extern "C"
 
 
 	void grid_get_data(
-		float* grid_voxels_points_4f,
-		float* grid_voxels_params_2f
+		float* grid_voxels_params_5f
 		);
 
 
