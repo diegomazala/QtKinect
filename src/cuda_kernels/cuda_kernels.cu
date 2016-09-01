@@ -10,6 +10,10 @@
 #include "helper_cuda.h"
 #include "helper_math.h"
 
+#define PI 3.14159265359
+__host__ __device__ float deg2rad(float deg) { return deg*PI / 180.0; }
+__host__ __device__ float rad2deg(float rad) { return 180.0*rad / PI; }
+
 texture<ushort, 2> ushortTexture;
 texture<float4, 2, cudaReadModeElementType> float4Texture;
 
@@ -60,6 +64,377 @@ __device__ uint saturate_rgbaFloatToInt(float4 rgba)
 	rgba.w = __saturatef(rgba.w);
 	return (uint(rgba.w * 255) << 24) | (uint(rgba.z * 255) << 16) | (uint(rgba.y * 255) << 8) | uint(rgba.x * 255);
 }
+
+
+
+
+inline __host__ __device__  int3 get_index_3d_from_array(
+	int array_index,
+	const dim3& voxel_count)
+{
+	//return make_int3(
+	//	int(std::fmod(array_index, voxel_count.x)),
+	//	int(std::fmod(array_index / voxel_count.y, voxel_count.y)),
+	//	int(array_index / (voxel_count.x * voxel_count.y)));
+
+	return make_int3(
+		int(fmodf(array_index, (voxel_count.x + 1))),
+		int(fmodf(array_index / (voxel_count.y + 1), (voxel_count.y + 1))),
+		int(array_index / ((voxel_count.x + 1) * (voxel_count.y + 1))));
+}
+
+inline __host__ __device__ int get_index_from_3d_volume(int3 pt, dim3 voxel_count)
+{
+	//return pt.z * voxel_count.x * voxel_count.y + pt.y * voxel_count.y + pt.x;
+	return pt.z * (voxel_count.x + 1) * (voxel_count.y + 1) + pt.y * (voxel_count.y + 1) + pt.x;
+}
+
+// 
+// Face Index
+// 0-Top, 1-Bottom, 2-Front, 3-Back, 4-Left, 5-Right
+//
+inline __device__ int get_index_from_box_face(int face, int last_index, dim3 voxel_count)
+{
+	switch (face)
+	{
+	case 0: return last_index + voxel_count.x;					// Top
+	case 1: return last_index - voxel_count.x;					// Bottom
+	case 2: return last_index - voxel_count.x * voxel_count.y;	// Front
+	case 3: return last_index + voxel_count.x * voxel_count.y;	// Back
+	case 4: return last_index - 1;								// Left
+	case 5: return last_index + 1;								// Right
+	default: return -1;
+	}
+}
+
+
+inline __host__ __device__ float3 compute_normal(
+	const float3& p1,
+	const float3& p2,
+	const float3& p3)
+{
+	float3 u = p2 - p1;
+	float3 v = p3 - p1;
+
+	return normalize(cross(v, u));
+}
+
+
+// http://www.graphics.cornell.edu/pubs/1997/MT97.html
+__host__ __device__ bool triangle_intersection(
+	const float3& p,
+	const float3& d,
+	const float3& v0,
+	const float3& v1,
+	const float3& v2,
+	float3& hit)
+{
+	float a, f, u, v;
+	const float3 e1 = v1 - v0;
+	const float3 e2 = v2 - v0;
+
+	const float3 h = cross(d, e2);
+	a = dot(e1, h);
+
+	if (a > -0.00001f && a < 0.00001f)
+		return false;
+
+	f = 1.0f / a;
+	const float3 s = p - v0;
+	u = f * dot(s, h);
+
+	if (u < 0.0f || u > 1.0f)
+		return false;
+
+	const float3 q = cross(s, e1);
+	v = f * dot(d, q);
+
+	if (v < 0.0f || u + v > 1.0f)
+		return false;
+
+	float t = f * dot(e2, q);
+
+	if (t > 0.00001f) // ray intersection
+	{
+		hit = p + (d * t);
+		return true;
+	}
+	else
+		return false;
+}
+
+__host__ __device__ bool quad_intersection(
+	const float3& p,
+	const float3& d,
+	const float3& p1,
+	const float3& p2,
+	const float3& p3,
+	const float3& p4,
+	float3& hit)
+{
+	return (triangle_intersection(p, d, p1, p2, p3, hit)
+		|| triangle_intersection(p, d, p3, p4, p1, hit));
+}
+
+__host__ __device__ bool quad_intersection(
+	const float3& p,
+	const float3& d,
+	const float3& p1,
+	const float3& p2,
+	const float3& p3)
+{
+
+	// 
+	// Computing normal of quad
+	//
+	float3 e21 = p2 - p1;					// compute edge 
+	float3 e31 = p3 - p1;					// compute edge
+	float3 n = normalize(cross(e21, e31));	// compute normal
+
+	float ndotd = dot(n, d);
+
+	//
+	// check if dot == 0, 
+	// i.e, plane is parallel to the ray
+	//
+	if (fabs(ndotd) < 1e-6f)					// Choose your tolerance
+		return false;
+
+	float t = -dot(n, p - p1) / ndotd;
+	float3 M = p + d * t;
+
+	// 
+	// Projecting vector M - p1 onto e21 and e31
+	//
+	float3 Mp = M - p;
+	float u = dot(Mp, e21);
+	float v = dot(Mp, e31);
+
+	//
+	// If 0 <= u <= | p2 - p1 | ^ 2 and 0 <= v <= | p3 - p1 | ^ 2,
+	// then the point of intersection M lies inside the square, 
+	// else it's outside.
+	//
+	return (u >= 0.0f && u <= dot(e21, e21)
+		&& v >= 0.0f && v <= dot(e31, e31));
+}
+
+
+
+__host__ __device__ int box_intersection(
+	const float3 p,
+	const float3 dir,
+	const float3 boxCenter,
+	float boxWidth,
+	float boxHeigth,
+	float boxDepth,
+	float3& hit1,
+	float3& hit2,
+	float3& hit1Normal,
+	float3& hit2Normal)
+{
+	float x2 = boxWidth * 0.5f;
+	float y2 = boxHeigth * 0.5f;
+	float z2 = boxDepth * 0.5f;
+
+	float3 p1 = make_float3(-x2, y2, -z2);
+	float3 p2 = make_float3(x2, y2, -z2);
+	float3 p3 = make_float3(x2, y2, z2);
+	float3 p4 = make_float3(-x2, y2, z2);
+	float3 p5 = make_float3(-x2, -y2, -z2);
+	float3 p6 = make_float3(x2, -y2, -z2);
+	float3 p7 = make_float3(x2, -y2, z2);
+	float3 p8 = make_float3(-x2, -y2, z2);
+
+	p1 += boxCenter;
+	p2 += boxCenter;
+	p3 += boxCenter;
+	p4 += boxCenter;
+	p5 += boxCenter;
+	p6 += boxCenter;
+	p7 += boxCenter;
+	p8 += boxCenter;
+
+
+	float3 hit[2];
+	float3 hitNormal[2];
+	int hitCount = 0;
+
+	// check top
+	if (quad_intersection(p, dir, p1, p2, p3, p4, hit[hitCount]))
+	{
+		hitNormal[hitCount] = compute_normal(p1, p2, p3);
+		hitCount++;
+	}
+
+	// check bottom
+	if (quad_intersection(p, dir, p5, p8, p7, p6, hit[hitCount]))
+	{
+		hitNormal[hitCount] = compute_normal(p5, p8, p7);
+		hitCount++;
+	}
+
+	// check front
+	if (hitCount < 2 && quad_intersection(p, dir, p4, p3, p7, p8,
+		hit[hitCount]))
+	{
+		hitNormal[hitCount] = compute_normal(p4, p3, p7);
+		hitCount++;
+	}
+
+	// check back
+	if (hitCount < 2 && quad_intersection(p, dir, p1, p5, p6, p2,
+		hit[hitCount]))
+	{
+		hitNormal[hitCount] = compute_normal(p1, p5, p6);
+		hitCount++;
+	}
+
+	// check left
+	if (hitCount < 2 && quad_intersection(p, dir, p1, p4, p8, p5,
+		hit[hitCount]))
+	{
+		hitNormal[hitCount] = compute_normal(p1, p4, p8);
+		hitCount++;
+	}
+
+	// check right
+	if (hitCount < 2 && quad_intersection(p, dir, p2, p6, p7, p3,
+		hit[hitCount]))
+	{
+		hitNormal[hitCount] = compute_normal(p2, p6, p7);
+		hitCount++;
+	}
+
+	if (hitCount > 0)
+	{
+		if (hitCount > 1)
+		{
+			if (length(p - hit[0]) < length(p - hit[1]))
+			{
+				hit1 = hit[0];
+				hit2 = hit[1];
+				hit1Normal = hitNormal[0];
+				hit2Normal = hitNormal[1];
+			}
+			else
+			{
+				hit1 = hit[1];
+				hit2 = hit[0];
+				hit1Normal = hitNormal[1];
+				hit2Normal = hitNormal[0];
+			}
+		}
+		else
+		{
+			hit1 = hit[0];
+			hit1Normal = hitNormal[0];
+		}
+	}
+
+	return hitCount;
+}
+
+__host__ __device__ int box_intersection(
+	const float3 p,
+	const float3 dir,
+	const float3 boxCenter,
+	float boxWidth,
+	float boxHeigth,
+	float boxDepth,
+	float3& hit1Normal,
+	float3& hit2Normal,
+	int& face)
+{
+	float x2 = boxWidth * 0.5f;
+	float y2 = boxHeigth * 0.5f;
+	float z2 = boxDepth * 0.5f;
+
+	float3 p1 = make_float3(-x2, y2, -z2);
+	float3 p2 = make_float3(x2, y2, -z2);
+	float3 p3 = make_float3(x2, y2, z2);
+	float3 p4 = make_float3(-x2, y2, z2);
+	float3 p5 = make_float3(-x2, -y2, -z2);
+	float3 p6 = make_float3(x2, -y2, -z2);
+	float3 p7 = make_float3(x2, -y2, z2);
+	float3 p8 = make_float3(-x2, -y2, z2);
+
+	p1 += boxCenter;
+	p2 += boxCenter;
+	p3 += boxCenter;
+	p4 += boxCenter;
+	p5 += boxCenter;
+	p6 += boxCenter;
+	p7 += boxCenter;
+	p8 += boxCenter;
+
+	float3 hitNormal[2];
+	int hitCount = 0;
+
+	// check top
+	if (quad_intersection(p, dir, p1, p2, p3))
+	{
+		hitNormal[hitCount] = compute_normal(p1, p2, p3);
+		hitCount++;
+		face = 0;
+	}
+
+	// check bottom
+	if (quad_intersection(p, dir, p5, p8, p7))
+	{
+		hitNormal[hitCount] = compute_normal(p5, p8, p7);
+		hitCount++;
+		face = 1;
+	}
+
+	// check front
+	if (hitCount < 2 && quad_intersection(p, dir, p4, p3, p7))
+	{
+		hitNormal[hitCount] = compute_normal(p4, p3, p7);
+		hitCount++;
+		face = 2;
+	}
+
+	// check back
+	if (hitCount < 2 && quad_intersection(p, dir, p1, p5, p6))
+	{
+		hitNormal[hitCount] = compute_normal(p1, p5, p6);
+		hitCount++;
+		face = 3;
+	}
+
+	// check left
+	if (hitCount < 2 && quad_intersection(p, dir, p1, p4, p8))
+	{
+		hitNormal[hitCount] = compute_normal(p1, p4, p8);
+		hitCount++;
+		face = 4;
+	}
+
+	// check right
+	if (hitCount < 2 && quad_intersection(p, dir, p2, p6, p7))
+	{
+		hitNormal[hitCount] = compute_normal(p2, p6, p7);
+		hitCount++;
+		face = 5;
+	}
+
+	if (hitCount > 0)
+	{
+		if (hitCount > 1)
+		{
+			hit1Normal = hitNormal[0];
+			hit2Normal = hitNormal[1];
+		}
+		else
+		{
+			hit1Normal = hitNormal[0];
+		}
+	}
+
+	return hitCount;
+}
+
 
 
 extern "C"
@@ -478,7 +853,8 @@ extern "C"
 		const int threadId = blockIdx.x * blockDim.x + threadIdx.x;
 		const int z = threadId;
 
-		const int3 dim = { vol_size / vx_size + 1, vol_size / vx_size + 1, vol_size / vx_size + 1 };
+		//const int3 dim = { vol_size / vx_size + 1, vol_size / vx_size + 1, vol_size / vx_size + 1 };
+		const int3 voxel_count = { vol_size / vx_size, vol_size / vx_size, vol_size / vx_size };
 
 		const short half_vol_size = vol_size / 2;
 
@@ -486,20 +862,27 @@ extern "C"
 		const short k = 4;
 		//const short n = 1;
 
-		for (short y = 0; y < dim.y; ++y)
+		for (short y = 0; y < voxel_count.y; ++y)
 		{
-			for (short x = 0; x < dim.x; ++x)
+			for (short x = 0; x < voxel_count.x; ++x)
 			{
-				const unsigned long voxel_index = x + dim.x * (y + dim.z * z);
+				const unsigned long voxel_index = x + voxel_count.x * (y + voxel_count.z * z);
 				float vg[4] = { 0, 0, 0, 0 };
 
 				// grid space
+#if 1
 				float g[4] = {
 					float(x * vx_size - half_vol_size),
 					float(y * vx_size - half_vol_size),
 					float(z * vx_size - half_vol_size),
 					1.0f };
-
+#else
+				float g[4] = {
+					float(x * vx_size),
+					float(y * vx_size),
+					float(z * vx_size),
+					1.0f };
+#endif
 
 				// to world space
 				for (short i = 0; i < m; i++)
@@ -532,7 +915,8 @@ extern "C"
 		volume_size = vol_size;
 		voxel_size = vx_size;
 
-		const unsigned int total_voxels = static_cast<unsigned int>(pow((volume_size / voxel_size + 1), 3));
+		//const unsigned int total_voxels = static_cast<unsigned int>(pow((volume_size / voxel_size + 1), 3));
+		const unsigned int total_voxels = static_cast<unsigned int>(pow((volume_size / voxel_size), 3));
 		
 
 		d_grid_voxels_points_4f = thrust::device_vector<float>(&grid_voxels_points_4f[0], &grid_voxels_points_4f[0] + total_voxels * 4);
@@ -544,7 +928,8 @@ extern "C"
 
 		
 
-		grid_init_kernel <<< 1, volume_size / voxel_size + 1 >>>
+		//grid_init_kernel <<< 1, volume_size / voxel_size + 1 >>>
+		grid_init_kernel << < 1, volume_size / voxel_size >> >
 			(volume_size, voxel_size,
 			thrust::raw_pointer_cast(&d_grid_matrix_16f[0]),
 			thrust::raw_pointer_cast(&d_grid_voxels_points_4f[0]),
@@ -569,7 +954,7 @@ extern "C"
 		const int threadId = blockIdx.x * blockDim.x + threadIdx.x;
 		const int z = threadId;
 
-		const int3 dim = { vol_size / vx_size + 1, vol_size / vx_size + 1, vol_size / vx_size + 1 };
+		const int3 voxel_count = { vol_size / vx_size, vol_size / vx_size, vol_size / vx_size };
 
 		const short half_vol_size = vol_size / 2;
 
@@ -582,20 +967,28 @@ extern "C"
 
 		//printf("%f %f %f %f \n", ti[0], ti[1], ti[2], ti[3]);
 
-		for (short y = 0; y < dim.y; ++y)
+		for (short y = 0; y < voxel_count.y; ++y)
 		{
-			for (short x = 0; x < dim.x; ++x)
+			for (short x = 0; x < voxel_count.x; ++x)
 			{
-				const unsigned long voxel_index = x + dim.x * (y + dim.z * z);
+				const unsigned long voxel_index = x + voxel_count.x * (y + voxel_count.z * z);
 				float vg[4] = { 0, 0, 0, 0 };
 				float v[4] = { 0, 0, 0, 0 };
 
 				// grid space
+#if 1
 				float g[4] = {
 					float(x * vx_size - half_vol_size),
 					float(y * vx_size - half_vol_size),
 					float(z * vx_size - half_vol_size),
 					1.0f };
+#else
+				float g[4] = {
+					float(x * vx_size),
+					float(y * vx_size),
+					float(z * vx_size),
+					1.0f };
+#endif
 
 				
 
@@ -710,9 +1103,11 @@ extern "C"
 		thrust::device_vector<float> d_depth_buffer(&depth_buffer[0], &depth_buffer[0] + total_pixels);
 
 
-		const unsigned int total_voxels = static_cast<unsigned int>(pow((volume_size / voxel_size + 1), 3));
+		//const unsigned int total_voxels = static_cast<unsigned int>(pow((volume_size / voxel_size + 1), 3));
+		const unsigned int total_voxels = static_cast<unsigned int>(pow((volume_size / voxel_size), 3));
 
-		grid_update_kernel <<< 1, volume_size / voxel_size + 1 >>>(
+		//grid_update_kernel <<< 1, volume_size / voxel_size + 1 >>>(
+		grid_update_kernel << < 1, volume_size / voxel_size >> >(
 			thrust::raw_pointer_cast(&d_grid_voxels_params_2f[0]),
 			volume_size, 
 			voxel_size,
@@ -737,6 +1132,173 @@ extern "C"
 		thrust::copy(d_grid_voxels_params_2f.begin(), d_grid_voxels_params_2f.end(), &grid_voxels_params_2f[0]);
 	}
 
+
+	__device__ float3 mul_vec_dir_matrix(const float* M_3x4, const float3& v)
+	{
+		return make_float3(
+			dot(v, make_float3(M_3x4[0], M_3x4[4], M_3x4[8])),
+			dot(v, make_float3(M_3x4[1], M_3x4[5], M_3x4[9])),
+			dot(v, make_float3(M_3x4[2], M_3x4[6], M_3x4[10])));
+	}
+
+	__global__ void	raycast_image_grid_kernel(
+		uchar3 *d_output_image,
+		ushort image_width,
+		ushort image_height,
+		const dim3& voxel_count,
+		const dim3& voxel_size,
+		float fovy,
+		const float* camera_to_world_mat4x4,
+		const float* box_transf_mat4x4,
+		float* grid_voxels_params_2f)
+	{
+		uint x = blockIdx.x * blockDim.x + threadIdx.x;
+		uint y = blockIdx.y * blockDim.y + threadIdx.y;
+
+		if ((x >= image_width) || (y >= image_height))
+			return;
+
+		dim3 volume_size = dim3(voxel_count.x * voxel_size.x, voxel_count.y * voxel_size.y, voxel_count.z * voxel_size.z);
+
+
+		float3 camera_pos = make_float3(camera_to_world_mat4x4[12], camera_to_world_mat4x4[13], camera_to_world_mat4x4[14]);
+
+		float scale = tan(deg2rad(fovy * 0.5f));
+		float aspect_ratio = (float)image_width / (float)image_height;
+
+		float near_plane = 0.3f;
+		float far_plane = 512.0f;
+
+		// Convert from image space (in pixels) to screen space
+		// Screen Space along X axis = [-aspect ratio, aspect ratio] 
+		// Screen Space along Y axis = [-1, 1]
+		float3 screen_coord = make_float3(
+			(2 * (x + 0.5f) / (float)image_width - 1) * aspect_ratio * scale,
+			(1 - 2 * (y + 0.5f) / (float)image_height) * scale,
+			-1.0f);
+
+		// transform vector by matrix (no translation)
+		// multDirMatrix
+		float3 dir = mul_vec_dir_matrix(camera_to_world_mat4x4, screen_coord);
+		float3 direction = normalize(dir);
+
+		// clear pixel
+		d_output_image[y * image_width + x] = make_uchar3(8, 16, 32);
+
+
+
+		//
+		// Check if the ray of this pixel intersect the whole volume
+		//
+
+		float3 half_volume_size = make_float3(volume_size.x * 0.5f, volume_size.y * 0.5f, volume_size.z * 0.5f);
+		float3 half_voxel_size = make_float3(voxel_size.x * 0.5f, voxel_size.y * 0.5f, voxel_size.z * 0.5f);
+		float3 hit1;
+		float3 hit2;
+		float3 hit1_normal;
+		float3 hit2_normal;
+		int face = -1;
+
+		int intersections_count = box_intersection(
+			camera_pos,
+			direction,
+			half_volume_size,	// volume center
+			volume_size.x,
+			volume_size.y,
+			volume_size.z,
+			hit1,
+			hit1,
+			hit1_normal,
+			hit2_normal
+			);
+
+		if (intersections_count < 1)
+		{
+			return;
+		}
+
+		// encontrar qual voxel inicial foi intersectado
+		// a partir deste voxel, calcular as intersecções do raio até ele encontrar um zero-crossing
+
+		int3 hit_int = make_int3(hit1.x, hit1.y, hit1.z);
+		int voxel_index = get_index_from_3d_volume(hit_int, voxel_count);
+		float3 last_voxel = make_float3(hit_int.x, hit_int.y, hit_int.z);
+		float last_tsdf = grid_voxels_params_2f[voxel_index * 2];
+
+		int total_voxels = voxel_count.x * voxel_count.y * voxel_count.z;
+
+		bool zero_crossing = false;
+		// 
+		// Check intersection with each box inside of volume
+		// 
+		while (voxel_index > -1 && voxel_index < (total_voxels - voxel_count.x * voxel_count.y) && !zero_crossing)
+		{
+			int face = -1;
+			intersections_count = box_intersection(
+				camera_pos,
+				direction,
+				last_voxel + half_voxel_size,
+				voxel_size.x,
+				voxel_size.y,
+				voxel_size.z,
+				hit1_normal,
+				hit2_normal,
+				face);
+#if 0
+			voxel_index = get_index_from_box_face(face, voxel_index, voxel_count);
+			int3 last_voxel_index = make_int3(
+				int(fmodf(voxel_index, (voxel_count.x + 1))),
+				int(fmodf(voxel_index / (voxel_count.y + 1), (voxel_count.y + 1))),
+				int(voxel_index / ((voxel_count.x + 1) * (voxel_count.y + 1))));
+			
+			float tsdf = grid_voxels_params_2f[voxel_index * 2];
+
+			zero_crossing = (tsdf < 0 && last_tsdf < 0) || (tsdf > 0 && last_tsdf > 0);
+
+			last_tsdf = tsdf;
+#endif
+		}
+
+		if (zero_crossing)
+			d_output_image[y * image_width + x] = make_uchar3(8, 128, 255);
+
+	}
+
+	void raycast_image_grid(
+		void* image_rgb_output_uchar3,
+		ushort image_width,
+		ushort image_height,
+		const ushort* voxel_count_xyz,
+		const ushort* voxel_size_xyz,
+		float fovy,
+		const float* camera_to_world_mat4f,
+		const float* box_transf_mat4f)
+	{
+		thrust::device_vector<uchar3> d_image_rgb = thrust::device_vector<uchar3>(image_width * image_height);
+		thrust::device_vector<float> d_camera_to_world_mat4f = thrust::device_vector<float>(&camera_to_world_mat4f[0], &camera_to_world_mat4f[0] + 16);
+		thrust::device_vector<float> d_box_transform_mat4f = thrust::device_vector<float>(&box_transf_mat4f[0], &box_transf_mat4f[0] + 16);
+
+		dim3 voxel_count = dim3(voxel_count_xyz[0], voxel_count_xyz[1], voxel_count_xyz[2]);
+		dim3 voxel_size = dim3(voxel_size_xyz[0], voxel_size_xyz[1], voxel_size_xyz[2]);
+
+		const dim3 threads_per_block(32, 32);
+		const dim3 num_blocks = dim3(iDivUp(image_width, threads_per_block.x), iDivUp(image_height, threads_per_block.y));
+
+		// One kernel per pixel
+		raycast_image_grid_kernel << <  num_blocks, threads_per_block >> >(
+			thrust::raw_pointer_cast(&d_image_rgb[0]),
+			image_width,
+			image_height,
+			voxel_count,
+			voxel_size,
+			fovy,
+			thrust::raw_pointer_cast(&d_camera_to_world_mat4f[0]),
+			thrust::raw_pointer_cast(&d_box_transform_mat4f[0]),
+			thrust::raw_pointer_cast(&d_grid_voxels_params_2f[0])
+			);
+
+		thrust::copy(d_image_rgb.begin(), d_image_rgb.end(), (uchar3*)image_rgb_output_uchar3);
+	}
 
 
 	__device__ void matrix_mul_mat_vec_kernel_device(const float *a, const float *b, float *c, int width)
@@ -779,6 +1341,7 @@ extern "C"
 		out_vertex->y = -vertex_proj_inv[1];
 		out_vertex->z = depth;
 		out_vertex->w = 1.0f;
+
 		//out_vertex->x = clip[0];
 		//out_vertex->y = clip[1];
 		//out_vertex->z = clip[2];

@@ -101,6 +101,17 @@ extern "C"
 		);
 
 
+	void raycast_image_grid(
+		void* image_rgb_output_uchar3,
+		ushort image_width,
+		ushort image_height,
+		const ushort* voxel_count_xyz,
+		const ushort* voxel_size_xyz,
+		float fovy,
+		const float* camera_to_world_mat4f,
+		const float* box_transf_mat4f);
+
+
 	double bilateralFilterRGBA(
 		unsigned int *d_dest,
 		int width,
