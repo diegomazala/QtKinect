@@ -26,6 +26,8 @@
 *.exe
 *.out
 *.app
+*.sdf
+*.opensdf
 /msvc/GeneratedFiles
 /msvc/tmp
 /bin
