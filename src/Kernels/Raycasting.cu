@@ -10,7 +10,6 @@
 
 
 #define PI 3.14159265359
-
 __host__ __device__ float deg2rad(float deg) { return deg*PI / 180.0;}
 __host__ __device__ float rad2deg(float rad) { return 180.0*rad / PI; }
 
@@ -596,21 +595,6 @@ extern "C"
 		}
 #endif
 
-		//uchar xx = uchar((float)x / (float)image_width * 255);
-		//uchar yy = uchar((float)y / (float)image_height * 255);
-
-		//uchar xx = uchar(window_coord_norm.x * 255);
-		//uchar yy = uchar(window_coord_norm.y * 255);
-
-		//uchar xx = uchar(screen_coord.x * 255);
-		//uchar yy = uchar(screen_coord.y * 255);
-
-		//uchar xx = uchar(ndc.x * 255);
-		//uchar yy = uchar(ndc.y * 255);
-
-		// write output color
-		//d_output_image[y * image_width + x] = make_uchar3(0, 255, 255);
-		//d_output_image[y * image_width + x] = make_uchar3(xx, yy, 0);
 	}
 	
 	static int iDivUp(int a, int b)
@@ -627,8 +611,6 @@ extern "C"
 		const float* camera_to_world_mat4f,
 		const float* box_transf_mat4f)
 	{
-		std::cout << "fov " << fovy << std::endl;
-
 		thrust::device_vector<uchar3> d_image_rgb = thrust::device_vector<uchar3>(width * height);
 		thrust::device_vector<float> d_camera_to_world_mat4f = thrust::device_vector<float>(&camera_to_world_mat4f[0], &camera_to_world_mat4f[0] + 16);
 		thrust::device_vector<float> d_box_transform_mat4f = thrust::device_vector<float>(&box_transf_mat4f[0], &box_transf_mat4f[0] + 16);
@@ -636,6 +618,7 @@ extern "C"
 		const dim3 threads_per_block(32, 32);
 		const dim3 num_blocks = dim3(iDivUp(width, threads_per_block.x), iDivUp(height, threads_per_block.y));
 
+		// One kernel per pixel
 		raycast_box_kernel << <  num_blocks, threads_per_block >> >(
 			thrust::raw_pointer_cast(&d_image_rgb[0]),
 			width,
