@@ -43,17 +43,11 @@ static Eigen::Matrix<Type, 3, 1> reflect(const Eigen::Matrix<Type, 3, 1>& i, con
 
 int raycast_and_render_grid(int argc, char* argv[])
 {
-	int vx_count = 3;
-	int vx_size = 1;
+	int vx_count = 8;
+	int vx_size = 16;
 
 	Eigen::Vector3i voxel_count(vx_count, vx_count, vx_count);
 	Eigen::Vector3i voxel_size(vx_size, vx_size, vx_size);
-
-	Eigen::Vector3i volume_size(voxel_count.x() * voxel_size.x(), voxel_count.y() * voxel_size.y(), voxel_count.z() * voxel_size.z());
-	Eigen::Vector3f half_volume_size = volume_size.cast<float>() * 0.5f;
-
-	Eigen::Affine3f volume_affine = Eigen::Affine3f::Identity();
-	//volume_affine.translate(Eigen::Vector3f(-half_vol_size, -half_vol_size, 0));
 
 	if (argc > 2)
 	{
@@ -64,22 +58,34 @@ int raycast_and_render_grid(int argc, char* argv[])
 		voxel_size = Eigen::Vector3i(vx_size, vx_size, vx_size);
 	}
 
+	Eigen::Vector3i volume_size(voxel_count.x() * voxel_size.x(), voxel_count.y() * voxel_size.y(), voxel_count.z() * voxel_size.z());
+	Eigen::Vector3f half_volume_size = volume_size.cast<float>() * 0.5f;
+	const int total_voxels = voxel_count.x() * voxel_count.y() * voxel_count.z();
+	
+	std::cout << std::fixed
+		<< "Voxel Count  : " << voxel_count.transpose() << std::endl
+		<< "Voxel Size   : " << voxel_size.transpose() << std::endl
+		<< "Volume Size  : " << volume_size.transpose() << std::endl
+		<< "Total Voxels : " << total_voxels << std::endl;
+
 	//
 	// create the grid params and set a few voxels with different signals 
 	// in order to obtain zero crossings
 	//
-	const int total_voxels = voxel_count.x() * voxel_count.y() * voxel_count.z();
 	std::vector<Eigen::Vector2f> tsdf(total_voxels, Eigen::Vector2f::Ones());
-	tsdf.at(13)[0] = 
-	tsdf.at(22)[0] = 
-	tsdf.at(18)[0] = 
-	tsdf.at(26)[0] = -1.0f;
+	//tsdf.at(13)[0] = 
+	//tsdf.at(22)[0] = 
+	//tsdf.at(18)[0] = 
+	//tsdf.at(26)[0] = -1.0f;
+	tsdf.at(0)[0] = -1.0f;
+	tsdf.at(tsdf.size() - 1)[0] = -1.0f;
 
 	//
 	// setup camera parameters
 	//
 	Eigen::Affine3f camera_to_world = Eigen::Affine3f::Identity();
-	camera_to_world.translate(Eigen::Vector3f(half_volume_size.x(), half_volume_size.y(), -4));
+	float cam_z = (-vx_count - 1) * vx_size;
+	camera_to_world.translate(Eigen::Vector3f(half_volume_size.x(), half_volume_size.y(), cam_z));
 	Eigen::Vector3f camera_pos = camera_to_world.matrix().col(3).head<3>();
 	float scale = (float)tan(DegToRad(KINECT_V1_FOVY * 0.5f));
 	float aspect_ratio = KINECT_V1_ASPECT_RATIO;
@@ -87,7 +93,7 @@ int raycast_and_render_grid(int argc, char* argv[])
 	// 
 	// setup image parameters
 	//
-	unsigned short image_width = KINECT_V1_COLOR_WIDTH / 4;
+	unsigned short image_width = KINECT_V1_COLOR_WIDTH / 10;
 	unsigned short image_height = image_width / aspect_ratio;
 	unsigned char* image_data = new unsigned char[image_width * image_height * 3]{0}; // rgb
 	QImage image(image_data, image_width, image_height, QImage::Format_RGB888);
@@ -262,18 +268,24 @@ int raycast_volume_test(int argc, char **argv)
 }
 
 
-
-// Usage: ./Raycastingd.exe 3 1 1.5 1.5 -15 1.5 1.5 -10
 int main(int argc, char **argv)
 {
 #if 0
+	// Usage: ./Raycastingd.exe vx_count vx_size cam_x y z target_x y z
+	// Usage: ./Raycastingd.exe 3 1 1.5 1.5 -15 1.5 1.5 -10
 	raycast_volume_test(argc, argv);
+#endif
 
+#if 0
+	// Usage: ./Raycastingd.exe 
 	Timer t;
 	t.start();
 	raycast_and_render_two_triangles(argc, argv);
 	t.print_interval("Raycasting and render   : ");
 #endif
+
+	// Usage: ./Raycastingd.exe vx_count vx_size
+	// Usage: ./Raycastingd.exe 3 1 
 	raycast_and_render_grid(argc, argv);
 
 	return 0;
