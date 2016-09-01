@@ -43,6 +43,7 @@ static Eigen::Matrix<Type, 3, 1> reflect(const Eigen::Matrix<Type, 3, 1>& i, con
 
 int raycast_and_render_grid(int argc, char* argv[])
 {
+	
 	int vx_count = 8;
 	int vx_size = 16;
 
@@ -72,7 +73,7 @@ int raycast_and_render_grid(int argc, char* argv[])
 	// create the grid params and set a few voxels with different signals 
 	// in order to obtain zero crossings
 	//
-	std::vector<Eigen::Vector2f> tsdf(total_voxels, Eigen::Vector2f::Ones());
+	std::vector<Eigen::Matrix<float, 5, 1>> tsdf(total_voxels, Eigen::Matrix<float, 5, 1>::Ones());
 	//tsdf.at(13)[0] = 
 	//tsdf.at(22)[0] = 
 	//tsdf.at(18)[0] = 

@@ -541,14 +541,14 @@ int raycast_volume(
 
 
 
-static bool has_same_sign_tsdf(const std::vector<Eigen::Vector2f>& voxels_params, int prev_voxel_index, int next_voxel_index)
+static bool has_same_sign_tsdf(const std::vector<Eigen::Matrix<float, 5, 1>>& voxels_params, int prev_voxel_index, int next_voxel_index)
 {
 	if (prev_voxel_index < 0 || prev_voxel_index > voxels_params.size() - 1 ||
 		next_voxel_index < 0 || next_voxel_index > voxels_params.size() - 1)
 		return false;
 
-	return (voxels_params.at(prev_voxel_index).x() > 0 && voxels_params.at(next_voxel_index).x() > 0) ||
-		(voxels_params.at(prev_voxel_index).x() < 0 && voxels_params.at(next_voxel_index).x() < 0);
+	return (voxels_params.at(prev_voxel_index)[0] > 0 && voxels_params.at(next_voxel_index)[0] > 0) ||
+		(voxels_params.at(prev_voxel_index)[0] < 0 && voxels_params.at(next_voxel_index)[0] < 0);
 }
 
 
@@ -558,7 +558,7 @@ int raycast_tsdf_volume(
 	const Eigen::Matrix<Type, 3, 1> ray_direction,
 	const Eigen::Vector3i& voxel_count,
 	const Eigen::Vector3i& voxel_size,
-	const std::vector<Eigen::Matrix<Type, 2, 1>>& params,
+	const std::vector<Eigen::Matrix<Type, 5, 1>>& params,
 	std::vector<int>& voxels_zero_crossing)
 {
 	voxels_zero_crossing.clear();

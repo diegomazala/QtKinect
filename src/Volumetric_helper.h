@@ -155,7 +155,7 @@ static void export_volume(
 	const std::string& filename, 
 	const Eigen::Vector3i voxel_count, 
 	const Eigen::Vector3i voxel_size, 
-	const std::vector<Eigen::Vector2f>& params, 
+	const std::vector<Eigen::Matrix<float, 5, 1>>& params,
 	const Eigen::Matrix4f& transformation = Eigen::Matrix4f::Identity())
 {
 	Eigen::Affine3f rotation;
