@@ -558,7 +558,6 @@ int raycast_tsdf_volume(
 	const Eigen::Matrix<Type, 3, 1> ray_direction,
 	const Eigen::Vector3i& voxel_count,
 	const Eigen::Vector3i& voxel_size,
-	const Eigen::Matrix<Type, 4, 4>& volume_transform,
 	const std::vector<Eigen::Matrix<Type, 2, 1>>& params,
 	std::vector<int>& voxels_zero_crossing)
 {

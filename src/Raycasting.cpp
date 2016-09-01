@@ -112,7 +112,7 @@ int raycast_and_render_grid(int argc, char* argv[])
 			direction.normalize();
 
 			std::vector<int> voxels_zero_crossing;
-			if (raycast_tsdf_volume(camera_pos, direction, voxel_count, voxel_size, volume_affine.matrix(), tsdf, voxels_zero_crossing) > 0)
+			if (raycast_tsdf_volume(camera_pos, direction, voxel_count, voxel_size, tsdf, voxels_zero_crossing) > 0)
 			{
 				if (voxels_zero_crossing.size() == 2)
 				{
