@@ -49,25 +49,19 @@ int raycast_and_render_grid(int argc, char* argv[])
 	Eigen::Vector3i voxel_count(vx_count, vx_count, vx_count);
 	Eigen::Vector3i voxel_size(vx_size, vx_size, vx_size);
 
-	Eigen::Vector3f ray_origin(64.f, 64.f, -32.0f);
-	Eigen::Vector3f ray_target(8.f, 8.f, 40.f);	// { 3, 7 }
-
 	Eigen::Vector3i volume_size(voxel_count.x() * voxel_size.x(), voxel_count.y() * voxel_size.y(), voxel_count.z() * voxel_size.z());
 	Eigen::Vector3f half_volume_size = volume_size.cast<float>() * 0.5f;
 
-	Eigen::Vector3f ray_direction = (ray_target - ray_origin).normalized();
+	Eigen::Affine3f volume_affine = Eigen::Affine3f::Identity();
+	//volume_affine.translate(Eigen::Vector3f(-half_vol_size, -half_vol_size, 0));
 
-	if (argc > 8)
+	if (argc > 2)
 	{
 		vx_count = atoi(argv[1]);
 		vx_size = atoi(argv[2]);
 
 		voxel_count = Eigen::Vector3i(vx_count, vx_count, vx_count);
 		voxel_size = Eigen::Vector3i(vx_size, vx_size, vx_size);
-
-		ray_origin = Eigen::Vector3f(atof(argv[3]), atof(argv[4]), atof(argv[5]));
-		ray_target = Eigen::Vector3f(atof(argv[6]), atof(argv[7]), atof(argv[8]));
-		ray_direction = (ray_target - ray_origin).normalized();
 	}
 
 	//
@@ -76,20 +70,31 @@ int raycast_and_render_grid(int argc, char* argv[])
 	//
 	const int total_voxels = voxel_count.x() * voxel_count.y() * voxel_count.z();
 	std::vector<Eigen::Vector2f> tsdf(total_voxels, Eigen::Vector2f::Ones());
-	tsdf.at(13)[0] = tsdf.at(22)[0] = tsdf.at(18)[0] = tsdf.at(26)[0] = -1.0f;
+	tsdf.at(13)[0] = 
+	tsdf.at(22)[0] = 
+	tsdf.at(18)[0] = 
+	tsdf.at(26)[0] = -1.0f;
 
-
+	//
+	// setup camera parameters
+	//
 	Eigen::Affine3f camera_to_world = Eigen::Affine3f::Identity();
 	camera_to_world.translate(Eigen::Vector3f(half_volume_size.x(), half_volume_size.y(), -4));
 	Eigen::Vector3f camera_pos = camera_to_world.matrix().col(3).head<3>();
 	float scale = (float)tan(DegToRad(KINECT_V1_FOVY * 0.5f));
 	float aspect_ratio = KINECT_V1_ASPECT_RATIO;
+
+	// 
+	// setup image parameters
+	//
 	unsigned short image_width = KINECT_V1_COLOR_WIDTH / 4;
 	unsigned short image_height = image_width / aspect_ratio;
 	unsigned char* image_data = new unsigned char[image_width * image_height * 3]{0}; // rgb
 	QImage image(image_data, image_width, image_height, QImage::Format_RGB888);
 
-
+	//
+	// for each pixel, trace a ray
+	//
 	for (int y = 0; y < image_height; ++y)
 	{
 		for (int x = 0; x < image_width; ++x)
@@ -106,9 +111,8 @@ int raycast_and_render_grid(int argc, char* argv[])
 			multDirMatrix(screen_coord, camera_to_world.matrix(), direction);
 			direction.normalize();
 
-
 			std::vector<int> voxels_zero_crossing;
-			if (raycast_tsdf_volume(camera_pos, direction, voxel_count, voxel_size, tsdf, voxels_zero_crossing) > 0)
+			if (raycast_tsdf_volume(camera_pos, direction, voxel_count, voxel_size, volume_affine.matrix(), tsdf, voxels_zero_crossing) > 0)
 			{
 				if (voxels_zero_crossing.size() == 2)
 				{
@@ -118,7 +122,6 @@ int raycast_and_render_grid(int argc, char* argv[])
 				{
 					image.setPixel(QPoint(x, y), qRgb(128, 0, 0));
 				}
-
 			}
 		}
 	}
@@ -275,48 +278,3 @@ int main(int argc, char **argv)
 
 	return 0;
 }
-
-
-#if 0
-const float window_width = 512.0f;
-const float window_height = 424.0f;
-QImage image(window_width, window_height, QImage::Format_RGB888);
-image.fill(Qt::white);
-
-Eigen::Vector3d window_coord_norm;
-
-std::cout << "Ray casting to image..." << std::endl;
-// sweeping the image
-for (int y = 0; y < window_height; ++y)
-{
-	std::cout << "Ray casting to image... " << (double)y / window_height * 100 << "%" << std::endl;
-	for (int x = 0; x < window_width; ++x)
-	{
-		window_coord_norm.x() = ((double)x / window_width * 2.0) - 1.0;
-		window_coord_norm.y() = ((double)y / window_height * 2.0) - 1.0;;
-		window_coord_norm.z() = origin.z() + near_plane;
-
-		direction = (window_coord_norm - origin).normalized();
-
-		for (const Voxeld v : volume)
-		{
-			Eigen::Vector3d corner_min = (volume_transformation * (v.point - half_voxel).homogeneous()).head<3>();
-			Eigen::Vector3d corner_max = (volume_transformation * (v.point + half_voxel).homogeneous()).head<3>();
-
-			Box box(corner_min, corner_max);
-			Ray ray(origin, direction);
-
-
-			if (box.intersect(ray, ray_near, ray_far))
-			{
-				//std::cout << "Box Intersected: " << v.point.transpose() << std::endl;
-				//image.setPixel(QPoint(x, window_height - y), qRgb(255, 0, 0)); 
-				image.setPixel(QPoint(x, y), qRgb(255, 0, 0));
-			}
-		}
-	}
-}
-
-std::cout << "Saving to image..." << std::endl;
-image.save("raycasting.png");
-#endif

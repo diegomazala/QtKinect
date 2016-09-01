@@ -262,20 +262,24 @@ static int box_intersection(
 	Eigen::Matrix<Type, 3, 1>& hit1Normal, 
 	Eigen::Matrix<Type, 3, 1>& hit2Normal)
 {
+	// half side
 	Type x2 = boxWidth * 0.5f;
 	Type y2 = boxHeigth * 0.5f;
 	Type z2 = boxDepth * 0.5f;
 
+	// top face
 	Eigen::Matrix<Type, 3, 1> p1(-x2, y2, -z2);
 	Eigen::Matrix<Type, 3, 1> p2(x2, y2, -z2);
 	Eigen::Matrix<Type, 3, 1> p3(x2, y2, z2);
 	Eigen::Matrix<Type, 3, 1> p4(-x2, y2, z2);
 
+	// bottom face
 	Eigen::Matrix<Type, 3, 1> p5(-x2, -y2, -z2);
 	Eigen::Matrix<Type, 3, 1> p6(x2, -y2, -z2);
 	Eigen::Matrix<Type, 3, 1> p7(x2, -y2, z2);
 	Eigen::Matrix<Type, 3, 1> p8(-x2, -y2, z2);
 
+	// translate the vertices from origin(0,0,0) to boxCenter position
 	p1 += boxCenter;
 	p2 += boxCenter;
 	p3 += boxCenter;

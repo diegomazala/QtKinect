@@ -368,7 +368,6 @@ BoxFace raycast_face_volume(
 	int total_voxels = voxel_count.x() * voxel_count.y() * voxel_count.z();
 
 	Eigen::Matrix<Type, 3, 1> half_voxel_size = voxel_size.cast<Type>() * (Type)0.5;
-	Eigen::Matrix<Type, 3, 1> to_origin = (-volume_size.cast<Type>() * (Type)0.5);
 
 	Eigen::Matrix<Type, 3, 1> hit1;
 	Eigen::Matrix<Type, 3, 1> hit2;
@@ -382,6 +381,7 @@ BoxFace raycast_face_volume(
 		ray_origin,
 		ray_direction,
 		half_volume_size,	//volume_center,
+		//Eigen::Matrix<Type, 3, 1>::Zero(),
 		volume_size.x(),
 		volume_size.y(),
 		volume_size.z(),
@@ -430,7 +430,6 @@ int raycast_face_in_out(
 	int total_voxels = voxel_count.x() * voxel_count.y() * voxel_count.z();
 
 	Eigen::Matrix<Type, 3, 1> half_voxel_size = voxel_size.cast<Type>() * (Type)0.5;
-	Eigen::Matrix<Type, 3, 1> to_origin = (-volume_size.cast<Type>() * (Type)0.5);
 
 	Eigen::Matrix<Type, 3, 1> hit1;
 	Eigen::Matrix<Type, 3, 1> hit2;
@@ -444,6 +443,7 @@ int raycast_face_in_out(
 		ray_origin,
 		ray_direction,
 		half_volume_size,	//volume_center,
+		//Eigen::Matrix<Type, 3, 1>::Zero(),
 		volume_size.x(),
 		volume_size.y(),
 		volume_size.z(),
@@ -558,6 +558,7 @@ int raycast_tsdf_volume(
 	const Eigen::Matrix<Type, 3, 1> ray_direction,
 	const Eigen::Vector3i& voxel_count,
 	const Eigen::Vector3i& voxel_size,
+	const Eigen::Matrix<Type, 4, 4>& volume_transform,
 	const std::vector<Eigen::Matrix<Type, 2, 1>>& params,
 	std::vector<int>& voxels_zero_crossing)
 {
