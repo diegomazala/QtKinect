@@ -78,6 +78,7 @@ int raycast_and_render_grid(int argc, char* argv[])
 	//tsdf.at(18)[0] = 
 	//tsdf.at(26)[0] = -1.0f;
 	tsdf.at(0)[0] = -1.0f;
+	tsdf.at(tsdf.size() - voxel_count.x())[0] =
 	tsdf.at(tsdf.size() - 1)[0] = -1.0f;
 
 	//
@@ -93,10 +94,11 @@ int raycast_and_render_grid(int argc, char* argv[])
 	// 
 	// setup image parameters
 	//
-	unsigned short image_width = KINECT_V1_COLOR_WIDTH / 10;
+	unsigned short image_width = KINECT_V1_COLOR_WIDTH;
 	unsigned short image_height = image_width / aspect_ratio;
 	unsigned char* image_data = new unsigned char[image_width * image_height * 3]{0}; // rgb
 	QImage image(image_data, image_width, image_height, QImage::Format_RGB888);
+	image.fill(Qt::GlobalColor::black);
 
 	//
 	// for each pixel, trace a ray

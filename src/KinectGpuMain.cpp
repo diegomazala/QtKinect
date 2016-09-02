@@ -75,8 +75,8 @@ void test_kinect_gpu()
 
 int main(int argc, char **argv)
 {
-	test_kinect_gpu();
-	return 0;
+	//test_kinect_gpu();
+	//return 0;
 
 	QDateTime now = QDateTime::currentDateTime();
 	QString input_folder = ".";
