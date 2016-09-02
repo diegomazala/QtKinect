@@ -43,8 +43,8 @@ static Eigen::Matrix<Type, 3, 1> reflect(const Eigen::Matrix<Type, 3, 1>& i, con
 
 int raycast_and_render_grid(int argc, char* argv[])
 {
-	int vx_count = 8;
-	int vx_size = 16;
+	int vx_count = 3;
+	int vx_size = 1;
 
 	Eigen::Vector3i voxel_count(vx_count, vx_count, vx_count);
 	Eigen::Vector3i voxel_size(vx_size, vx_size, vx_size);
@@ -85,8 +85,20 @@ int raycast_and_render_grid(int argc, char* argv[])
 	// setup camera parameters
 	//
 	Eigen::Affine3f camera_to_world = Eigen::Affine3f::Identity();
+#if 1
 	float cam_z = (-vx_count - 1) * vx_size;
 	camera_to_world.translate(Eigen::Vector3f(half_volume_size.x(), half_volume_size.y(), cam_z));
+#else
+#if 0
+	camera_to_world.rotate(Eigen::AngleAxisf(DegToRad(-25), Eigen::Vector3f::UnitX()));
+	camera_to_world.translate(Eigen::Vector3f(half_volume_size.x(), half_volume_size.y(), 0));
+	camera_to_world.translate(Eigen::Vector3f(0, 7, -4));
+#else
+	camera_to_world.rotate(Eigen::AngleAxisf(DegToRad(-20), Eigen::Vector3f::UnitY()));
+	camera_to_world.translate(Eigen::Vector3f(half_volume_size.x(), half_volume_size.y(), 0));
+	camera_to_world.translate(Eigen::Vector3f(-5, 0, -6));
+#endif
+#endif
 	Eigen::Vector3f camera_pos = camera_to_world.matrix().col(3).head<3>();
 	float scale = (float)tan(DegToRad(KINECT_V1_FOVY * 0.5f));
 	float aspect_ratio = KINECT_V1_ASPECT_RATIO;
