@@ -199,7 +199,7 @@ void run_for_obj()
 	grid_affine.translate(Eigen::Vector3f(0, 0, -256));
 	grid_affine.scale(Eigen::Vector3f(1, 1, -1));	// z is negative inside of screen
 
-	std::vector<Eigen::Vector4f> grid_voxels_points(total_voxels);
+	//std::vector<Eigen::Vector4f> grid_voxels_points(total_voxels);
 	std::vector<Eigen::Vector2f> grid_voxels_params(total_voxels, Eigen::Vector2f(0.0f, 1.0f));
 
 	//
@@ -210,8 +210,7 @@ void run_for_obj()
 	Eigen::Matrix4f grid_matrix = grid_affine.matrix();
 	Eigen::Matrix4f grid_matrix_inv = grid_matrix.inverse();
 
-	//create_grid(vol_size, vx_size, grid_matrix.data(), &grid_voxels_points[0][0], &grid_voxels_params[0][0]);
-	grid_init(vol_size, vx_size, &grid_voxels_points[0][0], &grid_voxels_params[0][0], grid_matrix.data(), grid_matrix_inv.data(), K.data());
+	grid_init(vol_size, vx_size, &grid_voxels_params[0][0], grid_matrix.data(), grid_matrix_inv.data(), K.data());
 	timer.print_interval("GPU create grid         : ");
 
 	//
@@ -235,7 +234,7 @@ void run_for_obj()
 	//export_volume("../../data/grid_volume_gpu.obj", grid_voxels_points, grid_voxels_params);
 	//timer.print_interval("Exporting volume        : ");
 
-	grid_get_data(&grid_voxels_points[0][0], &grid_voxels_params[0][0]);
+	grid_get_data(&grid_voxels_params[0][0]);
 
 	//std::cout << "------- // --------" << std::endl;
 	//for (int i = 0; i < grid_voxels_points.size(); ++i)
@@ -329,12 +328,12 @@ void run_for_obj()
 	// Get data from gpu
 	//
 	timer.start();
-	grid_get_data(&grid_voxels_points[0][0], &grid_voxels_params[0][0]);
+	grid_get_data(&grid_voxels_params[0][0]);
 	timer.print_interval("GPU get data            : ");
 
 
 	timer.start();
-	export_volume("../../data/grid_volume_gpu.obj", grid_voxels_points, grid_voxels_params);
+	//export_volume("../../data/grid_volume_gpu.obj", grid_voxels_points, grid_voxels_params);
 	timer.print_interval("Exporting volume        : ");
 }
 
@@ -403,7 +402,7 @@ int run_for_knt(int argc, char **argv)
 	grid_affine.translate(Eigen::Vector3f(0, 0, half_vol_size));
 	grid_affine.scale(Eigen::Vector3f(1, 1, 1));	// z is negative inside of screen
 
-	std::vector<Eigen::Vector4f> grid_voxels_points(total_voxels);
+	//std::vector<Eigen::Vector4f> grid_voxels_points(total_voxels);
 	std::vector<Eigen::Vector2f> grid_voxels_params(total_voxels, Eigen::Vector2f(0.0f, 0.0f));
 
 	//
@@ -414,8 +413,7 @@ int run_for_knt(int argc, char **argv)
 	Eigen::Matrix4f grid_matrix = grid_affine.matrix();
 	Eigen::Matrix4f grid_matrix_inv = grid_matrix.inverse();
 
-	//create_grid(vol_size, vx_size, grid_matrix.data(), &grid_voxels_points[0][0], &grid_voxels_params[0][0]);
-	grid_init(vol_size, vx_size, &grid_voxels_points[0][0], &grid_voxels_params[0][0], grid_matrix.data(), grid_matrix_inv.data(), K.data());
+	grid_init(vol_size, vx_size, &grid_voxels_params[0][0], grid_matrix.data(), grid_matrix_inv.data(), K.data());
 	timer.print_interval("GPU create grid         : ");
 
 
@@ -434,7 +432,7 @@ int run_for_knt(int argc, char **argv)
 	// Get data from gpu
 	//
 	timer.start();
-	grid_get_data(&grid_voxels_points[0][0], &grid_voxels_params[0][0]);
+	grid_get_data(&grid_voxels_params[0][0]);
 	timer.print_interval("GPU get data            : ");
 	
 
@@ -443,7 +441,7 @@ int run_for_knt(int argc, char **argv)
 #if 1
 	
 	timer.start();
-	export_volume("../../data/grid_volume_gpu_knt.obj", grid_voxels_points, grid_voxels_params);
+	//export_volume("../../data/grid_volume_gpu_knt.obj", grid_voxels_points, grid_voxels_params);
 	export_volume("../../data/grid_volume_gpu_knt_2.obj", voxel_count.cast<int>(), voxel_size.cast<int>(), grid_voxels_params, grid_affine_2.matrix());
 	//export_params("../../data/grid_volume_gpu_params.txt", grid_voxels_params);
 	timer.print_interval("Exporting volume        : ");

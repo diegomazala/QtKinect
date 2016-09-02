@@ -79,12 +79,12 @@ int main(int argc, char **argv)
 	//return 0;
 
 	QDateTime now = QDateTime::currentDateTime();
-	QString input_folder = ".";
+	QString input_folder = "../../data/knt_frames/";
 
 	if (argc > 1)
 		input_folder = argv[1];
 
-	int fps = 30;
+	int fps = 2; // 30;
 	if (argc > 2)
 		fps = atoi(argv[2]);
 
