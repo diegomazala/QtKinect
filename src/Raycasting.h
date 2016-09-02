@@ -400,9 +400,6 @@ BoxFace raycast_face_volume(
 
 	if (intersections_count > 0)
 	{
-		//Eigen::Vector3i hit_int = hit1.cast<int>();
-		//voxel_index = get_index_from_3d(hit_int, voxel_count, voxel_size);
-		//hit = hit1;
 		voxel_index = get_index_from_3d(hit1, voxel_count, voxel_size);
 		return box_face_from_normal<float>(hit1_normal);
 	}

@@ -43,20 +43,22 @@ static Eigen::Matrix<Type, 3, 1> reflect(const Eigen::Matrix<Type, 3, 1>& i, con
 
 int raycast_and_render_grid(int argc, char* argv[])
 {
-	int vx_count = 3;
-	int vx_size = 1;
+	//int vx_count = 3;
+	//int vx_size = 1;
+	int vx_count = 8;
+	int vx_size = 16;
 
 	Eigen::Vector3i voxel_count(vx_count, vx_count, vx_count);
 	Eigen::Vector3i voxel_size(vx_size, vx_size, vx_size);
 
-	if (argc > 2)
-	{
-		vx_count = atoi(argv[1]);
-		vx_size = atoi(argv[2]);
+	//if (argc > 2)
+	//{
+	//	vx_count = atoi(argv[1]);
+	//	vx_size = atoi(argv[2]);
 
-		voxel_count = Eigen::Vector3i(vx_count, vx_count, vx_count);
-		voxel_size = Eigen::Vector3i(vx_size, vx_size, vx_size);
-	}
+	//	voxel_count = Eigen::Vector3i(vx_count, vx_count, vx_count);
+	//	voxel_size = Eigen::Vector3i(vx_size, vx_size, vx_size);
+	//}
 
 	Eigen::Vector3i volume_size(voxel_count.x() * voxel_size.x(), voxel_count.y() * voxel_size.y(), voxel_count.z() * voxel_size.z());
 	Eigen::Vector3f half_volume_size = volume_size.cast<float>() * 0.5f;
@@ -85,31 +87,34 @@ int raycast_and_render_grid(int argc, char* argv[])
 	// setup camera parameters
 	//
 	Eigen::Affine3f camera_to_world = Eigen::Affine3f::Identity();
-#if 1
+#if 0
 	float cam_z = (-vx_count - 1) * vx_size;
 	camera_to_world.translate(Eigen::Vector3f(half_volume_size.x(), half_volume_size.y(), cam_z));
 #else
-#if 1
-	camera_to_world.rotate(Eigen::AngleAxisf(DegToRad(-25), Eigen::Vector3f::UnitX()));
-	camera_to_world.translate(Eigen::Vector3f(half_volume_size.x(), half_volume_size.y(), 0));
-	camera_to_world.translate(Eigen::Vector3f(0, 7, -4));
-#else
-	camera_to_world.rotate(Eigen::AngleAxisf(DegToRad(-20), Eigen::Vector3f::UnitY()));
-	camera_to_world.translate(Eigen::Vector3f(half_volume_size.x(), half_volume_size.y(), 0));
-	camera_to_world.translate(Eigen::Vector3f(-5, 0, -6));
+
+	//camera_to_world.rotate(Eigen::AngleAxisf(DegToRad(-25), Eigen::Vector3f::UnitX()));
+	//camera_to_world.translate(Eigen::Vector3f(half_volume_size.x(), half_volume_size.y(), 0));
+	//camera_to_world.translate(Eigen::Vector3f(0, 7, -4));
+
+	//camera_to_world.rotate(Eigen::AngleAxisf(DegToRad(-20), Eigen::Vector3f::UnitY()));
+	//camera_to_world.translate(Eigen::Vector3f(half_volume_size.x(), half_volume_size.y(), 0));
+	//camera_to_world.translate(Eigen::Vector3f(-5, 0, -6));
+
+	camera_to_world.translate(Eigen::Vector3f(60, 256, -60));
+	camera_to_world.rotate(Eigen::AngleAxisf(DegToRad(-60), Eigen::Vector3f::UnitX()));
+
 #endif
-#endif
+
 	Eigen::Vector3f camera_pos = camera_to_world.matrix().col(3).head<3>();
-	float scale = (float)tan(DegToRad(KINECT_V1_FOVY * 0.5f));
-	float aspect_ratio = KINECT_V1_ASPECT_RATIO;
+	float scale = (float)tan(DegToRad(KINECT_V2_FOVY * 0.5f));
+	float aspect_ratio = KINECT_V2_DEPTH_ASPECT_RATIO;
 
 	// 
 	// setup image parameters
 	//
-	unsigned short image_width = KINECT_V1_COLOR_WIDTH;
+	unsigned short image_width = KINECT_V2_DEPTH_WIDTH;
 	unsigned short image_height = image_width / aspect_ratio;
-	unsigned char* image_data = new unsigned char[image_width * image_height * 3]{0}; // rgb
-	QImage image(image_data, image_width, image_height, QImage::Format_RGB888);
+	QImage image(image_width, image_height, QImage::Format_RGB888);
 	image.fill(Qt::GlobalColor::black);
 
 	//
@@ -164,8 +169,7 @@ int raycast_and_render_two_triangles(int argc, char* argv[])
 	float aspect_ratio = 1.7778f;
 	unsigned short image_width = 710;
 	unsigned short image_height = 400;
-	unsigned char* image_data = new unsigned char[image_width * image_height * 3]{0}; // rgb
-	QImage image(image_data, image_width, image_height, QImage::Format_RGB888);
+	QImage image(image_width, image_height, QImage::Format_RGB888);
 
 	Eigen::Vector3f hit;
 	Eigen::Vector3f v1(0.0f, -1.0f, -2.0f);
@@ -286,46 +290,10 @@ int raycast_volume_test(int argc, char **argv)
 
 
 
-#if 0
-void raycast_face_volume()
-{
-	int vx_count = 3;
-	int vx_size = 1;
-	Eigen::Vector3i voxel_count(vx_count, vx_count, vx_count);
-	Eigen::Vector3i voxel_size(vx_size, vx_size, vx_size);
-	Eigen::Vector3f hitf;
-	Eigen::Vector3i hiti;
-
-	hitf = Eigen::Vector3f(3.00f, 2.90f, 0.93f);
-	hiti = hitf.cast<int>();
-	int voxel_index_0 = get_index_from_3d(hiti, voxel_count, voxel_size);
-	int voxel_index_1 = get_index_from_3df(hitf, voxel_count, voxel_size);
-	std::cout << voxel_index_0 << ' ' << voxel_index_1 << std::endl;
-
-	hitf = Eigen::Vector3f(1.50f, 3.00f, 0.81f);
-	hiti = hitf.cast<int>();
-	voxel_index_0 = get_index_from_3d(hiti, voxel_count, voxel_size);
-	voxel_index_1 = get_index_from_3df(hitf, voxel_count, voxel_size);
-	std::cout << voxel_index_0 << ' ' << voxel_index_1 << std::endl;
-
-	hitf = Eigen::Vector3f(1.50f, -0.000001f, 0.5f);
-	hiti = hitf.cast<int>();
-	voxel_index_0 = get_index_from_3d(hiti, voxel_count, voxel_size);
-	voxel_index_1 = get_index_from_3df(hitf, voxel_count, voxel_size);
-	std::cout << voxel_index_0 << ' ' << voxel_index_1 << std::endl;
-
-	hitf = Eigen::Vector3f(1.50f, 0.5f, 3.0f);
-	hiti = hitf.cast<int>();
-	voxel_index_0 = get_index_from_3d(hiti, voxel_count, voxel_size);
-	voxel_index_1 = get_index_from_3df(hitf, voxel_count, voxel_size);
-	std::cout << voxel_index_0 << ' ' << voxel_index_1 << std::endl;
-
-}
-#endif
 
 int main(int argc, char **argv)
 {
-#if 1
+#if 0
 	// Usage: ./Raycastingd.exe vx_count vx_size cam_x y z target_x y z
 	// Usage: ./Raycastingd.exe 3 1 1.5 1.5 -15 1.5 1.5 -10
 	raycast_volume_test(argc, argv);
