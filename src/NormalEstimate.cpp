@@ -53,7 +53,6 @@ int main(int argc, char **argv)
 
 		Eigen::Vector3f vert_uv, vert_u1v, vert_uv1;
 
-
 		for (int x = 0; x < frame.depth_width() - 1; ++x)
 		{
 			for (int y = 0; y < frame.depth_height() - 1; ++y)
