@@ -89,7 +89,7 @@ int raycast_and_render_grid(int argc, char* argv[])
 	float cam_z = (-vx_count - 1) * vx_size;
 	camera_to_world.translate(Eigen::Vector3f(half_volume_size.x(), half_volume_size.y(), cam_z));
 #else
-#if 0
+#if 1
 	camera_to_world.rotate(Eigen::AngleAxisf(DegToRad(-25), Eigen::Vector3f::UnitX()));
 	camera_to_world.translate(Eigen::Vector3f(half_volume_size.x(), half_volume_size.y(), 0));
 	camera_to_world.translate(Eigen::Vector3f(0, 7, -4));
@@ -233,12 +233,12 @@ int raycast_and_render_two_triangles(int argc, char* argv[])
 
 int raycast_volume_test(int argc, char **argv)
 {
-	//int vx_count = 3;
-	//int vx_size = 1;
+	int vx_count = 3;
+	int vx_size = 1;
 	//int vx_count = 2;
 	//int vx_size = 2;
-	int vx_count = 3;
-	int vx_size = 16;
+	//int vx_count = 3;
+	//int vx_size = 16;
 
 	Eigen::Vector3i voxel_count(vx_count, vx_count, vx_count);
 	Eigen::Vector3i voxel_size(vx_size, vx_size, vx_size);
@@ -247,24 +247,27 @@ int raycast_volume_test(int argc, char **argv)
 	//Eigen::Vector3f ray_target(0.5f, 2.0f, 1.f);	// { 3, 6, 15, 24 }
 	//Eigen::Vector3f ray_origin(2.f, 2.f, -2.0f);
 	//Eigen::Vector3f ray_target(2.f, 2.f, 2.f);	// { 3, 7 }
-
-	Eigen::Vector3f ray_origin(64.f, 64.f, -32.0f);
-	Eigen::Vector3f ray_target(8.f, 8.f, 40.f);	// { 3, 7 }
+	//Eigen::Vector3f ray_origin(64.f, 64.f, -32.0f);
+	//Eigen::Vector3f ray_target(8.f, 8.f, 40.f);	
+	//Eigen::Vector3f ray_origin(50.f, 2.9f, -1.0f);
+	//Eigen::Vector3f ray_target(1.5f, 2.9f, 1.f);	// { 8, 7, 16, 15 }
+	Eigen::Vector3f ray_origin(50.f, 50.0f, -1.0f);
+	Eigen::Vector3f ray_target(1.5f, 2.9f, 1.f);	// { 7, 16, 15, 12 }
 	
 	Eigen::Vector3f ray_direction = (ray_target - ray_origin).normalized();
 
-	if (argc > 8)
-	{
-		vx_count = atoi(argv[1]);
-		vx_size = atoi(argv[2]);
+	//if (argc > 8)
+	//{
+	//	vx_count = atoi(argv[1]);
+	//	vx_size = atoi(argv[2]);
 
-		voxel_count = Eigen::Vector3i(vx_count, vx_count, vx_count);
-		voxel_size = Eigen::Vector3i(vx_size, vx_size, vx_size);
+	//	voxel_count = Eigen::Vector3i(vx_count, vx_count, vx_count);
+	//	voxel_size = Eigen::Vector3i(vx_size, vx_size, vx_size);
 
-		ray_origin = Eigen::Vector3f(atof(argv[3]), atof(argv[4]), atof(argv[5]));
-		ray_target = Eigen::Vector3f(atof(argv[6]), atof(argv[7]), atof(argv[8]));
-		ray_direction = (ray_target - ray_origin).normalized();
-	}
+	//	ray_origin = Eigen::Vector3f(atof(argv[3]), atof(argv[4]), atof(argv[5]));
+	//	ray_target = Eigen::Vector3f(atof(argv[6]), atof(argv[7]), atof(argv[8]));
+	//	ray_direction = (ray_target - ray_origin).normalized();
+	//}
 
 	std::vector<int> voxels_intersected;
 	Timer t;
@@ -282,9 +285,47 @@ int raycast_volume_test(int argc, char **argv)
 }
 
 
+
+#if 0
+void raycast_face_volume()
+{
+	int vx_count = 3;
+	int vx_size = 1;
+	Eigen::Vector3i voxel_count(vx_count, vx_count, vx_count);
+	Eigen::Vector3i voxel_size(vx_size, vx_size, vx_size);
+	Eigen::Vector3f hitf;
+	Eigen::Vector3i hiti;
+
+	hitf = Eigen::Vector3f(3.00f, 2.90f, 0.93f);
+	hiti = hitf.cast<int>();
+	int voxel_index_0 = get_index_from_3d(hiti, voxel_count, voxel_size);
+	int voxel_index_1 = get_index_from_3df(hitf, voxel_count, voxel_size);
+	std::cout << voxel_index_0 << ' ' << voxel_index_1 << std::endl;
+
+	hitf = Eigen::Vector3f(1.50f, 3.00f, 0.81f);
+	hiti = hitf.cast<int>();
+	voxel_index_0 = get_index_from_3d(hiti, voxel_count, voxel_size);
+	voxel_index_1 = get_index_from_3df(hitf, voxel_count, voxel_size);
+	std::cout << voxel_index_0 << ' ' << voxel_index_1 << std::endl;
+
+	hitf = Eigen::Vector3f(1.50f, -0.000001f, 0.5f);
+	hiti = hitf.cast<int>();
+	voxel_index_0 = get_index_from_3d(hiti, voxel_count, voxel_size);
+	voxel_index_1 = get_index_from_3df(hitf, voxel_count, voxel_size);
+	std::cout << voxel_index_0 << ' ' << voxel_index_1 << std::endl;
+
+	hitf = Eigen::Vector3f(1.50f, 0.5f, 3.0f);
+	hiti = hitf.cast<int>();
+	voxel_index_0 = get_index_from_3d(hiti, voxel_count, voxel_size);
+	voxel_index_1 = get_index_from_3df(hitf, voxel_count, voxel_size);
+	std::cout << voxel_index_0 << ' ' << voxel_index_1 << std::endl;
+
+}
+#endif
+
 int main(int argc, char **argv)
 {
-#if 0
+#if 1
 	// Usage: ./Raycastingd.exe vx_count vx_size cam_x y z target_x y z
 	// Usage: ./Raycastingd.exe 3 1 1.5 1.5 -15 1.5 1.5 -10
 	raycast_volume_test(argc, argv);
@@ -298,9 +339,11 @@ int main(int argc, char **argv)
 	t.print_interval("Raycasting and render   : ");
 #endif
 
+#if 1
 	// Usage: ./Raycastingd.exe vx_count vx_size
 	// Usage: ./Raycastingd.exe 3 1 
 	raycast_and_render_grid(argc, argv);
+#endif
 
 	return 0;
 }

@@ -80,11 +80,19 @@ BoxFace box_face_in_face_out(const BoxFace& face_out)
 }
 
 
-static int get_index_from_3d(const Eigen::Vector3i pt, const Eigen::Vector3i& voxel_count, const Eigen::Vector3i& voxel_size)
-{
-	return pt.z() / voxel_size.z() * voxel_count.x() * voxel_count.y() + pt.y() / voxel_size.y() * voxel_count.y() + pt.x() / voxel_size.x();
-}
 
+static int get_index_from_3d(const Eigen::Vector3f hit, const Eigen::Vector3i& voxel_count, const Eigen::Vector3i& voxel_size)
+{
+	const int max_x = voxel_count.x() * voxel_size.x();
+	const int max_y = voxel_count.y() * voxel_size.y();
+	const int max_z = voxel_count.z() * voxel_size.z();
+
+	int x = (hit.x() < max_x) ? (int)hit.x() : max_x - 1;
+	int y = (hit.y() < max_y) ? (int)hit.y() : max_y - 1;
+	int z = (hit.z() < max_z) ? (int)hit.z() : max_z - 1;
+
+	return z / voxel_size.z() * voxel_count.x() * voxel_count.y() + y / voxel_size.y() * voxel_count.y() + x / voxel_size.x();
+}
 
 static Eigen::Vector3i index_3d_from_array(
 	int array_index,
@@ -392,9 +400,10 @@ BoxFace raycast_face_volume(
 
 	if (intersections_count > 0)
 	{
-		Eigen::Vector3i hit_int = hit1.cast<int>();
-		voxel_index = get_index_from_3d(hit_int, voxel_count, voxel_size);
-		hit = hit1;
+		//Eigen::Vector3i hit_int = hit1.cast<int>();
+		//voxel_index = get_index_from_3d(hit_int, voxel_count, voxel_size);
+		//hit = hit1;
+		voxel_index = get_index_from_3d(hit1, voxel_count, voxel_size);
 		return box_face_from_normal<float>(hit1_normal);
 	}
 	else
