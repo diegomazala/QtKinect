@@ -842,66 +842,6 @@ extern "C"
 
 
 
-	__global__ void grid_init_kernel(
-		unsigned short vol_size,
-		unsigned short vx_size,
-		float* grid_matrix_16f,
-		float* grid_voxels_points_4f,
-		float* grid_voxels_params_2f)
-	{
-		
-		const int threadId = blockIdx.x * blockDim.x + threadIdx.x;
-		const int z = threadId;
-
-		//const int3 dim = { vol_size / vx_size + 1, vol_size / vx_size + 1, vol_size / vx_size + 1 };
-		const int3 voxel_count = { vol_size / vx_size, vol_size / vx_size, vol_size / vx_size };
-
-		const short half_vol_size = vol_size / 2;
-
-		const short m = 4;
-		const short k = 4;
-		//const short n = 1;
-
-		for (short y = 0; y < voxel_count.y; ++y)
-		{
-			for (short x = 0; x < voxel_count.x; ++x)
-			{
-				const unsigned long voxel_index = x + voxel_count.x * (y + voxel_count.z * z);
-				float vg[4] = { 0, 0, 0, 0 };
-
-				// grid space
-#if 1
-				float g[4] = {
-					float(x * vx_size - half_vol_size),
-					float(y * vx_size - half_vol_size),
-					float(z * vx_size - half_vol_size),
-					1.0f };
-#else
-				float g[4] = {
-					float(x * vx_size),
-					float(y * vx_size),
-					float(z * vx_size),
-					1.0f };
-#endif
-
-				// to world space
-				for (short i = 0; i < m; i++)
-					for (short j = 0; j < k; j++)
-						vg[j] += grid_matrix_16f[i * m + j] * g[i];		// col major
-
-				
-				grid_voxels_points_4f[voxel_index * 4 + 0] = vg[0];
-				grid_voxels_points_4f[voxel_index * 4 + 1] = vg[1];
-				grid_voxels_points_4f[voxel_index * 4 + 2] = vg[2];
-				grid_voxels_points_4f[voxel_index * 4 + 3] = vg[3];
-
-				//grid_voxels_params_2f[voxel_index * 2 + 0] = 0.0f;
-				//grid_voxels_params_2f[voxel_index * 2 + 1] = 0.0f;
-			}
-		}
-	}
-
-
 
 	void grid_init(
 		unsigned short vol_size,
@@ -927,13 +867,6 @@ extern "C"
 		d_projection_matrix_16f = thrust::device_vector<float>(&projection_matrix_16f[0], &projection_matrix_16f[0] + 16);
 
 		
-
-		//grid_init_kernel <<< 1, volume_size / voxel_size + 1 >>>
-		grid_init_kernel << < 1, volume_size / voxel_size >> >
-			(volume_size, voxel_size,
-			thrust::raw_pointer_cast(&d_grid_matrix_16f[0]),
-			thrust::raw_pointer_cast(&d_grid_voxels_points_4f[0]),
-			thrust::raw_pointer_cast(&d_grid_voxels_params_2f[0]));
 	}
 
 

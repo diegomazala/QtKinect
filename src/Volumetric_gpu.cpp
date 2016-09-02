@@ -356,43 +356,10 @@ int run_for_knt(int argc, char **argv)
 
 	//std::pair<Eigen::Matrix4f, Eigen::Matrix4f>	T(Eigen::Matrix4f::Identity(), Eigen::Matrix4f::Identity());
 	
-	K = perspective_matrix<float>(KINECT_V1_FOVY, KINECT_V1_ASPECT_RATIO, knt_near_plane, knt_far_plane);
+	K = perspective_matrix<float>(KINECT_V2_FOVY, KINECT_V2_DEPTH_ASPECT_RATIO, knt_near_plane, knt_far_plane);
 	Eigen::Matrix4f proj_inv = K.inverse();
 	
 	
-	//std::cout << "Perspective: " << std::endl << K << std::endl;
-
-
-	//K = perspective_matrix<float>(fov_y, aspect_ratio, near_plane, far_plane);
-	//std::cout << "Perspective: " << std::endl << K << std::endl;
-
-#if 0
-	std::vector<Eigen::Vector3f> vertices;
-	std::cout << "depth : " << knt.depth_width() << ", " << knt.depth_height() << std::endl;
-
-	for (ushort y = 0; y < knt.depth_height(); ++y)
-	{
-		for (ushort x = 0; x < knt.depth_width(); ++x)
-		{
-			const float depth = (float)knt.depth_at(x, y) * 0.1f;
-			const Eigen::Vector2f pixel(x, y);
-			const Eigen::Vector3f v = window_coord_to_3d(pixel, depth, proj_inv, (float)knt.depth_width(), (float)knt.depth_height());
-			//points3DOrig.push_back((v * 0.025f).homogeneous());
-			points3DOrig.push_back(v.homogeneous());
-		}
-	}
-
-	//export_obj("../../data/knt_frame.obj", points3DOrig);
-	//return;
-
-
-	timer.print_interval("Importing knt frame : ");
-	std::cout << filepath << " point count  : " << points3DOrig.size() << std::endl;
-
-	point_count = points3DOrig.size();
-#endif
-
-
 	pixel_count = static_cast<const std::size_t>(knt.depth_width() * knt.depth_height());
 
 
@@ -417,6 +384,8 @@ int run_for_knt(int argc, char **argv)
 	Eigen::Vector3f voxel_size(vx_size, vx_size, vx_size);
 	Eigen::Vector3f volume_size(vol_size, vol_size, vol_size);
 	Eigen::Vector3f voxel_count(volume_size.x() / voxel_size.x(), volume_size.y() / voxel_size.y(), volume_size.z() / voxel_size.z());
+	Eigen::Vector3f half_volume_size = volume_size * 0.5f;
+
 	//
 	//const int total_voxels =
 	//	(volume_size.x() / voxel_size.x() + 1) *
@@ -435,7 +404,7 @@ int run_for_knt(int argc, char **argv)
 	grid_affine.scale(Eigen::Vector3f(1, 1, 1));	// z is negative inside of screen
 
 	std::vector<Eigen::Vector4f> grid_voxels_points(total_voxels);
-	std::vector<Eigen::Vector2f> grid_voxels_params(total_voxels, Eigen::Vector2f(0.0f, 1.0f));
+	std::vector<Eigen::Vector2f> grid_voxels_params(total_voxels, Eigen::Vector2f(0.0f, 0.0f));
 
 	//
 	// Creating grid in GPU
@@ -474,94 +443,77 @@ int run_for_knt(int argc, char **argv)
 #if 1
 	
 	timer.start();
-	//export_volume("../../data/grid_volume_gpu_knt.obj", grid_voxels_points, grid_voxels_params);
-	//export_volume("../../data/grid_volume_gpu_knt_2.obj", voxel_count.cast<int>(), voxel_size.cast<int>(), grid_voxels_params, grid_affine_2.matrix());
+	export_volume("../../data/grid_volume_gpu_knt.obj", grid_voxels_points, grid_voxels_params);
+	export_volume("../../data/grid_volume_gpu_knt_2.obj", voxel_count.cast<int>(), voxel_size.cast<int>(), grid_voxels_params, grid_affine_2.matrix());
 	//export_params("../../data/grid_volume_gpu_params.txt", grid_voxels_params);
 	timer.print_interval("Exporting volume        : ");
 
-	//return 0;
+	return 0;
 	
+	//
+	// setup camera parameters
+	//
 	Eigen::Affine3f camera_to_world = Eigen::Affine3f::Identity();
-	//camera_to_world.translate(Eigen::Vector3f(0, 0, -10000));
-	//camera_to_world.translate(Eigen::Vector3f(0, 0, 511));
+	float cam_z = 0; // (-voxel_count.z() - 1) * vx_size;
+	camera_to_world.translate(Eigen::Vector3f(half_volume_size.x(), half_volume_size.y(), cam_z));
 	Eigen::Vector3f camera_pos = camera_to_world.matrix().col(3).head<3>();
-	float scale = tan(DegToRad(KINECT_V1_FOVY * 0.5f));
-	float aspect_ratio = KINECT_V1_ASPECT_RATIO;
-	ushort image_width = KINECT_V1_COLOR_WIDTH / 4;
-	ushort image_height = KINECT_V1_COLOR_HEIGHT / 4;
-	uchar* image_data = new uchar[image_width * image_height * 3]{0}; // rgb
+	float scale = (float)tan(DegToRad(KINECT_V2_FOVY * 0.5f));
+	float aspect_ratio = KINECT_V2_DEPTH_ASPECT_RATIO;
+
+	// 
+	// setup image parameters
+	//
+	unsigned short image_width = KINECT_V2_DEPTH_WIDTH;
+	unsigned short image_height = image_width / aspect_ratio;
+	unsigned char* image_data = new unsigned char[image_width * image_height * 3]{0}; // rgb
 	QImage image(image_data, image_width, image_height, QImage::Format_RGB888);
-	image.fill(Qt::GlobalColor::black);
 
-	Eigen::Vector3f hit;
-	Eigen::Vector3f v1(0.0f, -1.0f, -2.0f);
-	Eigen::Vector3f v2(0.0f, 1.0f, -4.0f);
-	Eigen::Vector3f v3(-1.0f, -1.0f, -3.0f);
-	Eigen::Vector3f v4(0.0f, -1.0f, -2.0f);
-	Eigen::Vector3f v5(0.0f, 1.0f, -4.0f);
-	Eigen::Vector3f v6(1.0f, -1.0f, -3.0f);
 
-	Eigen::Vector3f diff_color(1, 0, 0);
-	Eigen::Vector3f spec_color(1, 1, 0);
-	float spec_shininess = 1.0f;
-	Eigen::Vector3f E(0, 0, -1);				// view direction
-	Eigen::Vector3f L = Eigen::Vector3f(0.2f, -1, -1).normalized();	// light direction
-	Eigen::Vector3f N[2] = {
-		compute_normal(v1, v2, v3),
-		compute_normal(v4, v5, v6) };
-	Eigen::Vector3f R[2] = {
-		-reflect(L, N[0]).normalized(),
-		-reflect(L, N[1]).normalized() };
-
+	//
+	// for each pixel, trace a ray
+	//
 	timer.start();
 	for (int y = 0; y < image_height; ++y)
 	{
 		for (int x = 0; x < image_width; ++x)
 		{
-			//
 			// Convert from image space (in pixels) to screen space
-			// Screen Space alon X axis = [-aspect ratio, aspect ratio] 
-			// Screen Space alon Y axis = [-1, 1]
-			//
+			// Screen Space along X axis = [-aspect ratio, aspect ratio] 
+			// Screen Space along Y axis = [-1, 1]
 			Eigen::Vector3f screen_coord(
 				(2 * (x + 0.5f) / (float)image_width - 1) * aspect_ratio * scale,
 				(1 - 2 * (y + 0.5f) / (float)image_height) * scale,
 				1.0f);
 
-			//
-			// compute direction of the ray
-			//
 			Eigen::Vector3f direction;
 			multDirMatrix(screen_coord, camera_to_world.matrix(), direction);
 			direction.normalize();
 
-			//
-			// compute intersection for a ray through the volume
-			//
 			std::vector<int> voxels_zero_crossing;
-			int voxels_cross = raycast_tsdf_volume(
+			if (raycast_tsdf_volume<float>(
 				camera_pos,
 				direction,
 				voxel_count.cast<int>(),
 				voxel_size.cast<int>(),
 				grid_voxels_params,
-				voxels_zero_crossing);
-
-			if (voxels_cross == 2)
-			{ 
-				//Eigen::Vector3f diff = diff_color * std::fmax(N[i].dot(L), 0.0f);
-				//Eigen::Vector3f spec = spec_color * pow(std::fmax(R[i].dot(E), 0.0f), spec_shininess);
-				//Eigen::Vector3f color = eigen_clamp(diff + spec, 0.f, 1.f) * 255;
-				Eigen::Vector3f color(255, 255, 0);
-				image.setPixel(QPoint(x, y), qRgb(color.x(), color.y(), color.z()));
+				voxels_zero_crossing) > 0)
+			{
+				if (voxels_zero_crossing.size() == 2)
+				{
+					image.setPixel(QPoint(x, y), qRgb(128, 128, 0));
+				}
+				else
+				{
+					image.setPixel(QPoint(x, y), qRgb(128, 0, 0));
+				}
 			}
 		}
 	}
-	timer.print_interval("Raycasting volume       : ");
+	timer.print_interval("Raycasting to image     : ");
 
-	
 	QApplication app(argc, argv);
 	QImageWidget widget;
+	widget.resize(KINECT_V2_DEPTH_WIDTH, KINECT_V2_DEPTH_HEIGHT);
 	widget.setImage(image);
 	widget.show();
 
