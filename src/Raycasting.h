@@ -9,7 +9,6 @@
 #include <Eigen/Dense>
 #include "Interpolator.hpp"
 #include "RayBox.h"
-#include "Grid.h"
 #include "Timer.h"
 #include "RayIntersection.h"
 

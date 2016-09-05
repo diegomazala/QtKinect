@@ -642,4 +642,371 @@ namespace TestVolumetric
 	};
 
 
+	TEST_CLASS(UnitTestGrid)
+	{
+	public:
+
+		TEST_METHOD(TestGridIntersection)
+		{
+			const int expected_intersections_count_case_1 = 17;
+			const int expected_intersections_count_case_2 = 4;
+			int vol_size = 16;
+			int vx_size = 1;
+
+			const Eigen::Vector3d volume_size(vol_size, vol_size, vol_size);
+			const Eigen::Vector3d voxel_size(vx_size, vx_size, vx_size);
+
+			// Creating volume
+			const Eigen::Vector3i voxel_count(volume_size.x() / voxel_size.x(), volume_size.y() / voxel_size.y(), volume_size.z() / voxel_size.z());
+			const std::size_t slice_size = (voxel_count.x() + 1) * (voxel_count.y() + 1);
+			std::vector<Voxeld> volume((voxel_count.x() + 1) * (voxel_count.y() + 1) * (voxel_count.z() + 1));
+
+			Eigen::Matrix4d volume_transformation = Eigen::Matrix4d::Identity();
+			volume_transformation.col(3) << -(volume_size.x() / 2.0), -(volume_size.y() / 2.0), -(volume_size.z() / 2.0), 1.0;	// set translate
+
+
+			int i = 0;
+			for (int z = 0; z <= volume_size.z(); z += voxel_size.z())
+			{
+				for (int y = 0; y <= volume_size.y(); y += voxel_size.y())
+				{
+					for (int x = 0; x <= volume_size.x(); x += voxel_size.x(), i++)
+					{
+						volume[i].point = Eigen::Vector3d(x, y, z);
+						volume[i].rgb = Eigen::Vector3d(0, 0, 0);
+						volume[i].weight = i;
+					}
+				}
+			}
+			Eigen::Vector3d half_voxel(vx_size * 0.5, vx_size * 0.5, vx_size * 0.5);
+
+			const float t0 = 0.0f;
+			const float t1 = 256.0f;
+
+			Eigen::Vector3d origin(0, 0, -32);
+			Eigen::Vector3d target(0, 0, -20);
+			Eigen::Vector3d direction = (target - origin).normalized();
+
+			int count = 0;
+			for (const Voxeld v : volume)
+			{
+				Eigen::Vector3d corner_min = (volume_transformation * (v.point - half_voxel).homogeneous()).head<3>();
+				Eigen::Vector3d corner_max = (volume_transformation * (v.point + half_voxel).homogeneous()).head<3>();
+
+				Box<double> box(corner_min, corner_max);
+				Ray<double> ray(origin, direction);
+
+				if (box.intersect(ray, t0, t1))
+				{
+					std::cout << "Box Intersected: " << v.point.transpose() << std::endl;
+					count++;
+				}
+
+			}
+			std::cout << "Intersections Count: " << count << std::endl;
+			Assert::IsTrue(count == expected_intersections_count_case_1);
+
+
+			origin = Eigen::Vector3d(0, 0, -32);
+			target = Eigen::Vector3d(4.0, 3.6, -20);
+			direction = (target - origin).normalized();
+			count = 0;
+			for (const Voxeld v : volume)
+			{
+				Eigen::Vector3d corner_min = (volume_transformation * (v.point - half_voxel).homogeneous()).head<3>();
+				Eigen::Vector3d corner_max = (volume_transformation * (v.point + half_voxel).homogeneous()).head<3>();
+
+				Box<double> box(corner_min, corner_max);
+				Ray<double> ray(origin, direction);
+
+				if (box.intersect(ray, t0, t1))
+				{
+					std::cout << "Box Intersected: " << v.point.transpose() << std::endl;
+					count++;
+				}
+
+			}
+			std::cout << "Intersections Count: " << count << std::endl;
+
+			Assert::IsTrue(count == expected_intersections_count_case_2);
+		}
+
+
+		TEST_METHOD(TestRaycastAll)
+		{
+			const int vol_size = 2;
+			const int vx_size = 1;
+
+			const Eigen::Vector3d volume_size(vol_size, vol_size, vol_size);
+			const Eigen::Vector3d voxel_size(vx_size, vx_size, vx_size);
+
+			Grid<double> grid(volume_size, voxel_size, Eigen::Matrix4d::Identity());
+
+			const float ray_near = 0;
+			const float ray_far = 100;
+
+			const Eigen::Vector3d origin(0, 2, -3);
+			const Eigen::Vector3d target(0.72, -1.2, 2);
+			const Eigen::Vector3d direction = (target - origin).normalized();
+
+			const std::vector<int> expected_intersections = { 4, 7, 13, 14, 20, 23 };
+			const std::vector<int>& intersections = grid.raycast_all(origin, direction, ray_near, ray_far);
+
+
+			Assert::IsTrue((expected_intersections == intersections), L"\n<Unexpected intersections found>\n", LINE_INFO());
+		}
+
+
+		TEST_METHOD(TestRecursiveRaycast)
+		{
+			int vol_size = 2;
+			int vx_size = 1;
+
+			Eigen::Vector3d volume_size(vol_size, vol_size, vol_size);
+			Eigen::Vector3d voxel_size(vx_size, vx_size, vx_size);
+
+			Grid<double> grid(volume_size, voxel_size, Eigen::Matrix4d::Identity());
+
+			float ray_near = 0;
+			float ray_far = 100;
+
+			Eigen::Vector3d origin(0, 2, -3);
+			Eigen::Vector3d target(0.72, -1.2, 2);
+			Eigen::Vector3d direction = (target - origin).normalized();
+
+			int voxel_index = 7;	// input vertex
+
+			std::vector<int> expected_intersections = { 7, 4, 13, 14, 23, 20 };
+			std::vector<int> intersections;
+			grid.recursive_raycast(-1, voxel_index, origin, direction, ray_near, ray_far, intersections);
+
+
+			Assert::IsTrue((expected_intersections == intersections), L"\n<Unexpected intersections found>\n", LINE_INFO());
+		}
+
+
+		TEST_METHOD(TestFind8Neighbour)
+		{
+			const int vol_size = 16;
+			const int vx_size = 1;
+			Eigen::Vector3d volume_size(vol_size, vol_size, vol_size);
+			Eigen::Vector3d voxel_size(vx_size, vx_size, vx_size);
+			Grid<double> grid(volume_size, voxel_size, Eigen::Matrix4d::Identity());
+
+			int voxel_index;
+			std::vector<int> neighbours_expected, neighbours;
+
+			voxel_index = 0;
+			neighbours_expected = { 17, 18, 1 };
+			neighbours = grid.neighbour_eight(voxel_index);
+			Assert::IsTrue((neighbours_expected == neighbours), L"\n<Unexpected neighbours found>\n", LINE_INFO());
+
+			voxel_index = 16;
+			neighbours_expected = { 15, 32, 33 };
+			neighbours = grid.neighbour_eight(voxel_index);
+			Assert::IsTrue((neighbours_expected == neighbours), L"\n<Unexpected neighbours found>\n", LINE_INFO());
+
+			voxel_index = 272;
+			neighbours_expected = { 273, 256, 255 };
+			neighbours = grid.neighbour_eight(voxel_index);
+			Assert::IsTrue((neighbours_expected == neighbours), L"\n<Unexpected neighbours found>\n", LINE_INFO());
+
+			voxel_index = 288;
+			neighbours_expected = { 270, 287, 271 };
+			neighbours = grid.neighbour_eight(voxel_index);
+			Assert::IsTrue((neighbours_expected == neighbours), L"\n<Unexpected neighbours found>\n", LINE_INFO());
+
+
+			voxel_index = 4640;
+			neighbours_expected = { 4639, 4656, 4657 };
+			neighbours = grid.neighbour_eight(voxel_index);
+			Assert::IsTrue((neighbours_expected == neighbours), L"\n<Unexpected neighbours found>\n", LINE_INFO());
+
+		}
+
+		TEST_METHOD(TestIndex3dFromArrayIndex)
+		{
+			const int vol_size = 16;
+			const int vx_size = 1;
+			Eigen::Vector3d volume_size(vol_size, vol_size, vol_size);
+			Eigen::Vector3d voxel_size(vx_size, vx_size, vx_size);
+			Grid<double> grid(volume_size, voxel_size, Eigen::Matrix4d::Identity());
+
+			int voxel_index;
+			Eigen::Vector3i index_3d, index_3d_expected;
+
+			voxel_index = 0;
+			index_3d_expected = Eigen::Vector3i(0, 0, 0);
+			index_3d = grid.index_3d_from_array_index(voxel_index);
+			Assert::IsTrue((index_3d == index_3d_expected), L"\n<Unexpected index 3d found>\n", LINE_INFO());
+
+			voxel_index = 16;
+			index_3d_expected = Eigen::Vector3i(16, 0, 0);
+			index_3d = grid.index_3d_from_array_index(voxel_index);
+			Assert::IsTrue((index_3d == index_3d_expected), L"\n<Unexpected index 3d found>\n", LINE_INFO());
+
+			voxel_index = 272;
+			index_3d_expected = Eigen::Vector3i(0, 16, 0);
+			index_3d = grid.index_3d_from_array_index(voxel_index);
+			Assert::IsTrue((index_3d == index_3d_expected), L"\n<Unexpected index 3d found>\n", LINE_INFO());
+
+			voxel_index = 288;
+			index_3d_expected = Eigen::Vector3i(16, 16, 0);
+			index_3d = grid.index_3d_from_array_index(voxel_index);
+			Assert::IsTrue((index_3d == index_3d_expected), L"\n<Unexpected index 3d found>\n", LINE_INFO());
+
+			voxel_index = 4896;
+			index_3d_expected = Eigen::Vector3i(0, 16, 16);
+			index_3d = grid.index_3d_from_array_index(voxel_index);
+			Assert::IsTrue((index_3d == index_3d_expected), L"\n<Unexpected index 3d found>\n", LINE_INFO());
+
+			voxel_index = 4912;
+			index_3d_expected = Eigen::Vector3i(16, 16, 16);
+			index_3d = grid.index_3d_from_array_index(voxel_index);
+			Assert::IsTrue((index_3d == index_3d_expected), L"\n<Unexpected index 3d found>\n", LINE_INFO());
+
+			voxel_index = 4624;
+			index_3d_expected = Eigen::Vector3i(0, 0, 16);
+			index_3d = grid.index_3d_from_array_index(voxel_index);
+			Assert::IsTrue((index_3d == index_3d_expected), L"\n<Unexpected index 3d found>\n", LINE_INFO());
+
+			voxel_index = 4640;
+			index_3d_expected = Eigen::Vector3i(16, 0, 16);
+			index_3d = grid.index_3d_from_array_index(voxel_index);
+			Assert::IsTrue((index_3d == index_3d_expected), L"\n<Unexpected index 3d found>\n", LINE_INFO());
+
+		}
+
+		TEST_METHOD(TestIndexArrayFrom3dIndex)
+		{
+			const int vol_size = 16;
+			const int vx_size = 1;
+			Eigen::Vector3d volume_size(vol_size, vol_size, vol_size);
+			Eigen::Vector3d voxel_size(vx_size, vx_size, vx_size);
+			Grid<double> grid(volume_size, voxel_size, Eigen::Matrix4d::Identity());
+
+			int voxel_index, voxel_index_expected;
+			Eigen::Vector3i index_3d;
+
+			voxel_index_expected = 0;
+			index_3d = Eigen::Vector3i(0, 0, 0);
+			voxel_index = grid.index_array_from_3d_index(index_3d);
+			Assert::IsTrue((voxel_index == voxel_index_expected), L"\n<Unexpected index array found>\n", LINE_INFO());
+
+			voxel_index_expected = 16;
+			index_3d = Eigen::Vector3i(16, 0, 0);
+			voxel_index = grid.index_array_from_3d_index(index_3d);
+			Assert::IsTrue((voxel_index == voxel_index_expected), L"\n<Unexpected index array found>\n", LINE_INFO());
+
+			voxel_index_expected = 272;
+			index_3d = Eigen::Vector3i(0, 16, 0);
+			voxel_index = grid.index_array_from_3d_index(index_3d);
+			Assert::IsTrue((voxel_index == voxel_index_expected), L"\n<Unexpected index array found>\n", LINE_INFO());
+
+			voxel_index_expected = 288;
+			index_3d = Eigen::Vector3i(16, 16, 0);
+			voxel_index = grid.index_array_from_3d_index(index_3d);
+			Assert::IsTrue((voxel_index == voxel_index_expected), L"\n<Unexpected index array found>\n", LINE_INFO());
+
+			voxel_index_expected = 4896;
+			index_3d = Eigen::Vector3i(0, 16, 16);
+			voxel_index = grid.index_array_from_3d_index(index_3d);
+			Assert::IsTrue((voxel_index == voxel_index_expected), L"\n<Unexpected index array found>\n", LINE_INFO());
+
+			voxel_index_expected = 4912;
+			index_3d = Eigen::Vector3i(16, 16, 16);
+			voxel_index = grid.index_array_from_3d_index(index_3d);
+			Assert::IsTrue((voxel_index == voxel_index_expected), L"\n<Unexpected index array found>\n", LINE_INFO());
+
+			voxel_index_expected = 4624;
+			index_3d = Eigen::Vector3i(0, 0, 16);
+			voxel_index = grid.index_array_from_3d_index(index_3d);
+			Assert::IsTrue((voxel_index == voxel_index_expected), L"\n<Unexpected index array found>\n", LINE_INFO());
+
+			voxel_index_expected = 4640;
+			index_3d = Eigen::Vector3i(16, 0, 16);
+			voxel_index = grid.index_array_from_3d_index(index_3d);
+			Assert::IsTrue((voxel_index == voxel_index_expected), L"\n<Unexpected index array found>\n", LINE_INFO());
+		}
+
+		TEST_METHOD(TestRayTriangleIntersection)
+		{
+			const Eigen::Vector3f target(0, 0, 3);
+			Eigen::Vector3f origin;
+			Eigen::Vector3f direction;
+
+			struct Triangle
+			{
+				Eigen::Vector3f vertices[3];
+				Eigen::Vector3f normal;
+			};
+
+			Triangle triangle[2];
+			triangle[0].vertices[0] = Eigen::Vector3f(-0.5f, -0.5f, 0.0f);
+			triangle[0].vertices[1] = Eigen::Vector3f(-0.5f, 0.5f, 0.0f);
+			triangle[0].vertices[2] = Eigen::Vector3f(0.5f, -0.5f, 0.0f);
+
+			triangle[1].vertices[0] = Eigen::Vector3f(0.5f, -0.5f, 0.0f);
+			triangle[1].vertices[1] = Eigen::Vector3f(-0.5f, 0.5f, 0.0f);
+			triangle[1].vertices[2] = Eigen::Vector3f(0.5f, 0.5f, 0.0f);
+
+			Eigen::Vector3f hit[2];
+
+			origin = Eigen::Vector3f(-0.5f, 0, -3);
+			direction = (target - origin).normalized();
+			const bool t0 = triangle_intersection(origin, direction, triangle[0].vertices[0], triangle[0].vertices[1], triangle[0].vertices[2], hit[0]);
+			Assert::IsTrue(t0, L"\n<Intersection missed>\n", LINE_INFO());
+
+			origin = Eigen::Vector3f(0.5f, 0, -3);
+			direction = (target - origin).normalized();
+			const bool t1 = triangle_intersection(origin, direction, triangle[1].vertices[0], triangle[1].vertices[1], triangle[1].vertices[2], hit[1]);
+			Assert::IsTrue(t1, L"\n<Intersection missed>\n", LINE_INFO());
+
+			//std::cout << std::fixed
+			//	<< "t0: " << (t0 ? "hit  " : "fail  ") << hit[0].transpose() << std::endl
+			//	<< "t1: " << (t1 ? "hit  " : "fail  ") << hit[1].transpose() << std::endl;
+		}
+
+		TEST_METHOD(TestRayPlaneIntersection)
+		{
+			const Eigen::Vector3f target(0, 0, 3);
+			Eigen::Vector3f origin;
+			Eigen::Vector3f direction;
+
+			struct Triangle
+			{
+				Eigen::Vector3f vertices[3];
+				Eigen::Vector3f normal;
+			};
+
+			Triangle triangle[2];
+			triangle[0].vertices[0] = Eigen::Vector3f(-0.5f, -0.5f, 0.0f);
+			triangle[0].vertices[1] = Eigen::Vector3f(-0.5f, 0.5f, 0.0f);
+			triangle[0].vertices[2] = Eigen::Vector3f(0.5f, -0.5f, 0.0f);
+
+			triangle[1].vertices[0] = Eigen::Vector3f(0.5f, -0.5f, 0.0f);
+			triangle[1].vertices[1] = Eigen::Vector3f(-0.5f, 0.5f, 0.0f);
+			triangle[1].vertices[2] = Eigen::Vector3f(0.5f, 0.5f, 0.0f);
+
+			Eigen::Vector3f hit[3];
+
+			origin = Eigen::Vector3f(-0.5f, 0, -3);
+			direction = (target - origin).normalized();
+			const bool p0 = plane_intersection(origin, direction, triangle[0].vertices[0], triangle[0].vertices[1], triangle[0].vertices[2], hit[0]);
+			Assert::IsTrue(p0, L"\n<Intersection missed>\n", LINE_INFO());
+
+			origin = Eigen::Vector3f(0.5f, 0, -3);
+			direction = (target - origin).normalized();
+			const bool p1 = plane_intersection(origin, direction, triangle[1].vertices[0], triangle[1].vertices[1], triangle[1].vertices[2], hit[1]);
+			Assert::IsTrue(p1, L"\n<Intersection missed>\n", LINE_INFO());
+
+			bool p2 = plane_intersection(origin, direction, Eigen::Vector3f(0.0f, 0.0f, 0.0f), Eigen::Vector3f(0.0f, 0.0f, -1.0f), hit[2]);
+			Assert::IsTrue(p2, L"\n<Intersection missed>\n", LINE_INFO());
+
+			//std::cout << std::fixed
+			//	<< "p0: " << (p0 ? "hit  " : "fail  ") << hit[0].transpose() << std::endl
+			//	<< "p1: " << (p1 ? "hit  " : "fail  ") << hit[1].transpose() << std::endl
+			//	<< "p2: " << (p2 ? "hit  " : "fail  ") << hit[2].transpose() << std::endl;
+		}
+	};
 }
