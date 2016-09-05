@@ -152,7 +152,7 @@ void run_for_obj()
 	window_coords.first.resize(point_count);
 	window_coords.second.resize(point_count);
 
-	std::pair<std::vector<float>, std::vector<float>> depth_buffer;
+	std::pair<std::vector<ushort>, std::vector<ushort>> depth_buffer;
 	depth_buffer.first.resize(pixel_count, far_plane);
 	depth_buffer.second.resize(pixel_count, far_plane);
 
@@ -360,7 +360,7 @@ int run_for_knt(int argc, char **argv)
 	pixel_count = static_cast<const std::size_t>(knt.depth_width() * knt.depth_height());
 
 
-	std::pair<std::vector<float>, std::vector<float>> depth_buffer;
+	std::pair<std::vector<ushort>, std::vector<ushort>> depth_buffer;
 	depth_buffer.first.resize(pixel_count, far_plane);
 	depth_buffer.second.resize(pixel_count, far_plane);
 
@@ -370,7 +370,7 @@ int run_for_knt(int argc, char **argv)
 	// //
 	for (int i = 0; i < pixel_count; ++i)
 	{
-		depth_buffer.first[i] = depth_buffer.second[i] = (float)knt.depth[i];
+		depth_buffer.first[i] = depth_buffer.second[i] = knt.depth[i];
 	}
 
 
@@ -409,7 +409,7 @@ int run_for_knt(int argc, char **argv)
 	//
 	// Update volume
 	//
-	//timer.start();
+	timer.start();
 	Eigen::Matrix4f view_matrix = Eigen::Matrix4f::Identity();
 	Eigen::Matrix4f view_matrix_inv = view_matrix.inverse();
 	grid_update(view_matrix.data(), view_matrix_inv.data(), &depth_buffer.first.data()[0], knt.depth_width(), knt.depth_height());
@@ -445,14 +445,14 @@ int run_for_knt(int argc, char **argv)
 		<< "Total Voxels : " << total_voxels << std::endl
 		<< "Total Params : " << grid_voxels_params.size() << std::endl;
 	
-	return 0;
+	//return 0;
 
 
 	//
 	// setup camera parameters
 	//
 	Eigen::Affine3f camera_to_world = Eigen::Affine3f::Identity();
-	float cam_z = -64; // -512; // (-voxel_count.z() - 1) * vx_size;
+	float cam_z = -128; // -512; // (-voxel_count.z() - 1) * vx_size;
 	camera_to_world.translate(Eigen::Vector3f(half_volume_size.x(), half_volume_size.y(), cam_z));
 
 

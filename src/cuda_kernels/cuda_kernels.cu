@@ -579,7 +579,7 @@ extern "C"
 
 
 	__global__ void compute_pixel_depth_kernel(
-		float* in_out_depth_buffer_1f, 
+		ushort* in_out_depth_buffer_1us, 
 		float* out_pixel_2f,
 		const float* in_world_points_4f, 
 		const float* in_clip_points_4f, 
@@ -619,20 +619,20 @@ extern "C"
 
 		if (depth_index > 0 && depth_index < pixel_count)
 		{
-			const float& curr_depth = fabs(in_out_depth_buffer_1f[depth_index]);
+			const float& curr_depth = in_out_depth_buffer_1us[depth_index];
 			const float& new_depth = fabs(in_world_points_4f[threadId * 4 + 2]);	// z coord
 			__syncthreads();
 
 			if (new_depth < curr_depth)
 			{
-				in_out_depth_buffer_1f[depth_index] = new_depth;
+				in_out_depth_buffer_1us[depth_index] = new_depth;
 			}
 		}
 	}
 
 
 	void compute_depth_buffer(	
-			float* depth_buffer, 
+			ushort* depth_buffer, 
 			float* window_coords_2f,
 			const float* world_points_4f, 
 			unsigned int point_count, 
@@ -643,7 +643,7 @@ extern "C"
 		const unsigned int pixel_count = window_width * window_height;
 
 		// transfer to device 
-		thrust::device_vector<float> d_depth_buffer(&depth_buffer[0], &depth_buffer[0] + pixel_count);
+		thrust::device_vector<ushort> d_depth_buffer(&depth_buffer[0], &depth_buffer[0] + pixel_count);
 		thrust::device_vector<float> d_projection_mat(&projection_mat4x4[0], &projection_mat4x4[0] + 16);
 		
 		thrust::device_vector<float> d_world_points(&world_points_4f[0], &world_points_4f[0] + point_count * 4);
@@ -673,51 +673,6 @@ extern "C"
 
 	
 
-
-
-	__global__ void update_grid_kernel(
-		unsigned int vol_size, 
-		unsigned int vx_size, 
-		float* grid_matrix, 
-		float* grid_matrix_inv,
-		float* grid_voxels,
-		float* depth_buffer)
-	{
-		//const unsigned long long int threadId = blockIdx.x * blockDim.x + threadIdx.x;
-		const int threadId = blockIdx.x * blockDim.x + threadIdx.x;
-
-		uint3 dim;
-		dim.x = vol_size / vx_size + 1;
-		dim.y = vol_size / vx_size + 1;
-		dim.z = vol_size / vx_size + 1;
-
-		const int z = threadId;
-
-		const int half_vol_size = vol_size / 2;
-		
-		for (int y = 0; y < dim.y; ++y)
-		{
-			for (int x = 0; x < dim.x; ++x)
-			{
-				const int voxel_index = x + dim.x * (y + dim.z * z);
-
-				float4 v = { 
-					grid_matrix[12] + float(x * half_vol_size - half_vol_size),
-					grid_matrix[13] + float(y * half_vol_size - half_vol_size),
-					grid_matrix[14] - float(z * half_vol_size - half_vol_size),
-					1.0f};
-
-
-
-
-				grid_voxels[voxel_index * 4 + 0] = v.x;
-				grid_voxels[voxel_index * 4 + 1] = v.y;
-				grid_voxels[voxel_index * 4 + 2] = v.z;
-				grid_voxels[voxel_index * 4 + 3] = v.w;
-			}
-		}
-
-	}
 
 
 
@@ -756,7 +711,7 @@ extern "C"
 		const float* view_matrix_16f,
 		const float* view_matrix_inv_16f,
 		const float* projection_matrix_16f,
-		const float* depth_buffer,
+		const ushort* depth_buffer,
 		unsigned short window_width,
 		unsigned short window_height)
 	{
@@ -846,7 +801,8 @@ extern "C"
 				
 
 				// get depth buffer value
-				const float Dp = fabs(depth_buffer[depth_pixel_index]) * 0.1f;
+				//const float Dp = fabs(depth_buffer[depth_pixel_index]) * 0.1f;
+				const float Dp = depth_buffer[depth_pixel_index] * 0.1f;
 
 				// compute distance from vertex to camera
 				float distance_vertex_camera = sqrt(
@@ -899,7 +855,7 @@ extern "C"
 	void grid_update(
 		const float* view_matrix_16f,
 		const float* view_matrix_inv_16f,
-		const float* depth_buffer,
+		const ushort* depth_buffer,
 		unsigned short window_width,
 		unsigned short window_height
 		)
@@ -909,7 +865,7 @@ extern "C"
 		
 		thrust::device_vector<float> d_view_matrix_16f(&view_matrix_16f[0], &view_matrix_16f[0] + 16);
 		thrust::device_vector<float> d_view_matrix_inv_16f(&view_matrix_inv_16f[0], &view_matrix_inv_16f[0] + 16);
-		thrust::device_vector<float> d_depth_buffer(&depth_buffer[0], &depth_buffer[0] + total_pixels);
+		thrust::device_vector<ushort> d_depth_buffer(&depth_buffer[0], &depth_buffer[0] + total_pixels);
 
 
 		const unsigned int total_voxels = static_cast<unsigned int>(pow((volume_size / voxel_size), 3));

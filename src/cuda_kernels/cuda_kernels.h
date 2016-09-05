@@ -47,7 +47,7 @@ extern "C"
 	void matrix_mulf(float* mat_c, const float* mat_a, const float* mat_b, int m, int k, int n);
 
 	void compute_depth_buffer(
-		float* depth_buffer, 
+		ushort* depth_buffer, 
 		float* window_coords_2f,
 		const float* world_points_4f, 
 		unsigned int point_count, 
@@ -87,7 +87,7 @@ extern "C"
 	void grid_update(
 		const float* view_matrix_16f,
 		const float* view_matrix_inv_16f,
-		const float* depth_buffer,
+		const ushort* depth_buffer,
 		unsigned short window_width,
 		unsigned short window_height
 		);
