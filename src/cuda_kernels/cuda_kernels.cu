@@ -724,7 +724,6 @@ extern "C"
 	void grid_init(
 		unsigned short vol_size,
 		unsigned short vx_size,
-		float* grid_voxels_params_2f,
 		const float* grid_matrix_16f,
 		const float* grid_matrix_inv_16f,
 		const float* projection_matrix_16f)
@@ -734,7 +733,7 @@ extern "C"
 
 		const unsigned int total_voxels = static_cast<unsigned int>(pow((volume_size / voxel_size), 3));
 		
-		d_grid_voxels_params_2f = thrust::device_vector<float>(&grid_voxels_params_2f[0], &grid_voxels_params_2f[0] + total_voxels * 2);
+		d_grid_voxels_params_2f = thrust::device_vector<float>(total_voxels * 2, 1.0f);
 
 		d_grid_matrix_16f = thrust::device_vector<float>(&grid_matrix_16f[0], &grid_matrix_16f[0] + 16);
 		d_grid_matrix_inv_16f = thrust::device_vector<float>(&grid_matrix_inv_16f[0], &grid_matrix_inv_16f[0] + 16);
@@ -907,10 +906,8 @@ extern "C"
 		thrust::device_vector<float> d_depth_buffer(&depth_buffer[0], &depth_buffer[0] + total_pixels);
 
 
-		//const unsigned int total_voxels = static_cast<unsigned int>(pow((volume_size / voxel_size + 1), 3));
 		const unsigned int total_voxels = static_cast<unsigned int>(pow((volume_size / voxel_size), 3));
 
-		//grid_update_kernel <<< 1, volume_size / voxel_size + 1 >>>(
 		grid_update_kernel << < 1, volume_size / voxel_size >> >(
 			thrust::raw_pointer_cast(&d_grid_voxels_params_2f[0]),
 			volume_size, 
@@ -1150,7 +1147,11 @@ extern "C"
 		//out_vertex->w = 1.0f;
 	}
 
-	__global__ void	d_back_projection_with_normal_estimate_kernel(float4 *out_vertices, int w, int h, ushort max_depth, float* inverse_projection_16f)
+	__global__ void	d_back_projection_with_normal_estimate_kernel(
+		float4 *out_vertices, 
+		int w, int h, 
+		ushort max_depth, 
+		float* inverse_projection_16f)
 	{
 		int x = blockIdx.x*blockDim.x + threadIdx.x;
 		int y = blockIdx.y*blockDim.y + threadIdx.y;

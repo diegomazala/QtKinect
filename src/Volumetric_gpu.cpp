@@ -210,7 +210,7 @@ void run_for_obj()
 	Eigen::Matrix4f grid_matrix = grid_affine.matrix();
 	Eigen::Matrix4f grid_matrix_inv = grid_matrix.inverse();
 
-	grid_init(vol_size, vx_size, &grid_voxels_params[0][0], grid_matrix.data(), grid_matrix_inv.data(), K.data());
+	grid_init(vol_size, vx_size, grid_matrix.data(), grid_matrix_inv.data(), K.data());
 	timer.print_interval("GPU create grid         : ");
 
 	//
@@ -401,8 +401,6 @@ int run_for_knt(int argc, char **argv)
 	grid_affine.translate(Eigen::Vector3f(0, 0, half_vol_size));
 	grid_affine.scale(Eigen::Vector3f(1, 1, 1));	// z is negative inside of screen
 
-	//std::vector<Eigen::Vector4f> grid_voxels_points(total_voxels);
-	std::vector<Eigen::Vector2f> grid_voxels_params(total_voxels, Eigen::Vector2f(1.0f, 1.0f));
 
 	//
 	// Creating grid in GPU
@@ -412,7 +410,7 @@ int run_for_knt(int argc, char **argv)
 	Eigen::Matrix4f grid_matrix = grid_affine.matrix();
 	Eigen::Matrix4f grid_matrix_inv = grid_matrix.inverse();
 
-	grid_init(vol_size, vx_size, &grid_voxels_params[0][0], grid_matrix.data(), grid_matrix_inv.data(), K.data());
+	grid_init(vol_size, vx_size, grid_matrix.data(), grid_matrix_inv.data(), K.data());
 	timer.print_interval("GPU create grid         : ");
 
 
@@ -430,18 +428,18 @@ int run_for_knt(int argc, char **argv)
 	//
 	// Get data from gpu
 	//
+	std::vector<Eigen::Vector2f> grid_voxels_params(total_voxels);
 	timer.start();
 	grid_get_data(&grid_voxels_params[0][0]);
 	timer.print_interval("GPU get data            : ");
+	
 	
 
 	Eigen::Affine3f grid_affine_2 = Eigen::Affine3f::Identity();
 	grid_affine_2.translate(Eigen::Vector3f(-half_vol_size, -half_vol_size, 0));
 
 
-
 	timer.start();
-	//export_volume("../../data/grid_volume_gpu_knt.obj", grid_voxels_points, grid_voxels_params);
 	//export_volume("../../data/grid_volume_gpu_knt.obj", voxel_count.cast<int>(), voxel_size.cast<int>(), grid_voxels_params, grid_affine_2.matrix());
 	//export_params("../../data/grid_volume_gpu_params.txt", grid_voxels_params);
 	timer.print_interval("Exporting volume        : ");
