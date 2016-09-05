@@ -76,7 +76,7 @@ extern "C"
 
 
 	void grid_init(
-		unsigned short vol_size,
+		unsigned short vx_count,
 		unsigned short vx_size,
 		const float* grid_matrix_16f,
 		const float* grid_matrix_inv_16f,

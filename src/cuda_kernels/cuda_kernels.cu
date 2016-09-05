@@ -448,6 +448,7 @@ extern "C"
 	cublasHandle_t cublas_handle = nullptr;
 
 	unsigned short volume_size;
+	unsigned short voxel_count;
 	unsigned short voxel_size;
 
 	thrust::device_vector<float> d_grid_voxels_params_2f;
@@ -722,16 +723,21 @@ extern "C"
 
 
 	void grid_init(
-		unsigned short vol_size,
+		unsigned short vx_count,
 		unsigned short vx_size,
 		const float* grid_matrix_16f,
 		const float* grid_matrix_inv_16f,
 		const float* projection_matrix_16f)
 	{
-		volume_size = vol_size;
+		volume_size = vx_count * vx_size;
 		voxel_size = vx_size;
+		voxel_count = vx_count;
 
-		const unsigned int total_voxels = static_cast<unsigned int>(pow((volume_size / voxel_size), 3));
+		const unsigned int total_voxels = voxel_count * voxel_count * voxel_count;
+
+		std::cout << "cuda        : " << voxel_count << " * " << voxel_size << " = " << volume_size << std::endl;
+		std::cout << "total voxels: " << total_voxels << std::endl;
+
 		
 		d_grid_voxels_params_2f = thrust::device_vector<float>(total_voxels * 2, 1.0f);
 

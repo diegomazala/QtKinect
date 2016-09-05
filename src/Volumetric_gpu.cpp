@@ -39,7 +39,7 @@
 // 
 Timer timer;
 std::string filepath = "../../data/monkey.obj";
-int vol_size = 256;
+int vx_count = 256;
 int vx_size = 2;
 int cloud_count = 1;
 int rot_interval = 30;
@@ -185,14 +185,12 @@ void run_for_obj()
 	//
 	// Creating volume
 	//
+	int vol_size = vx_count * vx_size;
 	Eigen::Vector3f voxel_size(vx_size, vx_size, vx_size);
 	Eigen::Vector3f volume_size(vol_size, vol_size, vol_size);
-	Eigen::Vector3f voxel_count(volume_size.x() / voxel_size.x(), volume_size.y() / voxel_size.y(), volume_size.z() / voxel_size.z());
+	Eigen::Vector3f voxel_count(vx_count, vx_count, vx_count);
 	//
-	const int total_voxels =
-		(volume_size.x() / voxel_size.x() + 1) *
-		(volume_size.y() / voxel_size.y() + 1) *
-		(volume_size.z() / voxel_size.z() + 1);
+	const int total_voxels = vx_count * vx_count * vx_count;
 
 
 	Eigen::Affine3f grid_affine = Eigen::Affine3f::Identity();
@@ -210,7 +208,7 @@ void run_for_obj()
 	Eigen::Matrix4f grid_matrix = grid_affine.matrix();
 	Eigen::Matrix4f grid_matrix_inv = grid_matrix.inverse();
 
-	grid_init(vol_size, vx_size, grid_matrix.data(), grid_matrix_inv.data(), K.data());
+	grid_init(vx_count, vx_size, grid_matrix.data(), grid_matrix_inv.data(), K.data());
 	timer.print_interval("GPU create grid         : ");
 
 	//
@@ -379,23 +377,17 @@ int run_for_knt(int argc, char **argv)
 	//
 	// Creating volume
 	//
+	int vol_size = vx_count * vx_size;
 	Eigen::Vector3f voxel_size(vx_size, vx_size, vx_size);
 	Eigen::Vector3f volume_size(vol_size, vol_size, vol_size);
-	Eigen::Vector3f voxel_count(volume_size.x() / voxel_size.x(), volume_size.y() / voxel_size.y(), volume_size.z() / voxel_size.z());
+	Eigen::Vector3f voxel_count(vx_count, vx_count, vx_count);
 	Eigen::Vector3f half_volume_size = volume_size * 0.5f;
-
-	//
-	//const int total_voxels =
-	//	(volume_size.x() / voxel_size.x() + 1) *
-	//	(volume_size.y() / voxel_size.y() + 1) *
-	//	(volume_size.z() / voxel_size.z() + 1);
-
-	const int total_voxels =
-		(volume_size.x() / voxel_size.x()) *
-		(volume_size.y() / voxel_size.y()) *
-		(volume_size.z() / voxel_size.z());
-
 	const float half_vol_size = vol_size * 0.5f;
+	const int total_voxels = vx_count * vx_count * vx_count;
+	
+
+	std::cout << "cpu : " << voxel_count.x() << " * " << voxel_size.x() << " = " << volume_size.x() << std::endl;
+
 
 	Eigen::Affine3f grid_affine = Eigen::Affine3f::Identity();
 	grid_affine.translate(Eigen::Vector3f(0, 0, half_vol_size));
@@ -410,7 +402,7 @@ int run_for_knt(int argc, char **argv)
 	Eigen::Matrix4f grid_matrix = grid_affine.matrix();
 	Eigen::Matrix4f grid_matrix_inv = grid_matrix.inverse();
 
-	grid_init(vol_size, vx_size, grid_matrix.data(), grid_matrix_inv.data(), K.data());
+	grid_init(vx_count, vx_size, grid_matrix.data(), grid_matrix_inv.data(), K.data());
 	timer.print_interval("GPU create grid         : ");
 
 
@@ -440,7 +432,7 @@ int run_for_knt(int argc, char **argv)
 
 
 	timer.start();
-	//export_volume("../../data/grid_volume_gpu_knt.obj", voxel_count.cast<int>(), voxel_size.cast<int>(), grid_voxels_params, grid_affine_2.matrix());
+	export_volume("../../data/grid_volume_gpu_knt.obj", voxel_count.cast<int>(), voxel_size.cast<int>(), grid_voxels_params, grid_affine_2.matrix());
 	//export_params("../../data/grid_volume_gpu_params.txt", grid_voxels_params);
 	timer.print_interval("Exporting volume        : ");
 
@@ -453,14 +445,14 @@ int run_for_knt(int argc, char **argv)
 		<< "Total Voxels : " << total_voxels << std::endl
 		<< "Total Params : " << grid_voxels_params.size() << std::endl;
 	
-	//return 0;
+	return 0;
 
 
 	//
 	// setup camera parameters
 	//
 	Eigen::Affine3f camera_to_world = Eigen::Affine3f::Identity();
-	float cam_z = -512; // (-voxel_count.z() - 1) * vx_size;
+	float cam_z = -64; // -512; // (-voxel_count.z() - 1) * vx_size;
 	camera_to_world.translate(Eigen::Vector3f(half_volume_size.x(), half_volume_size.y(), cam_z));
 
 
@@ -543,13 +535,14 @@ int main(int argc, char **argv)
 	{
 		std::cerr << "Missing parameters. Abort."
 			<< std::endl
-			<< "Usage:  ./Volumetricd.exe ../../data/monkey.obj 256 8 2 90"
+			<< "Usage:  ./Volumetricd.exe ../../data/monkey.obj 32 8 2 90"
+			<< "Usage:  ./Volumetricd.exe ../../data/room.knt 256 2 2 90"
 			<< std::endl
 			<< "The app will continue with default parameters."
 			<< std::endl;
 		
 		filepath = "../../data/monkey.obj";
-		vol_size = 256;
+		vx_count = 32;
 		vx_size = 8;
 		cloud_count = 2;
 		rot_interval = 90;
@@ -557,16 +550,10 @@ int main(int argc, char **argv)
 	else
 	{
 		filepath = argv[1];
-		vol_size = atoi(argv[2]);
+		vx_count = atoi(argv[2]);
 		vx_size = atoi(argv[3]);
 		cloud_count = atoi(argv[4]);
 		rot_interval = atoi(argv[5]);
-	}
-
-	if (vol_size / vx_size >= 512)
-	{
-		std::cerr << "Error: This resolution is not supported due to max number of threads per block. (wip)" << std::endl;
-		return EXIT_FAILURE;
 	}
 
 	//
