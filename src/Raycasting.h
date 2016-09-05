@@ -6,6 +6,7 @@
 #include <chrono>
 #include <sstream>
 #include <fstream>
+#include <vector>
 #include <Eigen/Dense>
 #include "Interpolator.hpp"
 #include "RayBox.h"
