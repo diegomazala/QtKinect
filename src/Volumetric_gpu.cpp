@@ -376,7 +376,6 @@ int run_for_knt(int argc, char **argv)
 	}
 
 
-
 	//
 	// Creating volume
 	//
@@ -403,7 +402,7 @@ int run_for_knt(int argc, char **argv)
 	grid_affine.scale(Eigen::Vector3f(1, 1, 1));	// z is negative inside of screen
 
 	//std::vector<Eigen::Vector4f> grid_voxels_points(total_voxels);
-	std::vector<Eigen::Vector2f> grid_voxels_params(total_voxels, Eigen::Vector2f(0.0f, 0.0f));
+	std::vector<Eigen::Vector2f> grid_voxels_params(total_voxels, Eigen::Vector2f(1.0f, 1.0f));
 
 	//
 	// Creating grid in GPU
@@ -438,22 +437,38 @@ int run_for_knt(int argc, char **argv)
 
 	Eigen::Affine3f grid_affine_2 = Eigen::Affine3f::Identity();
 	grid_affine_2.translate(Eigen::Vector3f(-half_vol_size, -half_vol_size, 0));
-#if 1
-	
+
+
+
 	timer.start();
 	//export_volume("../../data/grid_volume_gpu_knt.obj", grid_voxels_points, grid_voxels_params);
-	export_volume("../../data/grid_volume_gpu_knt_2.obj", voxel_count.cast<int>(), voxel_size.cast<int>(), grid_voxels_params, grid_affine_2.matrix());
+	//export_volume("../../data/grid_volume_gpu_knt.obj", voxel_count.cast<int>(), voxel_size.cast<int>(), grid_voxels_params, grid_affine_2.matrix());
 	//export_params("../../data/grid_volume_gpu_params.txt", grid_voxels_params);
 	timer.print_interval("Exporting volume        : ");
 
-	return 0;
+
+
+	std::cout << std::fixed
+		<< "Voxel Count  : " << voxel_count.transpose() << std::endl
+		<< "Voxel Size   : " << voxel_size.transpose() << std::endl
+		<< "Volume Size  : " << volume_size.transpose() << std::endl
+		<< "Total Voxels : " << total_voxels << std::endl
+		<< "Total Params : " << grid_voxels_params.size() << std::endl;
 	
+	//return 0;
+
+
 	//
 	// setup camera parameters
 	//
 	Eigen::Affine3f camera_to_world = Eigen::Affine3f::Identity();
-	float cam_z = 0; // (-voxel_count.z() - 1) * vx_size;
+	float cam_z = -512; // (-voxel_count.z() - 1) * vx_size;
 	camera_to_world.translate(Eigen::Vector3f(half_volume_size.x(), half_volume_size.y(), cam_z));
+
+
+	//camera_to_world.translate(Eigen::Vector3f(256, 1024, -512));
+	//camera_to_world.rotate(Eigen::AngleAxisf((float)DegToRad(-45.0f), Eigen::Vector3f::UnitX()));
+
 	Eigen::Vector3f camera_pos = camera_to_world.matrix().col(3).head<3>();
 	float scale = (float)tan(DegToRad(KINECT_V2_FOVY * 0.5f));
 	float aspect_ratio = KINECT_V2_DEPTH_ASPECT_RATIO;
@@ -465,7 +480,7 @@ int run_for_knt(int argc, char **argv)
 	unsigned short image_height = image_width / aspect_ratio;
 	unsigned char* image_data = new unsigned char[image_width * image_height * 3]{0}; // rgb
 	QImage image(image_data, image_width, image_height, QImage::Format_RGB888);
-
+	image.fill(Qt::GlobalColor::black);
 
 	//
 	// for each pixel, trace a ray
@@ -518,46 +533,6 @@ int run_for_knt(int argc, char **argv)
 	return app.exec();
 
 
-#else
-	Eigen::Affine3f box_transform = Eigen::Affine3f::Identity();
-	Eigen::Affine3f camera_to_world = Eigen::Affine3f::Identity();
-	float fovy = KINECT_V1_FOVY;
-	int width = KINECT_V1_COLOR_WIDTH;
-	int height = KINECT_V1_COLOR_HEIGHT;
-	uchar* image_data = new uchar[width * height * 3]; // rgb
-
-	ushort voxel_count_us[3] = { voxel_count.x(), voxel_count.y(), voxel_count.z() };
-	ushort voxel_size_us[3] = { voxel_size.x(), voxel_size.y(), voxel_size.z() };
-
-	raycast_image_grid(
-		image_data, 
-		width, 
-		height, 
-		voxel_count_us,
-		voxel_size_us,
-		fovy, 
-		camera_to_world.matrix().data(), 
-		box_transform.matrix().data());
-
-	QImage image(image_data, width, height, QImage::Format_RGB888);
-
-	QApplication app(argc, argv);
-	QImageWidget widget;
-	widget.setImage(image);
-	widget.show();
-
-	return app.exec();
-#endif
-
-	//std::cout << "------- // --------" << std::endl;
-	//for (int i = 0; i < grid_voxels_points.size(); ++i)
-	//{
-	//	const Eigen::Vector4f& point = grid_voxels_points[i];
-	//	const Eigen::Vector2f& param = grid_voxels_params[i];
-
-	//	std::cout << std::fixed << point.transpose() << "\t\t" << param.transpose() << std::endl;
-	//}
-	//std::cout << "------- // --------" << std::endl;
 }
 
 

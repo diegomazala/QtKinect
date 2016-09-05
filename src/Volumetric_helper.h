@@ -171,6 +171,12 @@ static void export_volume(
 		Eigen::Vector4f v = ind.homogeneous().cast<float>();
 
 		Eigen::Vector3i rgb(255, 255, 255);
+		if (tsdf < 0)
+		{
+			rgb = Eigen::Vector3i(255, 0, 0);
+			file << std::fixed << "v " << (transformation * v).head<3>().transpose() << ' ' << rgb.transpose() << std::endl;
+		}
+#if 0
 		if (tsdf > 0.1f)
 		{
 			rgb = Eigen::Vector3i(0, 255, 0);
@@ -186,6 +192,7 @@ static void export_volume(
 		//	rgb = Eigen::Vector3i(0, 255, 255);
 		//	file << std::fixed << "v " << (transformation * v).head<3>().transpose() << ' ' << rgb.transpose() << std::endl;
 		//}
+#endif
 
 	}
 	file.close();
