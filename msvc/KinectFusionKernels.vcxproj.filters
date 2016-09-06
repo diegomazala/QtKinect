@@ -12,9 +12,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <CudaCompile Include="..\src\KinectFusionKernels\VolumeRender.cu">
-      <Filter>Cuda Files</Filter>
-    </CudaCompile>
     <CudaCompile Include="..\src\KinectFusionKernels\KinectFusionKernels.cu">
       <Filter>Cuda Files</Filter>
     </CudaCompile>

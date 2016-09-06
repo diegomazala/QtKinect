@@ -23,7 +23,6 @@
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="..\src\KinectFusionKernels\KinectFusionKernels.cu" />
-    <CudaCompile Include="..\src\KinectFusionKernels\VolumeRender.cu" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{4A8DFEC1-DEDF-4FE7-921F-8AF7B0AA6D58}</ProjectGuid>
