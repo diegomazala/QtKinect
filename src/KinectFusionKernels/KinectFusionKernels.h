@@ -47,10 +47,11 @@ extern "C"
 	void knt_cuda_allocate();
 	void knt_cuda_free();
 
-	void knt_cuda_run_kernel();
+	void knt_cuda_update_grid(const float* view_matrix_16f);
 
 	void knt_cuda_copy_host_to_device();
 	void knt_cuda_copy_device_to_host();
+	void knt_cuda_grid_params_copy_device_to_host(float* grid_params_2f);
 };
 
 

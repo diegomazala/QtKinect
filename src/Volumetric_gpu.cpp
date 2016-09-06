@@ -22,17 +22,12 @@
 
 #include <QApplication>
 #include "QImageWidget.h"
-
-// Required to include CUDA vector types
-#include <cuda_runtime.h>
-#include <vector_types.h>
-#include "cuda_kernels/cuda_kernels.h"
-#include "Volumetric_helper.h"
+#include "Timer.h"
+#include "Eigen/Dense"
 #include "Projection.h"
 #include "KinectFrame.h"
 #include "KinectSpecs.h"
-#include "Raycasting.h"
-
+#include "Volumetric_helper.h"
 
 //
 // globals
@@ -48,6 +43,29 @@ std::size_t point_count = 0;
 std::size_t pixel_count = 0;
 Eigen::Matrix4f K;
 
+
+
+static void export_params(const std::string& filename, const std::vector<Eigen::Vector2f>& params) //, const Eigen::Matrix4f& transformation = Eigen::Matrix4f::Identity())
+{
+	std::ofstream file;
+	file.open(filename);
+	for (int i = 0; i < params.size(); ++i)
+	{
+		file << std::fixed << params[i].x() << ' ' << params[i].y() << std::endl;
+	}
+	file.close();
+}
+
+#if 0
+// Required to include CUDA vector types
+#include <cuda_runtime.h>
+#include <vector_types.h>
+#include "cuda_kernels/cuda_kernels.h"
+#include "Raycasting.h"
+
+
+
+
 static void export_knt_frame(const std::string& filename, const KinectFrame& knt)
 {
 	std::ofstream file;
@@ -62,16 +80,6 @@ static void export_knt_frame(const std::string& filename, const KinectFrame& knt
 	file.close();
 }
 
-static void export_params(const std::string& filename, const std::vector<Eigen::Vector2f>& params) //, const Eigen::Matrix4f& transformation = Eigen::Matrix4f::Identity())
-{
-	std::ofstream file;
-	file.open(filename);
-	for (int i = 0; i < params.size(); ++i)
-	{
-		file << std::fixed << params[i].x() << ' ' << params[i].y() << std::endl;
-	}
-	file.close();
-}
 
 static void multDirMatrix(const Eigen::Vector3f &src, const Eigen::Matrix4f &mat, Eigen::Vector3f &dst)
 {
@@ -526,11 +534,62 @@ int run_for_knt(int argc, char **argv)
 }
 
 
+#endif
+
+
+#include "KinectFusionKernels/KinectFusionKernels.h"
+void test_knt_kernels()
+{
+	Timer timer;
+	vx_count = 3;
+	vx_size = 1;
+	int vol_size = vx_count * vx_size;
+	float half_vol_size = vol_size * 0.5f;
+
+	Eigen::Affine3f grid_affine = Eigen::Affine3f::Identity();
+	grid_affine.translate(Eigen::Vector3f(0, 0, half_vol_size));
+	grid_affine.scale(Eigen::Vector3f(1, 1, 1));	// z is negative inside of screen
+	Eigen::Matrix4f grid_matrix = grid_affine.matrix();
+
+	float knt_near_plane = 0.1f;
+	float knt_far_plane = 10240.0f;
+	Eigen::Matrix4f projection = perspective_matrix<float>(KINECT_V2_FOVY, KINECT_V2_DEPTH_ASPECT_RATIO, knt_near_plane, knt_far_plane);
+
+	Eigen::Matrix4f view_matrix = Eigen::Matrix4f::Identity();
+
+
+	knt_cuda_setup(3, 1, grid_matrix.data(), projection.data(), KINECT_V2_DEPTH_WIDTH, KINECT_V2_DEPTH_HEIGHT);
+
+	knt_cuda_allocate();
+
+	knt_cuda_copy_host_to_device();
+
+	knt_cuda_update_grid(view_matrix.data());
+
+	int total_voxels = vx_count * vx_count * vx_count;
+	std::vector<Eigen::Vector2f> grid_voxels_params(total_voxels);
+	knt_cuda_grid_params_copy_device_to_host(&grid_voxels_params[0][0]);
+
+
+	knt_cuda_free();
+
+	timer.start();
+	//export_volume("../../data/grid_volume_gpu_knt.obj", voxel_count.cast<int>(), voxel_size.cast<int>(), grid_voxels_params, grid_affine_2.matrix());
+	export_params("../../data/grid_volume_gpu_params_knt_cuda.txt", grid_voxels_params);
+	timer.print_interval("Exporting volume        : ");
+
+
+	std::cout << "Ok. Tudo certo" << std::endl;
+}
+
+
 ////////////////////////////////////////////////////////////////////////////////
 // Program main
 ////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char **argv)
 {
+	return test_knt_kernels();
+
 	if (argc < 6)
 	{
 		std::cerr << "Missing parameters. Abort."
@@ -561,7 +620,7 @@ int main(int argc, char **argv)
 	//
 	timer.start();
 	
-
+#if 0
 	if (filepath.find(".knt") != std::string::npos)
 	{
 		return run_for_knt(argc, argv);
@@ -574,12 +633,8 @@ int main(int argc, char **argv)
 	{
 		std::cerr << "Error: File format not supported. Use .obj or .knt" << std::endl;
 	}
+#endif
 
-
-	
-
-
-	
 
 
 

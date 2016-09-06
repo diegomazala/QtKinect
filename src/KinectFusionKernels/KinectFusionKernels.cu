@@ -111,20 +111,13 @@ __global__ void grid_update_kernel(
 			float vg[4] = { 0, 0, 0, 0 };
 			float v[4] = { 0, 0, 0, 0 };
 
+
 			// grid space
-#if 1
 			float g[4] = {
 				float(x * vx_size - half_vol_size),
 				float(y * vx_size - half_vol_size),
 				float(z * vx_size - half_vol_size),
 				1.0f };
-#else
-			float g[4] = {
-				float(x * vx_size),
-				float(y * vx_size),
-				float(z * vx_size),
-				1.0f };
-#endif
 
 
 			// to world space
@@ -138,8 +131,8 @@ __global__ void grid_update_kernel(
 			for (short i = 0; i < m; i++)
 				for (short j = 0; j < k; j++)
 					v[j] += view_matrix_16f[i * m + j] * vg[i];		// col major
-			//v[j] += view_matrix_inv_16f[i * m + j] * vg[i];	// col major
-			//v[i] += view_matrix_inv_16f[i * m + j] * vg[j];	// row major
+					//v[j] += view_matrix_inv_16f[i * m + j] * vg[i];	// col major
+					//v[i] += view_matrix_inv_16f[i * m + j] * vg[j];	// row major
 
 
 			// compute clip space vertex
@@ -316,8 +309,16 @@ extern "C"
 		//checkCudaErrors(cudaFree(normal_buffer_dev));
 	}
 
-	void knt_cuda_run_kernel()
+	void knt_cuda_update_grid(const float* view_matrix_16f)
 	{
+		checkCudaErrors(
+			cudaMemcpy(
+			view_matrix_dev_ptr,
+			view_matrix_16f,
+			sizeof(float) * 16,
+			cudaMemcpyHostToDevice
+			));
+
 		grid_update_kernel << < 1, grid.voxel_count.z >> >(
 			grid_params_dev_ptr,
 			grid.voxel_count.x,
@@ -362,8 +363,20 @@ extern "C"
 
 	void knt_cuda_copy_device_to_host()
 	{
-
+		
 	}
+
+	void knt_cuda_grid_params_copy_device_to_host(float* grid_params_2f)
+	{
+		checkCudaErrors(
+			cudaMemcpy(
+			grid_params_2f,
+			grid_params_dev_ptr,
+			sizeof(float) * 2 * grid.total_voxels(),
+			cudaMemcpyDeviceToHost
+			));
+	}
+
 }
 
 #endif // #ifndef _KINECT_CUDA_KERNELS_CU_

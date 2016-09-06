@@ -39,6 +39,9 @@
     <ProjectReference Include="cuda_kernels.vcxproj">
       <Project>{835e1b3c-b685-4290-8c71-0f36f3e1d3bd}</Project>
     </ProjectReference>
+    <ProjectReference Include="KinectFusionKernels.vcxproj">
+      <Project>{4a8dfec1-dedf-4fe7-921f-8af7b0aa6d58}</Project>
+    </ProjectReference>
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{BD6523CD-D73B-4D7E-91E7-896F70D13209}</ProjectGuid>
