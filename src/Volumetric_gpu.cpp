@@ -29,6 +29,8 @@
 #include "KinectSpecs.h"
 #include "Volumetric_helper.h"
 
+#include "KinectFusionKernels/KinectFusionKernels.h"
+
 //
 // globals
 // 
@@ -36,12 +38,6 @@ Timer timer;
 std::string filepath = "../../data/monkey.obj";
 int vx_count = 256;
 int vx_size = 2;
-int cloud_count = 1;
-int rot_interval = 30;
-std::vector<Eigen::Vector4f> points3DOrig;
-std::size_t point_count = 0;
-std::size_t pixel_count = 0;
-Eigen::Matrix4f K;
 
 
 
@@ -56,29 +52,6 @@ static void export_params(const std::string& filename, const std::vector<Eigen::
 	file.close();
 }
 
-#if 0
-// Required to include CUDA vector types
-#include <cuda_runtime.h>
-#include <vector_types.h>
-#include "cuda_kernels/cuda_kernels.h"
-#include "Raycasting.h"
-
-
-
-
-static void export_knt_frame(const std::string& filename, const KinectFrame& knt)
-{
-	std::ofstream file;
-	file.open(filename);
-	for (ushort y = 0; y < knt.depth_height(); ++y)
-	{
-		for (ushort x = 0; x < knt.depth_width(); ++x)
-		{
-			file << std::fixed << "v " << x << ' ' << y << ' ' << knt.depth_at(x, y) << std::endl;
-		}
-	}
-	file.close();
-}
 
 
 static void multDirMatrix(const Eigen::Vector3f &src, const Eigen::Matrix4f &mat, Eigen::Vector3f &dst)
@@ -94,356 +67,18 @@ static void multDirMatrix(const Eigen::Vector3f &src, const Eigen::Matrix4f &mat
 	dst.z() = c;
 }
 
-
-template <typename Type>
-static Eigen::Matrix<Type, 3, 1> compute_normal(
-	const Eigen::Matrix<Type, 3, 1>& p1,
-	const Eigen::Matrix<Type, 3, 1>& p2,
-	const Eigen::Matrix<Type, 3, 1>& p3)
+int volumetric_knt_cuda(int argc, char **argv)
 {
-	Eigen::Matrix<Type, 3, 1> u = p2 - p1;
-	Eigen::Matrix<Type, 3, 1> v = p3 - p1;
-
-	return v.cross(u).normalized();
-}
-
-template <typename Type>
-static Eigen::Matrix<Type, 3, 1> reflect(const Eigen::Matrix<Type, 3, 1>& i, const Eigen::Matrix<Type, 3, 1>& n)
-{
-	return i - 2.0 * n * n.dot(i);
-}
-
-
-
-
-
-void run_for_obj()
-{
-	import_obj(filepath, points3DOrig);
-	timer.print_interval("Importing obj file  : ");
-	std::cout << filepath << " point count  : " << points3DOrig.size() << std::endl;
-
-	point_count = points3DOrig.size();
-	pixel_count = static_cast<const std::size_t>(window_width * window_height);
-
-	K = perspective_matrix<float>(fov_y, aspect_ratio, near_plane, far_plane);
-	std::pair<Eigen::Matrix4f, Eigen::Matrix4f>	T(Eigen::Matrix4f::Identity(), Eigen::Matrix4f::Identity());
-
-	// 
-	// Translating and rotating monkey point cloud 
-	std::pair<std::vector<Eigen::Vector4f>, std::vector<Eigen::Vector4f>> cloud;
-	cloud.first.resize(points3DOrig.size());
-	cloud.second.resize(points3DOrig.size());
-	//
-	Eigen::Affine3f rotate = Eigen::Affine3f::Identity();
-	//rotate.rotate(Eigen::AngleAxisf(DegToRad(90), Eigen::Vector3f::UnitY()));
-	Eigen::Affine3f translate = Eigen::Affine3f::Identity();
-	translate.translate(Eigen::Vector3f(0, 0, -256));
-
-
-	Eigen::Matrix4f identity_mat4f = Eigen::Matrix4f::Identity();
-	Eigen::Matrix4f trans_rot = translate.matrix() * rotate.matrix();
-
-	// 
-	// Compute first cloud
-	//
-	timer.start();
-	//matrix_mulf(&cloud.first[0][0], translate.matrix().data(), &points3DOrig[0][0], translate.matrix().rows(), translate.matrix().cols(), points3DOrig.size());
-	matrix_mulf(&cloud.first[0][0], trans_rot.data(), &points3DOrig[0][0], trans_rot.rows(), trans_rot.cols(), (int)points3DOrig.size());
-	//matrix_mulf(&cloud.second[0][0], trans_rot.data(), &points3DOrig[0][0], trans_rot.rows(), trans_rot.cols(), points3DOrig.size());
-	timer.print_interval("GPU compute first cloud : ");
-
-	//export_obj("../../data/out_gpu_1.obj", cloud.first);
-	//export_obj("../../data/out_gpu_2.obj", cloud.second);
-
-	std::pair<std::vector<Eigen::Vector2f>, std::vector<Eigen::Vector2f>> window_coords;
-	window_coords.first.resize(point_count);
-	window_coords.second.resize(point_count);
-
-	std::pair<std::vector<ushort>, std::vector<ushort>> depth_buffer;
-	depth_buffer.first.resize(pixel_count, far_plane);
-	depth_buffer.second.resize(pixel_count, far_plane);
-
-	timer.start();
-	compute_depth_buffer(
-		&depth_buffer.first.data()[0],
-		&window_coords.first[0][0],
-		&cloud.first[0][0],
-		(uint)cloud.first.size(),
-		K.data(),
-		window_width,
-		window_height);
-	timer.print_interval("GPU compute depth 1     : ");
-
-	timer.start();
-	compute_depth_buffer(
-		&depth_buffer.second.data()[0],
-		&window_coords.first[0][0],
-		&cloud.second[0][0],
-		(uint)cloud.second.size(),
-		K.data(),
-		window_width,
-		window_height);
-	timer.print_interval("GPU compute depth 2     : ");
-
-	//export_depth_buffer("../../data/gpu_depth_buffer_1.obj", depth_buffer.first);
-	//export_depth_buffer("../../data/gpu_depth_buffer_2.obj", depth_buffer.second);
-
-
-	//
-	// Creating volume
-	//
+	Timer timer;
+	//vx_count = 3;
+	//vx_size = 1;
 	int vol_size = vx_count * vx_size;
-	Eigen::Vector3f voxel_size(vx_size, vx_size, vx_size);
-	Eigen::Vector3f volume_size(vol_size, vol_size, vol_size);
-	Eigen::Vector3f voxel_count(vx_count, vx_count, vx_count);
-	//
-	const int total_voxels = vx_count * vx_count * vx_count;
+	float half_vol_size = vol_size * 0.5f;
 
-
-	Eigen::Affine3f grid_affine = Eigen::Affine3f::Identity();
-	grid_affine.translate(Eigen::Vector3f(0, 0, -256));
-	grid_affine.scale(Eigen::Vector3f(1, 1, -1));	// z is negative inside of screen
-
-	//std::vector<Eigen::Vector4f> grid_voxels_points(total_voxels);
-	std::vector<Eigen::Vector2f> grid_voxels_params(total_voxels, Eigen::Vector2f(0.0f, 1.0f));
-
-	//
-	// Creating grid in GPU
-	//
-	timer.start();
-	Eigen::Matrix4f identity_mat = Eigen::Matrix4f::Identity();
-	Eigen::Matrix4f grid_matrix = grid_affine.matrix();
-	Eigen::Matrix4f grid_matrix_inv = grid_matrix.inverse();
-
-	grid_init(vx_count, vx_size, grid_matrix.data(), grid_matrix_inv.data(), K.data());
-	timer.print_interval("GPU create grid         : ");
-
-	//
-	// Update volume
-	//
-	timer.start();
-	Eigen::Matrix4f view_matrix = T.first;
-	Eigen::Matrix4f view_matrix_inv = view_matrix.inverse();
-	grid_update(view_matrix.data(), view_matrix_inv.data(), &depth_buffer.first.data()[0], window_width, window_height);
-	timer.print_interval("GPU update              : ");
-
-	////
-	//// Get data from gpu
-	////
-	//timer.start();
-	//grid_get_data(&grid_voxels_points[0][0], &grid_voxels_params[0][0]);
-	//timer.print_interval("GPU get data            : ");
-	//
-	//
-	//timer.start();
-	//export_volume("../../data/grid_volume_gpu.obj", grid_voxels_points, grid_voxels_params);
-	//timer.print_interval("Exporting volume        : ");
-
-	grid_get_data(&grid_voxels_params[0][0]);
-
-	//std::cout << "------- // --------" << std::endl;
-	//for (int i = 0; i < grid_voxels_points.size(); ++i)
-	//{
-	//	const Eigen::Vector4f& point = grid_voxels_points[i];
-	//	const Eigen::Vector2f& param = grid_voxels_params[i];
-
-	//	std::cout << std::fixed << point.transpose() << "\t\t" << param.transpose() << std::endl;
-	//}
-	//std::cout << "------- // --------" << std::endl;
-
-	//
-	// Compute next clouds
-	Eigen::Matrix4f cloud_mat = Eigen::Matrix4f::Identity();
-	Timer iter_timer;
-	for (int i = 1; i < cloud_count; ++i)
-	{
-		std::cout << std::endl << i << " : " << i * rot_interval << std::endl;
-		iter_timer.start();
-
-		//
-		// Rotation matrix
-		//
-		rotate = Eigen::Affine3f::Identity();
-		rotate.rotate(Eigen::AngleAxisf(DegToRad(i * rot_interval), Eigen::Vector3f::UnitY()));
-
-
-		// 
-		// Compute next cloud
-		//
-		timer.start();
-		cloud.second.clear();
-		cloud.second.resize(points3DOrig.size());
-		matrix_mulf(&cloud.second[0][0], trans_rot.data(), &points3DOrig[0][0], trans_rot.rows(), trans_rot.cols(), (int)points3DOrig.size());
-		timer.print_interval("GPU compute next cloud  : ");
-
-		//export_obj("../../data/cloud_cpu_2.obj", cloud.second);
-
-
-		// 
-		// Compute depth buffer
-		//
-		timer.start();
-		compute_depth_buffer(
-			&depth_buffer.second.data()[0],
-			&window_coords.second[0][0],
-			&cloud.second[0][0],
-			(uint)cloud.second.size(),
-			K.data(),
-			window_width,
-			window_height);
-		timer.print_interval("GPU compute depth 2     : ");
-
-		//export_depth_buffer("../../data/gpu_depth_buffer_2.obj", depth_buffer.second);
-
-		timer.start();
-		Eigen::Matrix4f icp_mat;
-		ComputeRigidTransform(cloud.first, cloud.second, icp_mat);
-		timer.print_interval("Compute rigid transform : ");
-
-		// accumulate matrix
-		cloud_mat = cloud_mat * icp_mat;
-
-		////
-		//// Update Volume in CPU
-		////
-		//timer.start();
-		//grid_get_data(&grid_voxels_points[0][0], &grid_voxels_params[0][0]);
-		//update_volume(grid_voxels_points, grid_voxels_params, depth_buffer.second, K, cloud_mat.inverse(), vol_size, vx_size);
-		//timer.print_interval("Update volume           : ");
-
-		//
-		// Update volume in GPU
-		//
-		timer.start();
-		view_matrix = cloud_mat;
-		view_matrix_inv = view_matrix.inverse();
-		//grid_update(view_matrix.data(), view_matrix_inv.data(), &depth_buffer.second.data()[0], window_width, window_height);
-		grid_update(view_matrix_inv.data(), view_matrix.data(), &depth_buffer.second.data()[0], window_width, window_height);
-		timer.print_interval("Update volume           : ");
-
-		// copy second point cloud to first
-		cloud.first = cloud.second;
-		//depth_buffer.first = depth_buffer.second;
-
-		iter_timer.print_interval("Iteration time          : ");
-	}
-
-
-	//
-	// Get data from gpu
-	//
-	timer.start();
-	grid_get_data(&grid_voxels_params[0][0]);
-	timer.print_interval("GPU get data            : ");
-
-
-	timer.start();
-	//export_volume("../../data/grid_volume_gpu.obj", grid_voxels_points, grid_voxels_params);
-	timer.print_interval("Exporting volume        : ");
-}
-
-
-
-
-int run_for_knt(int argc, char **argv)
-{
-	timer.start();
-	float knt_near_plane = 0.1f;
-	float knt_far_plane = 10240.0f;
-
-	KinectFrame knt(filepath);
-	std::cout << "KinectFrame loaded: " << knt.depth.size() << std::endl;
-	timer.print_interval("Importing knt frame : ");
-
-	//export_knt_frame("../../data/knt_frame_depth.obj", knt);
-	//return;
-
-	//std::pair<Eigen::Matrix4f, Eigen::Matrix4f>	T(Eigen::Matrix4f::Identity(), Eigen::Matrix4f::Identity());
-	
-	K = perspective_matrix<float>(KINECT_V2_FOVY, KINECT_V2_DEPTH_ASPECT_RATIO, knt_near_plane, knt_far_plane);
-	Eigen::Matrix4f proj_inv = K.inverse();
-	
-	
-	pixel_count = static_cast<const std::size_t>(knt.depth_width() * knt.depth_height());
-
-
-	std::pair<std::vector<ushort>, std::vector<ushort>> depth_buffer;
-	depth_buffer.first.resize(pixel_count, far_plane);
-	depth_buffer.second.resize(pixel_count, far_plane);
-
-
-	//
-	// converting depth buffer to float
-	// //
-	for (int i = 0; i < pixel_count; ++i)
-	{
-		depth_buffer.first[i] = depth_buffer.second[i] = knt.depth[i];
-	}
-
-
-	//
-	// Creating volume
-	//
-	int vol_size = vx_count * vx_size;
-	Eigen::Vector3f voxel_size(vx_size, vx_size, vx_size);
-	Eigen::Vector3f volume_size(vol_size, vol_size, vol_size);
-	Eigen::Vector3f voxel_count(vx_count, vx_count, vx_count);
-	Eigen::Vector3f half_volume_size = volume_size * 0.5f;
-	const float half_vol_size = vol_size * 0.5f;
-	const int total_voxels = vx_count * vx_count * vx_count;
-	
-
-	std::cout << "cpu : " << voxel_count.x() << " * " << voxel_size.x() << " = " << volume_size.x() << std::endl;
-
-
-	Eigen::Affine3f grid_affine = Eigen::Affine3f::Identity();
-	grid_affine.translate(Eigen::Vector3f(0, 0, half_vol_size));
-	grid_affine.scale(Eigen::Vector3f(1, 1, 1));	// z is negative inside of screen
-
-
-	//
-	// Creating grid in GPU
-	//
-	timer.start();
-	Eigen::Matrix4f identity_mat = Eigen::Matrix4f::Identity();
-	Eigen::Matrix4f grid_matrix = grid_affine.matrix();
-	Eigen::Matrix4f grid_matrix_inv = grid_matrix.inverse();
-
-	grid_init(vx_count, vx_size, grid_matrix.data(), grid_matrix_inv.data(), K.data());
-	timer.print_interval("GPU create grid         : ");
-
-
-	//
-	// Update volume
-	//
-	timer.start();
-	Eigen::Matrix4f view_matrix = Eigen::Matrix4f::Identity();
-	Eigen::Matrix4f view_matrix_inv = view_matrix.inverse();
-	grid_update(view_matrix.data(), view_matrix_inv.data(), &depth_buffer.first.data()[0], knt.depth_width(), knt.depth_height());
-	timer.print_interval("GPU update              : ");
-
-
-
-	//
-	// Get data from gpu
-	//
-	std::vector<Eigen::Vector2f> grid_voxels_params(total_voxels);
-	timer.start();
-	grid_get_data(&grid_voxels_params[0][0]);
-	timer.print_interval("GPU get data            : ");
-	
-	
-
-	Eigen::Affine3f grid_affine_2 = Eigen::Affine3f::Identity();
-	grid_affine_2.translate(Eigen::Vector3f(-half_vol_size, -half_vol_size, 0));
-
-
-	timer.start();
-	export_volume("../../data/grid_volume_gpu_knt.obj", voxel_count.cast<int>(), voxel_size.cast<int>(), grid_voxels_params, grid_affine_2.matrix());
-	//export_params("../../data/grid_volume_gpu_params.txt", grid_voxels_params);
-	timer.print_interval("Exporting volume        : ");
-
+	Eigen::Vector3i voxel_size(vx_size, vx_size, vx_size);
+	Eigen::Vector3i volume_size(vol_size, vol_size, vol_size);
+	Eigen::Vector3i voxel_count(vx_count, vx_count, vx_count);
+	int total_voxels = voxel_count.x() * voxel_count.y() * voxel_count.z();
 
 
 	std::cout << std::fixed
@@ -451,9 +86,58 @@ int run_for_knt(int argc, char **argv)
 		<< "Voxel Size   : " << voxel_size.transpose() << std::endl
 		<< "Volume Size  : " << volume_size.transpose() << std::endl
 		<< "Total Voxels : " << total_voxels << std::endl
-		<< "Total Params : " << grid_voxels_params.size() << std::endl;
-	
-	//return 0;
+		<< std::endl;
+
+	timer.start();
+	KinectFrame knt(filepath);
+	std::cout << "KinectFrame loaded: " << knt.depth.size() << std::endl;
+	timer.print_interval("Importing knt frame : ");
+
+	Eigen::Affine3f grid_affine = Eigen::Affine3f::Identity();
+	grid_affine.translate(Eigen::Vector3f(0, 0, half_vol_size));
+	grid_affine.scale(Eigen::Vector3f(1, 1, 1));	// z is negative inside of screen
+	Eigen::Matrix4f grid_matrix = grid_affine.matrix();
+
+	float knt_near_plane = 0.1f;
+	float knt_far_plane = 10240.0f;
+	Eigen::Matrix4f projection = perspective_matrix<float>(KINECT_V2_FOVY, KINECT_V2_DEPTH_ASPECT_RATIO, knt_near_plane, knt_far_plane);
+
+	Eigen::Matrix4f view_matrix = Eigen::Matrix4f::Identity();
+
+
+	knt_cuda_setup(vx_count, vx_size, grid_matrix.data(), projection.data(), KINECT_V2_DEPTH_WIDTH, KINECT_V2_DEPTH_HEIGHT);
+
+	std::cout << "Cuda allocating ...      " << std::endl;
+	knt_cuda_allocate();
+	knt_cuda_init_grid();
+
+	std::cout << "Cuda host to device ...  " << std::endl;
+	knt_cuda_copy_host_to_device();
+
+	std::cout << "Cuda update grid ...     " << std::endl;
+	knt_cuda_update_grid(knt.depth.data(), view_matrix.data());
+
+	std::vector<Eigen::Vector2f> grid_voxels_params(total_voxels);
+	knt_cuda_grid_params_copy_device_to_host(&grid_voxels_params[0][0]);
+
+	std::cout << "Cuda cleanup ...         " << std::endl;
+	knt_cuda_free();
+
+	std::cout << "Grid exporting to file..." << std::endl;
+
+	Eigen::Affine3f grid_affine_2 = Eigen::Affine3f::Identity();
+	grid_affine_2.translate(Eigen::Vector3f(-half_vol_size, -half_vol_size, 0));
+
+	timer.start();
+	//export_volume(
+	//	"../../data/grid_volume_gpu_knt.obj", 
+	//	voxel_count,
+	//	voxel_size,
+	//	grid_voxels_params, 
+	//	grid_affine_2.matrix());
+
+	//export_params("../../data/grid_volume_gpu_params_knt_cuda.txt", grid_voxels_params);
+	timer.print_interval("Exporting volume        : ");
 
 
 	//
@@ -461,7 +145,7 @@ int run_for_knt(int argc, char **argv)
 	//
 	Eigen::Affine3f camera_to_world = Eigen::Affine3f::Identity();
 	float cam_z = -128; // -512; // (-voxel_count.z() - 1) * vx_size;
-	camera_to_world.translate(Eigen::Vector3f(half_volume_size.x(), half_volume_size.y(), cam_z));
+	camera_to_world.translate(Eigen::Vector3f(half_vol_size, half_vol_size, cam_z));
 
 
 	//camera_to_world.translate(Eigen::Vector3f(256, 1024, -512));
@@ -529,57 +213,6 @@ int run_for_knt(int argc, char **argv)
 	widget.show();
 
 	return app.exec();
-
-
-}
-
-
-#endif
-
-
-#include "KinectFusionKernels/KinectFusionKernels.h"
-void test_knt_kernels()
-{
-	Timer timer;
-	vx_count = 3;
-	vx_size = 1;
-	int vol_size = vx_count * vx_size;
-	float half_vol_size = vol_size * 0.5f;
-
-	Eigen::Affine3f grid_affine = Eigen::Affine3f::Identity();
-	grid_affine.translate(Eigen::Vector3f(0, 0, half_vol_size));
-	grid_affine.scale(Eigen::Vector3f(1, 1, 1));	// z is negative inside of screen
-	Eigen::Matrix4f grid_matrix = grid_affine.matrix();
-
-	float knt_near_plane = 0.1f;
-	float knt_far_plane = 10240.0f;
-	Eigen::Matrix4f projection = perspective_matrix<float>(KINECT_V2_FOVY, KINECT_V2_DEPTH_ASPECT_RATIO, knt_near_plane, knt_far_plane);
-
-	Eigen::Matrix4f view_matrix = Eigen::Matrix4f::Identity();
-
-
-	knt_cuda_setup(3, 1, grid_matrix.data(), projection.data(), KINECT_V2_DEPTH_WIDTH, KINECT_V2_DEPTH_HEIGHT);
-
-	knt_cuda_allocate();
-
-	knt_cuda_copy_host_to_device();
-
-	knt_cuda_update_grid(view_matrix.data());
-
-	int total_voxels = vx_count * vx_count * vx_count;
-	std::vector<Eigen::Vector2f> grid_voxels_params(total_voxels);
-	knt_cuda_grid_params_copy_device_to_host(&grid_voxels_params[0][0]);
-
-
-	knt_cuda_free();
-
-	timer.start();
-	//export_volume("../../data/grid_volume_gpu_knt.obj", voxel_count.cast<int>(), voxel_size.cast<int>(), grid_voxels_params, grid_affine_2.matrix());
-	export_params("../../data/grid_volume_gpu_params_knt_cuda.txt", grid_voxels_params);
-	timer.print_interval("Exporting volume        : ");
-
-
-	std::cout << "Ok. Tudo certo" << std::endl;
 }
 
 
@@ -588,65 +221,26 @@ void test_knt_kernels()
 ////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char **argv)
 {
-	return test_knt_kernels();
-
-	if (argc < 6)
+	if (argc < 4)
 	{
 		std::cerr << "Missing parameters. Abort."
 			<< std::endl
-			<< "Usage:  ./Volumetricd.exe ../../data/monkey.obj 32 8 2 90"
 			<< "Usage:  ./Volumetricd.exe ../../data/room.knt 256 2 2 90"
 			<< std::endl
 			<< "The app will continue with default parameters."
 			<< std::endl;
 		
-		filepath = "../../data/monkey.obj";
-		vx_count = 32;
-		vx_size = 8;
-		cloud_count = 2;
-		rot_interval = 90;
+		filepath = "../../data/room.knt";
+		vx_count = 256;
+		vx_size = 2;
 	}
 	else
 	{
 		filepath = argv[1];
 		vx_count = atoi(argv[2]);
 		vx_size = atoi(argv[3]);
-		cloud_count = atoi(argv[4]);
-		rot_interval = atoi(argv[5]);
 	}
 
-	//
-	// Importing file
-	//
-	timer.start();
-	
-#if 0
-	if (filepath.find(".knt") != std::string::npos)
-	{
-		return run_for_knt(argc, argv);
-	}
-	else if (filepath.find(".obj") != std::string::npos)
-	{
-		run_for_obj();
-	}
-	else
-	{
-		std::cerr << "Error: File format not supported. Use .obj or .knt" << std::endl;
-	}
-#endif
-
-
-
-
-	//std::cout << "------- // --------" << std::endl;
-	//for (int i = 0; i < grid_voxels_points.size(); ++i)
-	//{
-	//	const Eigen::Vector4f& point = grid_voxels_points[i];
-	//	const Eigen::Vector2f& param = grid_voxels_params[i];
-	//
-	//	std::cout << point.transpose() << "\t\t" << param.transpose() << std::endl;
-	//}
-	//std::cout << "------- // --------" << std::endl;
-
+	return volumetric_knt_cuda(argc, argv);
 }
 

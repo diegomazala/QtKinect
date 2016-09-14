@@ -4,6 +4,7 @@
 #include "KinectFusionKernels.h"
 #include <helper_cuda.h>
 #include <helper_math.h>
+#include "cuda.h"
 
 #define MinTruncation 0.5f
 #define MaxTruncation 1.1f
@@ -72,6 +73,30 @@ float* view_matrix_dev_ptr			= nullptr;
 float grid_matrix_host[16];
 float projection_matrix_host[16];
 
+
+__global__ void grid_init_kernel(
+	float* grid_voxels_params_2f,
+	ushort vx_count)
+{
+	const ulong threadId = blockIdx.x * blockDim.x + threadIdx.x;
+	const ulong z = threadId;
+
+	const dim3 voxel_count = { vx_count, vx_count, vx_count };
+
+	for (short y = 0; y < voxel_count.y; ++y)
+	{
+		for (short x = 0; x < voxel_count.x; ++x)
+		{
+			const unsigned long voxel_index = x + voxel_count.x * (y + voxel_count.z * z);
+			
+			// initialize grid with the new values
+			grid_voxels_params_2f[voxel_index * 2 + 0] = 1.0f;
+			grid_voxels_params_2f[voxel_index * 2 + 1] = 1.0f;
+		}
+	}
+
+}
+
 __global__ void grid_update_kernel(
 	float* grid_voxels_params_2f,
 	ushort vx_count,
@@ -107,7 +132,7 @@ __global__ void grid_update_kernel(
 	{
 		for (short x = 0; x < voxel_count.x; ++x)
 		{
-			const unsigned long voxel_index = x + voxel_count.x * (y + voxel_count.z * z);
+			const ulong voxel_index = x + voxel_count.x * (y + voxel_count.z * z);
 			float vg[4] = { 0, 0, 0, 0 };
 			float v[4] = { 0, 0, 0, 0 };
 
@@ -157,6 +182,7 @@ __global__ void grid_update_kernel(
 			// cast to int 
 			const int2 pixel = { (int)window_coord.x, (int)window_coord.y };
 
+
 			// compute depth buffer pixel index in the array
 			const int depth_pixel_index = pixel.y * window_width + pixel.x;
 
@@ -169,6 +195,7 @@ __global__ void grid_update_kernel(
 			//const float Dp = fabs(depth_buffer[depth_pixel_index]) * 0.1f;
 			const float Dp = depth_buffer[depth_pixel_index] * 0.1f;
 
+
 			// compute distance from vertex to camera
 			float distance_vertex_camera = sqrt(
 				pow(ti.x - vg[0], 2) +
@@ -179,7 +206,6 @@ __global__ void grid_update_kernel(
 
 			//// compute signed distance function
 			const float sdf = Dp - distance_vertex_camera;
-
 
 
 			//const double half_voxel_size = voxel_size;// *0.5;
@@ -309,8 +335,28 @@ extern "C"
 		//checkCudaErrors(cudaFree(normal_buffer_dev));
 	}
 
-	void knt_cuda_update_grid(const float* view_matrix_16f)
+	void knt_cuda_init_grid()
 	{
+		grid_init_kernel << < 1, grid.voxel_count.z >> >(
+			grid_params_dev_ptr,
+			grid.voxel_count.x
+			);
+
+		checkCudaErrors(cudaDeviceSynchronize());
+	}
+
+	void knt_cuda_update_grid(
+		const ushort* depth_buffer_host_ptr,
+		const float* view_matrix_16f)
+	{
+		checkCudaErrors(
+			cudaMemcpy(
+			depth_buffer.dev_ptr,
+			depth_buffer_host_ptr,
+			sizeof(ushort) * depth_buffer.width * depth_buffer.height,
+			cudaMemcpyHostToDevice
+			));
+
 		checkCudaErrors(
 			cudaMemcpy(
 			view_matrix_dev_ptr,
