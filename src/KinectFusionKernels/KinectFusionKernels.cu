@@ -4,7 +4,6 @@
 #include "KinectFusionKernels.h"
 #include <helper_cuda.h>
 #include <helper_math.h>
-#include "cuda.h"
 
 #define MinTruncation 0.5f
 #define MaxTruncation 1.1f
@@ -52,6 +51,16 @@ struct buffer_2d
 
 	buffer_2d() :dev_ptr(nullptr){}
 };
+struct buffer_2d_f4
+{
+	ushort width;
+	ushort height;
+	size_t pitch;
+	float4* dev_ptr;
+	float4* host_ptr;
+
+	buffer_2d_f4() :dev_ptr(nullptr), host_ptr(nullptr){}
+};
 
 static const float matrix_identity[16] = {
 	1, 0, 0, 0,
@@ -60,18 +69,30 @@ static const float matrix_identity[16] = {
 	0, 0, 0, 1 };
 
 
-buffer_2d	depth_buffer;
-grid_3d		grid;
+buffer_2d		depth_buffer;
+buffer_2d_f4	vertex_buffer;
+buffer_2d_f4	normal_buffer;
+grid_3d			grid;
+ushort			depth_min_distance;
+ushort			depth_max_distance;
 
 
-float* grid_params_dev_ptr			= nullptr;
+float* grid_params_dev_ptr					= nullptr;
 
-float* grid_matrix_dev_ptr			= nullptr;
-float* projection_matrix_dev_ptr	= nullptr;
-float* view_matrix_dev_ptr			= nullptr;
+float* grid_matrix_dev_ptr					= nullptr;
+float* projection_matrix_dev_ptr			= nullptr;
+float* projection_inverse_matrix_dev_ptr	= nullptr;
+float* view_matrix_dev_ptr					= nullptr;
 
 float grid_matrix_host[16];
 float projection_matrix_host[16];
+float projection_inverse_matrix_host[16];
+
+//
+// Gpu typedefs
+//
+texture<ushort, 2> ushortTexture;
+texture<float4, 2, cudaReadModeElementType> float4Texture;
 
 
 __global__ void grid_init_kernel(
@@ -96,6 +117,7 @@ __global__ void grid_init_kernel(
 	}
 
 }
+
 
 __global__ void grid_update_kernel(
 	float* grid_voxels_params_2f,
@@ -243,27 +265,147 @@ __global__ void grid_update_kernel(
 }
 
 
+// cross product 
+inline __host__ __device__ float4 cross(float4 a, float4 b)
+{
+	return make_float4(a.y*b.z - a.z*b.y, a.z*b.x - a.x*b.z, a.x*b.y - a.y*b.x, 1.0f);
+}
+
+
+__device__ void matrix_mul_mat_vec_kernel_device(
+	const float *a, 
+	const float *b, 
+	float *c, 
+	int width)
+{
+	int m = width;
+	int k = width;
+	//int n = 1;
+
+	for (int i = 0; i < m; i++)
+		for (int j = 0; j < k; j++)
+			c[j] += a[i * m + j] * b[i];		// col major
+	//c[i] += a[i * m + j] * b[j];		// row major
+}
+
+
+__device__ void window_coord_to_3d_kernel_device(
+	float4* out_vertex,
+	const int x,
+	const int y,
+	const float depth,
+	const float* inverse_projection_mat4x4,
+	const int window_width,
+	const int window_height)
+{
+	float ndc[3];
+	ndc[0] = (x - (window_width * 0.5f)) / (window_width * 0.5f);
+	ndc[1] = (y - (window_height * 0.5f)) / (window_height * 0.5f);
+	ndc[2] = -1.0f;
+
+	float clip[4];
+	clip[0] = ndc[0] * depth;
+	clip[1] = ndc[1] * depth;
+	clip[2] = ndc[2] * depth;
+	clip[3] = 1.0f;
+
+	float vertex_proj_inv[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+	matrix_mul_mat_vec_kernel_device(inverse_projection_mat4x4, clip, vertex_proj_inv, 4);
+
+	out_vertex->x = -vertex_proj_inv[0];
+	out_vertex->y = -vertex_proj_inv[1];
+	out_vertex->z = depth;
+	out_vertex->w = 1.0f;
+
+	//out_vertex->x = clip[0];
+	//out_vertex->y = clip[1];
+	//out_vertex->z = clip[2];
+	//out_vertex->w = 1.0f;
+}
+
+
+__global__ void	d_back_projection_with_normal_estimate_kernel(
+	float4 *out_vertices,
+	int w, int h,
+	ushort max_depth,
+	float* inverse_projection_16f)
+{
+	int x = blockIdx.x*blockDim.x + threadIdx.x;
+	int y = blockIdx.y*blockDim.y + threadIdx.y;
+
+	if (x >= w || y >= h)
+	{
+		return;
+	}
+
+	float depth = ((float)tex2D(ushortTexture, x, y)) * 0.1f;
+	float4 vertex;
+	window_coord_to_3d_kernel_device(&vertex, x, y, depth, inverse_projection_16f, w, h);
+
+	out_vertices[y * w + x] = vertex;
+}
+
+
+__global__ void	d_normal_estimate_kernel(float4 *out_normals, int w, int h)
+{
+	int x = blockIdx.x*blockDim.x + threadIdx.x;
+	int y = blockIdx.y*blockDim.y + threadIdx.y;
+
+	if (x >= w || y >= h)
+	{
+		return;
+	}
+
+	const float4 vertex_uv = tex2D(float4Texture, x, y);
+	const float4 vertex_u1v = tex2D(float4Texture, x + 1, y);
+	const float4 vertex_uv1 = tex2D(float4Texture, x, y + 1);
+
+	if (vertex_uv.z < 0.01 || vertex_u1v.z < 0.01 || vertex_uv1.z < 0.01)
+	{
+		out_normals[y * w + x] = make_float4(0, 0, 1, 1);
+		return;
+	}
+
+	const float4 n1 = vertex_u1v - vertex_uv;
+	const float4 n2 = vertex_uv1 - vertex_uv;
+	const float4 n = cross(n1, n2);
+
+	out_normals[y * w + x] = normalize(n);
+}
+
+
 extern "C"
 {
-
-	
 
 	void knt_cuda_setup(
 		ushort vx_count,
 		ushort vx_size,
 		const float* grid_matrix_16f,
 		const float* projection_matrix_16f,
+		const float* projection_inverse_matrix_16f,
 		ushort depth_width,
-		ushort depth_height)
+		ushort depth_height,
+		ushort min_depth,
+		ushort max_depth,
+		float4& vertex_4f_host_ref,
+		float4& normal_4f_host_ref)
 	{
 		grid.voxel_count = make_ushort3(vx_count, vx_count, vx_count);
 		grid.voxel_size = make_ushort3(vx_size, vx_size, vx_size);
 
 		std::memcpy(&grid_matrix_host[0], grid_matrix_16f, sizeof(float) * 16);
 		std::memcpy(&projection_matrix_host[0], projection_matrix_16f, sizeof(float) * 16);
+		std::memcpy(&projection_inverse_matrix_host[0], projection_inverse_matrix_16f, sizeof(float) * 16);
 
 		depth_buffer.width = depth_width;
 		depth_buffer.height = depth_height;
+		depth_min_distance = min_depth;
+		depth_max_distance = max_depth;
+
+		vertex_buffer.width = normal_buffer.width = depth_width;
+		vertex_buffer.height = normal_buffer.height = depth_height;
+		vertex_buffer.host_ptr = &vertex_4f_host_ref;
+		normal_buffer.host_ptr = &normal_4f_host_ref;
 	}
 
 
@@ -274,6 +416,7 @@ extern "C"
 		//
 		checkCudaErrors(cudaMalloc(&grid_matrix_dev_ptr, sizeof(float) * 16));
 		checkCudaErrors(cudaMalloc(&projection_matrix_dev_ptr, sizeof(float) * 16));
+		checkCudaErrors(cudaMalloc(&projection_inverse_matrix_dev_ptr, sizeof(float) * 16));
 		checkCudaErrors(cudaMalloc(&view_matrix_dev_ptr, sizeof(float) * 16));
 
 		//
@@ -291,26 +434,25 @@ extern "C"
 			sizeof(ushort) * depth_buffer.width,
 			depth_buffer.height));
 
-		////
-		//// allocate memory in gpu for vertices
-		////
-		//checkCudaErrors(
-		//	cudaMallocPitch(
-		//	&vertex_buffer_dev,
-		//	&vertex_pitch,
-		//	depth_width * sizeof(float4),
-		//	depth_height));
+		//
+		// allocate memory in gpu for vertices
+		//
+		checkCudaErrors(
+			cudaMallocPitch(
+			&vertex_buffer.dev_ptr,
+			&vertex_buffer.pitch,
+			sizeof(float4) * vertex_buffer.width,
+			vertex_buffer.height));
 
-		////
-		//// allocate memory in gpu for normals
-		////
-		//checkCudaErrors(
-		//	cudaMallocPitch(
-		//	&normal_buffer_dev,
-		//	&normal_pitch,
-		//	depth_width * sizeof(float4),
-		//	depth_height));
-
+		//
+		// allocate memory in gpu for normals
+		//
+		checkCudaErrors(
+			cudaMallocPitch(
+			&normal_buffer.dev_ptr,
+			&normal_buffer.pitch,
+			sizeof(float4) * normal_buffer.width,
+			normal_buffer.height));
 	}
 
 
@@ -330,9 +472,11 @@ extern "C"
 		checkCudaErrors(cudaFree(depth_buffer.dev_ptr));
 		depth_buffer.dev_ptr		= nullptr;
 
+		checkCudaErrors(cudaFree(vertex_buffer.dev_ptr));
+		vertex_buffer.dev_ptr = nullptr;
 
-		//checkCudaErrors(cudaFree(vertex_buffer_dev));
-		//checkCudaErrors(cudaFree(normal_buffer_dev));
+		checkCudaErrors(cudaFree(normal_buffer.dev_ptr));
+		normal_buffer.dev_ptr = nullptr;
 	}
 
 	void knt_cuda_init_grid()
@@ -346,17 +490,8 @@ extern "C"
 	}
 
 	void knt_cuda_update_grid(
-		const ushort* depth_buffer_host_ptr,
 		const float* view_matrix_16f)
 	{
-		checkCudaErrors(
-			cudaMemcpy(
-			depth_buffer.dev_ptr,
-			depth_buffer_host_ptr,
-			sizeof(ushort) * depth_buffer.width * depth_buffer.height,
-			cudaMemcpyHostToDevice
-			));
-
 		checkCudaErrors(
 			cudaMemcpy(
 			view_matrix_dev_ptr,
@@ -380,6 +515,49 @@ extern "C"
 		checkCudaErrors(cudaDeviceSynchronize());
 	}
 
+
+
+	void knt_cuda_normal_estimation()
+	{
+		cudaChannelFormatDesc desc = cudaCreateChannelDesc<ushort>();
+		checkCudaErrors(cudaBindTexture2D(0, ushortTexture, depth_buffer.dev_ptr, desc, depth_buffer.width, depth_buffer.height, depth_buffer.pitch));
+
+		const dim3 threads_per_block(32, 32);
+		dim3 num_blocks;
+		num_blocks.x = (depth_buffer.width + threads_per_block.x - 1) / threads_per_block.x;
+		num_blocks.y = (depth_buffer.height + threads_per_block.y - 1) / threads_per_block.y;
+
+		d_back_projection_with_normal_estimate_kernel << <  num_blocks, threads_per_block >> >(
+			vertex_buffer.dev_ptr,
+			vertex_buffer.width,
+			vertex_buffer.height,
+			depth_max_distance,
+			projection_inverse_matrix_dev_ptr
+			);
+
+		cudaChannelFormatDesc desc_normal = cudaCreateChannelDesc<float4>();
+		checkCudaErrors(cudaBindTexture2D(0, float4Texture, vertex_buffer.dev_ptr, desc_normal, vertex_buffer.width, vertex_buffer.height, normal_buffer.pitch));
+
+		d_normal_estimate_kernel << <  num_blocks, threads_per_block >> >(
+			normal_buffer.dev_ptr,
+			normal_buffer.width,
+			normal_buffer.height);
+	}
+
+
+
+	void knt_cuda_copy_depth_buffer_to_device(
+		const ushort* depth_buffer_host_ptr)
+	{
+		checkCudaErrors(
+			cudaMemcpy(
+			depth_buffer.dev_ptr,
+			depth_buffer_host_ptr,
+			sizeof(ushort) * depth_buffer.width * depth_buffer.height,
+			cudaMemcpyHostToDevice
+			));
+	}
+
 	void knt_cuda_copy_host_to_device()
 	{
 		checkCudaErrors(
@@ -400,6 +578,14 @@ extern "C"
 
 		checkCudaErrors(
 			cudaMemcpy(
+			projection_inverse_matrix_dev_ptr,
+			&projection_inverse_matrix_host[0],
+			sizeof(float) * 16,
+			cudaMemcpyHostToDevice
+			));
+
+		checkCudaErrors(
+			cudaMemcpy(
 			view_matrix_dev_ptr,
 			&matrix_identity[0],
 			sizeof(float) * 16,
@@ -407,9 +593,39 @@ extern "C"
 			));
 	}
 
+	void knt_cuda_copy_vertices_device_to_host(void* host_ptr)
+	{
+		cudaMemcpy2D(
+			host_ptr,
+			sizeof(float4) * depth_buffer.width,
+			vertex_buffer.dev_ptr,
+			vertex_buffer.pitch,
+			sizeof(float4) * depth_buffer.width,
+			depth_buffer.height,
+			cudaMemcpyDeviceToHost);
+	}
+
 	void knt_cuda_copy_device_to_host()
 	{
-		
+		if (vertex_buffer.host_ptr != nullptr)
+			cudaMemcpy2D(
+				vertex_buffer.host_ptr,
+				sizeof(float4) * depth_buffer.width,
+				vertex_buffer.dev_ptr,
+				vertex_buffer.pitch,
+				sizeof(float4) * depth_buffer.width,
+				depth_buffer.height,
+				cudaMemcpyDeviceToHost);
+
+		if (normal_buffer.host_ptr != nullptr)
+			cudaMemcpy2D(
+				normal_buffer.host_ptr,
+				sizeof(float4) * depth_buffer.width,
+				normal_buffer.dev_ptr,
+				normal_buffer.pitch,
+				sizeof(float4) * depth_buffer.width,
+				depth_buffer.height,
+				cudaMemcpyDeviceToHost);
 	}
 
 	void knt_cuda_grid_params_copy_device_to_host(float* grid_params_2f)

@@ -40,6 +40,23 @@ int vx_count = 256;
 int vx_size = 2;
 
 
+static void export_obj_with_colors(const std::string& filename, const std::vector<float4>& vertices, const std::vector<float4>& normals)
+{
+	std::ofstream file;
+	file.open(filename);
+	for (int i = 0; i < vertices.size(); ++i)
+	{
+		const auto& v = vertices[i];
+		const auto& c = normals[i];
+		file << std::fixed << "v " 
+			<< v.x << ' ' << v.y << ' ' << v.z 
+			<< '\t' 
+			<< int(c.x * 255) << ' ' << int(c.y * 255) << ' ' << int(c.z * 255)
+			<< std::endl;
+	}
+	file.close();
+}
+
 
 static void export_params(const std::string& filename, const std::vector<Eigen::Vector2f>& params) //, const Eigen::Matrix4f& transformation = Eigen::Matrix4f::Identity())
 {
@@ -101,11 +118,23 @@ int volumetric_knt_cuda(int argc, char **argv)
 	float knt_near_plane = 0.1f;
 	float knt_far_plane = 10240.0f;
 	Eigen::Matrix4f projection = perspective_matrix<float>(KINECT_V2_FOVY, KINECT_V2_DEPTH_ASPECT_RATIO, knt_near_plane, knt_far_plane);
-
+	Eigen::Matrix4f projection_inverse = projection.inverse();
 	Eigen::Matrix4f view_matrix = Eigen::Matrix4f::Identity();
 
+	std::vector<float4> vertices(KINECT_V2_DEPTH_WIDTH * KINECT_V2_DEPTH_HEIGHT);
+	std::vector<float4> normals(KINECT_V2_DEPTH_WIDTH * KINECT_V2_DEPTH_HEIGHT);
 
-	knt_cuda_setup(vx_count, vx_size, grid_matrix.data(), projection.data(), KINECT_V2_DEPTH_WIDTH, KINECT_V2_DEPTH_HEIGHT);
+	knt_cuda_setup(
+		vx_count, vx_size, 
+		grid_matrix.data(), 
+		projection.data(), 
+		projection_inverse.data(),
+		KINECT_V2_DEPTH_WIDTH, 
+		KINECT_V2_DEPTH_HEIGHT,
+		KINECT_V2_DEPTH_MIN,
+		KINECT_V2_DEPTH_MAX,
+		vertices.data()[0],
+		normals.data()[0]);
 
 	std::cout << "Cuda allocating ...      " << std::endl;
 	knt_cuda_allocate();
@@ -115,13 +144,17 @@ int volumetric_knt_cuda(int argc, char **argv)
 	knt_cuda_copy_host_to_device();
 
 	std::cout << "Cuda update grid ...     " << std::endl;
-	knt_cuda_update_grid(knt.depth.data(), view_matrix.data());
+	knt_cuda_copy_depth_buffer_to_device(knt.depth.data());
+	knt_cuda_normal_estimation();
+	knt_cuda_update_grid(view_matrix.data());
 
 	std::vector<Eigen::Vector2f> grid_voxels_params(total_voxels);
 	knt_cuda_grid_params_copy_device_to_host(&grid_voxels_params[0][0]);
+	
+	std::cout << "Cuda get data from dev..." << std::endl;
+	knt_cuda_copy_device_to_host();
 
-	std::cout << "Cuda cleanup ...         " << std::endl;
-	knt_cuda_free();
+
 
 	std::cout << "Grid exporting to file..." << std::endl;
 
@@ -129,16 +162,24 @@ int volumetric_knt_cuda(int argc, char **argv)
 	grid_affine_2.translate(Eigen::Vector3f(-half_vol_size, -half_vol_size, 0));
 
 	timer.start();
-	//export_volume(
-	//	"../../data/grid_volume_gpu_knt.obj", 
-	//	voxel_count,
-	//	voxel_size,
-	//	grid_voxels_params, 
-	//	grid_affine_2.matrix());
+	export_volume(
+		"../../data/grid_volume_gpu_knt.obj", 
+		voxel_count,
+		voxel_size,
+		grid_voxels_params, 
+		grid_affine_2.matrix());
 
 	//export_params("../../data/grid_volume_gpu_params_knt_cuda.txt", grid_voxels_params);
+
+	//export_obj<float>("../../data/knt_frame.obj", &vertices.data()[0].x, vertices.size(), 4);
+	export_obj_with_colors("../../data/knt_frame.obj", vertices, normals);
+
 	timer.print_interval("Exporting volume        : ");
 
+	std::cout << "Cuda cleanup ...         " << std::endl;
+	knt_cuda_free();
+
+	return 0;
 
 	//
 	// setup camera parameters

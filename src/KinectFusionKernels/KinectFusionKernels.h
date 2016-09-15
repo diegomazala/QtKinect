@@ -41,8 +41,13 @@ extern "C"
 		ushort vx_size,
 		const float* grid_matrix_16f,
 		const float* projection_matrix_16f,
+		const float* projection_inverse_matrix_16f,
 		ushort depth_width, 
-		ushort depth_height);
+		ushort depth_height,
+		ushort _min_depth,
+		ushort _max_depth,
+		float4& vertex_4f_host_ref,
+		float4& normal_4f_host_ref);
 
 	void knt_cuda_allocate();
 	void knt_cuda_free();
@@ -50,9 +55,14 @@ extern "C"
 	void knt_cuda_init_grid();
 
 	void knt_cuda_update_grid(
-		const ushort* depth_buffer_host_ptr, 
 		const float* view_matrix_16f);
 
+	void knt_cuda_copy_depth_buffer_to_device(
+		const ushort* depth_buffer_host_ptr);
+	
+	void knt_cuda_normal_estimation();
+
+	void knt_cuda_copy_vertices_device_to_host(void* host_ptr);
 	void knt_cuda_copy_host_to_device();
 	void knt_cuda_copy_device_to_host();
 	void knt_cuda_grid_params_copy_device_to_host(float* grid_params_2f);

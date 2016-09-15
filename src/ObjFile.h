@@ -240,6 +240,7 @@ static void export_obj_with_colors(const std::string& filename, const std::vecto
 }
 
 
+
 template<typename Type, int Rows>
 static void export_obj(const std::string& filename, const std::vector<Eigen::Matrix<Type, Rows, 1>>& vertices)
 {
@@ -248,6 +249,21 @@ static void export_obj(const std::string& filename, const std::vector<Eigen::Mat
 	for (const auto v : vertices)
 	{
 		file << std::fixed << "v " << v.transpose() << std::endl;
+	}
+	file.close();
+}
+
+template<typename Type>
+static void export_obj(const std::string& filename, const Type* vertex_array, const size_t vertex_count, const size_t tuple_size)
+{
+	std::ofstream file;
+	file.open(filename);
+	for (size_t i = 0; i < vertex_count * tuple_size; i += tuple_size)
+	{
+		file << std::fixed << "v ";
+		for (size_t j = 0; j < tuple_size; ++j)
+			file << vertex_array[i+j] << ' ';
+		file << std::endl;
 	}
 	file.close();
 }
