@@ -226,7 +226,7 @@ static void export_obj_with_normals(const std::string& filename, const std::vect
 }
 
 template<typename Type, int Rows>
-static void export_obj_with_colors(const std::string& filename, const std::vector<Eigen::Matrix<Type, Rows, 1>>& vertices, const std::vector<Eigen::Vector3f>& rgb)
+static void export_obj_with_colors(const std::string& filename, const std::vector<Eigen::Matrix<Type, Rows, 1>>& vertices, const std::vector<Eigen::Vector3i>& rgb)
 {
 	std::ofstream file;
 	file.open(filename);

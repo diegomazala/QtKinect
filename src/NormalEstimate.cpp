@@ -8,6 +8,7 @@
 #include "Projection.h"
 #include "Volumetric_helper.h"
 #include "KinectFrame.h"
+#include "KinectSpecs.h"
 
 
 
@@ -39,14 +40,14 @@ int main(int argc, char **argv)
 		KinectFrame::load(input_filename, frame);
 		timer.print_interval("Importing kinect frame    : ");
 
-		const float fovy = 70.0f;
-		const float aspect_ratio = static_cast<float>(frame.depth_width()) / static_cast<float>(frame.depth_height());
-		const float near_plane = 0.1f;
-		const float far_plane = 10240.0f;
+		const float fovy = KINECT_V2_FOVY; 
+		const float aspect_ratio = KINECT_V2_DEPTH_ASPECT_RATIO;
+		const float near_plane = KINECT_V2_DEPTH_MIN;
+		const float far_plane = KINECT_V2_DEPTH_MAX;
 
 		std::vector<Eigen::Vector3f> vertices(frame.depth.size(), Eigen::Vector3f(0, 0, 0));
 		std::vector<Eigen::Vector3f> normals(frame.depth.size(), Eigen::Vector3f(0, 0, 1));
-		std::vector<Eigen::Vector3f> colors(frame.depth.size(), Eigen::Vector3f(0, 0, 255));
+		std::vector<Eigen::Vector3i> colors(frame.depth.size(), Eigen::Vector3i(0, 0, 255));
 
 		timer.start();
 
@@ -74,7 +75,7 @@ int main(int argc, char **argv)
 
 					vertices[i] = vert_uv;
 					normals[i] = n;
-					colors[i] = ((n * 0.5f + Eigen::Vector3f(0.5, 0.5, 0.5)) * 255.0f);
+					colors[i] = ((n * 0.5f + Eigen::Vector3f(0.5, 0.5, 0.5)) * 255.0f).cast<int>();
 				}
 			}
 		}
