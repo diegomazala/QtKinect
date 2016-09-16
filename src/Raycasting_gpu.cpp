@@ -124,6 +124,14 @@ int volumetric_knt_cuda(int argc, char **argv)
 	std::vector<float4> vertices(knt.depth.size(), make_float4(0, 0, 0, 1));
 	std::vector<float4> normals(knt.depth.size(), make_float4(0, 0, 1, 1));
 
+	// 
+	// setup image parameters
+	//
+	unsigned short image_width = KINECT_V2_DEPTH_WIDTH;
+	unsigned short image_height = image_width / aspect_ratio;
+	QImage image(image_width, image_height, QImage::Format_RGB888);
+	image.fill(Qt::GlobalColor::black);
+
 	knt_cuda_setup(
 		vx_count, vx_size,
 		grid_matrix.data(),
@@ -134,7 +142,11 @@ int volumetric_knt_cuda(int argc, char **argv)
 		KINECT_V2_DEPTH_MIN,
 		KINECT_V2_DEPTH_MAX,
 		vertices.data()[0],
-		normals.data()[0]);
+		normals.data()[0],
+		image_width,
+		image_height,
+		(uchar4&)*image.bits()
+		);
 
 	std::cout << "Cuda allocating ...      " << std::endl;
 	knt_cuda_allocate();
@@ -168,15 +180,9 @@ int volumetric_knt_cuda(int argc, char **argv)
 	//	voxel_size,
 	//	grid_voxels_params,
 	//	grid_affine_2.matrix());
-
 	//export_params("../../data/grid_volume_gpu_params_knt_cuda.txt", grid_voxels_params);
-
-	export_obj_with_colors("../../data/knt_frame_normals.obj", vertices, normals);
-
+	//export_obj_with_colors("../../data/knt_frame_normals.obj", vertices, normals);
 	timer.print_interval("Exporting volume        : ");
-
-	std::cout << "Cuda cleanup ...         " << std::endl;
-	knt_cuda_free();
 
 
 	//
@@ -185,6 +191,13 @@ int volumetric_knt_cuda(int argc, char **argv)
 	Eigen::Affine3f camera_to_world = Eigen::Affine3f::Identity();
 	float cam_z = -128; // -512; // (-voxel_count.z() - 1) * vx_size;
 	camera_to_world.translate(Eigen::Vector3f(half_vol_size, half_vol_size, cam_z));
+	knt_cuda_raycast(KINECT_V2_FOVY, KINECT_V2_DEPTH_ASPECT_RATIO, camera_to_world.matrix().data());
+
+	std::cout << "Cuda cleanup ...         " << std::endl;
+	knt_cuda_free();
+
+
+	
 
 
 	//camera_to_world.translate(Eigen::Vector3f(256, 1024, -512));
@@ -194,14 +207,6 @@ int volumetric_knt_cuda(int argc, char **argv)
 	float scale = (float)tan(DegToRad(KINECT_V2_FOVY * 0.5f));
 	float aspect_ratio = KINECT_V2_DEPTH_ASPECT_RATIO;
 
-	// 
-	// setup image parameters
-	//
-	unsigned short image_width = KINECT_V2_DEPTH_WIDTH;
-	unsigned short image_height = image_width / aspect_ratio;
-	unsigned char* image_data = new unsigned char[image_width * image_height * 3]{0}; // rgb
-	QImage image(image_data, image_width, image_height, QImage::Format_RGB888);
-	image.fill(Qt::GlobalColor::black);
 
 	//
 	// for each pixel, trace a ray
@@ -224,7 +229,7 @@ int volumetric_knt_cuda(int argc, char **argv)
 			direction.normalize();
 
 			std::vector<int> voxels_zero_crossing;
-			if (raycast_tsdf_volume<float>(
+			if (raycast_tsdf_volume<float>(	
 				camera_pos,
 				direction,
 				voxel_count.cast<int>(),

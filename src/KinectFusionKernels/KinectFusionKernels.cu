@@ -48,8 +48,19 @@ struct buffer_2d
 	ushort height;
 	size_t pitch;
 	ushort* dev_ptr;
+	ushort* host_ptr;
 
-	buffer_2d() :dev_ptr(nullptr){}
+	buffer_2d() :dev_ptr(nullptr), host_ptr(nullptr){}
+};
+struct buffer_image_2d
+{
+	ushort width;
+	ushort height;
+	size_t pitch;
+	uchar4* dev_ptr;
+	uchar4* host_ptr;
+
+	buffer_image_2d() :dev_ptr(nullptr), host_ptr(nullptr){}
 };
 struct buffer_2d_f4
 {
@@ -70,11 +81,12 @@ static const float matrix_identity[16] = {
 
 
 buffer_2d		depth_buffer;
+ushort			depth_min_distance;
+ushort			depth_max_distance;
 buffer_2d_f4	vertex_buffer;
 buffer_2d_f4	normal_buffer;
 grid_3d			grid;
-ushort			depth_min_distance;
-ushort			depth_max_distance;
+buffer_image_2d	image_buffer;
 
 
 float* grid_params_dev_ptr					= nullptr;
@@ -83,6 +95,7 @@ float* grid_matrix_dev_ptr					= nullptr;
 float* projection_matrix_dev_ptr			= nullptr;
 float* projection_inverse_matrix_dev_ptr	= nullptr;
 float* view_matrix_dev_ptr					= nullptr;
+float* camera_to_world_matrix_dev_ptr		= nullptr;
 
 float grid_matrix_host[16];
 float projection_matrix_host[16];
@@ -94,6 +107,9 @@ float projection_inverse_matrix_host[16];
 texture<ushort, 2> ushortTexture;
 texture<float4, 2, cudaReadModeElementType> float4Texture;
 
+#define PI 3.14159265359
+__host__ __device__ float deg2rad(float deg) { return deg*PI / 180.0; }
+__host__ __device__ float rad2deg(float rad) { return 180.0*rad / PI; }
 
 __global__ void grid_init_kernel(
 	float* grid_voxels_params_2f,
@@ -324,7 +340,7 @@ __device__ void window_coord_to_3d_kernel_device(
 }
 
 
-__global__ void	d_back_projection_with_normal_estimate_kernel(
+__global__ void	back_projection_with_normal_estimate_kernel(
 	float4 *out_vertices,
 	int w, int h,
 	ushort max_depth,
@@ -346,7 +362,7 @@ __global__ void	d_back_projection_with_normal_estimate_kernel(
 }
 
 
-__global__ void	d_normal_estimate_kernel(float4 *out_normals, int w, int h)
+__global__ void	normal_estimate_kernel(float4 *out_normals, int w, int h)
 {
 	int x = blockIdx.x*blockDim.x + threadIdx.x;
 	int y = blockIdx.y*blockDim.y + threadIdx.y;
@@ -374,6 +390,27 @@ __global__ void	d_normal_estimate_kernel(float4 *out_normals, int w, int h)
 }
 
 
+
+__global__ void	raycast_kernel(
+	uchar4 *out_image,
+	int w, int h,
+	float fov_scale,
+	float aspect_ratio,
+	float* camera_to_world_16f)
+{
+	int x = blockIdx.x*blockDim.x + threadIdx.x;
+	int y = blockIdx.y*blockDim.y + threadIdx.y;
+
+	if (x >= w || y >= h)
+	{
+		return;
+	}
+
+
+	out_image[y * w + x] = make_uchar4(128, 0, 0, 255);
+}
+
+
 extern "C"
 {
 
@@ -388,7 +425,10 @@ extern "C"
 		ushort min_depth,
 		ushort max_depth,
 		float4& vertex_4f_host_ref,
-		float4& normal_4f_host_ref)
+		float4& normal_4f_host_ref,
+		ushort output_image_width,
+		ushort output_image_height,
+		uchar4& output_image_4uc_ref)
 	{
 		grid.voxel_count = make_ushort3(vx_count, vx_count, vx_count);
 		grid.voxel_size = make_ushort3(vx_size, vx_size, vx_size);
@@ -406,6 +446,10 @@ extern "C"
 		vertex_buffer.height = normal_buffer.height = depth_height;
 		vertex_buffer.host_ptr = &vertex_4f_host_ref;
 		normal_buffer.host_ptr = &normal_4f_host_ref;
+
+		image_buffer.width = output_image_width;
+		image_buffer.height = output_image_height;
+		image_buffer.host_ptr = &output_image_4uc_ref;
 	}
 
 
@@ -418,6 +462,8 @@ extern "C"
 		checkCudaErrors(cudaMalloc(&projection_matrix_dev_ptr, sizeof(float) * 16));
 		checkCudaErrors(cudaMalloc(&projection_inverse_matrix_dev_ptr, sizeof(float) * 16));
 		checkCudaErrors(cudaMalloc(&view_matrix_dev_ptr, sizeof(float) * 16));
+		checkCudaErrors(cudaMalloc(&camera_to_world_matrix_dev_ptr, sizeof(float) * 16));
+		
 
 		//
 		// allocate memory in gpu for grid parameters
@@ -453,6 +499,17 @@ extern "C"
 			&normal_buffer.pitch,
 			sizeof(float4) * normal_buffer.width,
 			normal_buffer.height));
+
+
+		//
+		// allocate memory in gpu for output image
+		//
+		checkCudaErrors(
+			cudaMallocPitch(
+			&image_buffer.dev_ptr,
+			&image_buffer.pitch,
+			sizeof(uchar4) * image_buffer.width,
+			image_buffer.height));
 	}
 
 
@@ -461,10 +518,12 @@ extern "C"
 		checkCudaErrors(cudaFree(grid_matrix_dev_ptr));
 		checkCudaErrors(cudaFree(projection_matrix_dev_ptr));
 		checkCudaErrors(cudaFree(view_matrix_dev_ptr));
+		checkCudaErrors(cudaFree(camera_to_world_matrix_dev_ptr));
 
-		grid_matrix_dev_ptr			= nullptr;
-		projection_matrix_dev_ptr	= nullptr;
-		view_matrix_dev_ptr			= nullptr;
+		grid_matrix_dev_ptr				= nullptr;
+		projection_matrix_dev_ptr		= nullptr;
+		view_matrix_dev_ptr				= nullptr;
+		camera_to_world_matrix_dev_ptr	= nullptr;
 
 		checkCudaErrors(cudaFree(grid_params_dev_ptr));
 		grid_params_dev_ptr			= nullptr;
@@ -477,6 +536,9 @@ extern "C"
 
 		checkCudaErrors(cudaFree(normal_buffer.dev_ptr));
 		normal_buffer.dev_ptr = nullptr;
+
+		checkCudaErrors(cudaFree(image_buffer.dev_ptr));
+		image_buffer.dev_ptr = nullptr;
 	}
 
 	void knt_cuda_init_grid()
@@ -489,8 +551,7 @@ extern "C"
 		checkCudaErrors(cudaDeviceSynchronize());
 	}
 
-	void knt_cuda_update_grid(
-		const float* view_matrix_16f)
+	void knt_cuda_update_grid(const float* view_matrix_16f)
 	{
 		checkCudaErrors(
 			cudaMemcpy(
@@ -527,7 +588,7 @@ extern "C"
 		num_blocks.x = (depth_buffer.width + threads_per_block.x - 1) / threads_per_block.x;
 		num_blocks.y = (depth_buffer.height + threads_per_block.y - 1) / threads_per_block.y;
 
-		d_back_projection_with_normal_estimate_kernel << <  num_blocks, threads_per_block >> >(
+		back_projection_with_normal_estimate_kernel << <  num_blocks, threads_per_block >> >(
 			vertex_buffer.dev_ptr,
 			vertex_buffer.width,
 			vertex_buffer.height,
@@ -538,12 +599,53 @@ extern "C"
 		cudaChannelFormatDesc desc_normal = cudaCreateChannelDesc<float4>();
 		checkCudaErrors(cudaBindTexture2D(0, float4Texture, vertex_buffer.dev_ptr, desc_normal, vertex_buffer.width, vertex_buffer.height, normal_buffer.pitch));
 
-		d_normal_estimate_kernel << <  num_blocks, threads_per_block >> >(
+		normal_estimate_kernel << <  num_blocks, threads_per_block >> >(
 			normal_buffer.dev_ptr,
 			normal_buffer.width,
 			normal_buffer.height);
 	}
 
+
+	void knt_cuda_raycast(
+		float fovy,
+		float aspect_ratio,
+		const float* camera_to_world_matrix_16f)
+	{
+		float fov_scale = tan(deg2rad(fovy * 0.5f));
+
+		checkCudaErrors(
+			cudaMemcpy(
+			camera_to_world_matrix_dev_ptr,
+			camera_to_world_matrix_16f,
+			sizeof(float) * 16,
+			cudaMemcpyHostToDevice
+			));
+
+		const dim3 threads_per_block(32, 32);
+		dim3 num_blocks;
+		num_blocks.x = (image_buffer.width + threads_per_block.x - 1) / threads_per_block.x;
+		num_blocks.y = (image_buffer.height + threads_per_block.y - 1) / threads_per_block.y;
+
+		//cudaChannelFormatDesc channel_desc = cudaCreateChannelDesc<float4>();
+		//checkCudaErrors(
+		//	cudaBindTexture2D(
+		//	0, 
+		//	uchar4Texture, 
+		//	image_buffer.dev_ptr, 
+		//	channel_desc, 
+		//	image_buffer.width, 
+		//	image_buffer.height, 
+		//	image_buffer.pitch));
+
+		raycast_kernel << <  num_blocks, threads_per_block >> >(
+			image_buffer.dev_ptr,
+			image_buffer.width,
+			image_buffer.height,
+			fov_scale,
+			aspect_ratio,
+			camera_to_world_matrix_dev_ptr
+			);
+	}
 
 
 	void knt_cuda_copy_depth_buffer_to_device(

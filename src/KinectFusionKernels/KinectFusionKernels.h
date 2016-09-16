@@ -44,10 +44,13 @@ extern "C"
 		const float* projection_inverse_matrix_16f,
 		ushort depth_width, 
 		ushort depth_height,
-		ushort _min_depth,
-		ushort _max_depth,
+		ushort depth_min_dist,
+		ushort depth_max_dist,
 		float4& vertex_4f_host_ref,
-		float4& normal_4f_host_ref);
+		float4& normal_4f_host_ref,
+		ushort output_image_width,
+		ushort output_image_height,
+		uchar4& output_image_4uc_ref);
 
 	void knt_cuda_allocate();
 	void knt_cuda_free();
@@ -61,6 +64,15 @@ extern "C"
 		const ushort* depth_buffer_host_ptr);
 	
 	void knt_cuda_normal_estimation();
+
+	void knt_cuda_setup_output_image(
+		ushort image_width,
+		ushort image_height);
+
+	void knt_cuda_raycast(
+		float fovy,
+		float aspect_ratio,
+		const float* camera_to_world_matrix_16f);
 
 	void knt_cuda_copy_vertices_device_to_host(void* host_ptr);
 	void knt_cuda_copy_host_to_device();

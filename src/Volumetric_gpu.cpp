@@ -124,6 +124,9 @@ int volumetric_knt_cuda(int argc, char **argv)
 	std::vector<float4> vertices(knt.depth.size(), make_float4(0, 0, 0, 1));
 	std::vector<float4> normals(knt.depth.size(), make_float4(0, 0, 1, 1));
 
+	QImage image(2, 2, QImage::Format_RGB888);
+	image.fill(Qt::GlobalColor::black);
+
 	knt_cuda_setup(
 		vx_count, vx_size, 
 		grid_matrix.data(), 
@@ -134,7 +137,10 @@ int volumetric_knt_cuda(int argc, char **argv)
 		KINECT_V2_DEPTH_MIN,
 		KINECT_V2_DEPTH_MAX,
 		vertices.data()[0],
-		normals.data()[0]);
+		normals.data()[0],
+		image.width(),
+		image.height(),
+		(uchar4&)*image.bits());
 
 	std::cout << "Cuda allocating ...      " << std::endl;
 	knt_cuda_allocate();
