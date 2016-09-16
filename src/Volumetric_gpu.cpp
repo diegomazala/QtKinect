@@ -51,7 +51,7 @@ static void export_obj_with_colors(const std::string& filename, const std::vecto
 		file << std::fixed << "v " 
 			<< v.x << ' ' << v.y << ' ' << v.z 
 			<< '\t' 
-			<< int(c.x * 255) << ' ' << int(c.y * 255) << ' ' << int(c.z * 255)
+			<< int((c.x * 0.5f + 0.5f) * 255) << ' ' << int((c.y * 0.5f + 0.5f) * 255) << ' ' << int((c.z * 0.5f + 0.5f) * 255)
 			<< std::endl;
 	}
 	file.close();
@@ -121,8 +121,8 @@ int volumetric_knt_cuda(int argc, char **argv)
 	Eigen::Matrix4f projection_inverse = projection.inverse();
 	Eigen::Matrix4f view_matrix = Eigen::Matrix4f::Identity();
 
-	std::vector<float4> vertices(KINECT_V2_DEPTH_WIDTH * KINECT_V2_DEPTH_HEIGHT);
-	std::vector<float4> normals(KINECT_V2_DEPTH_WIDTH * KINECT_V2_DEPTH_HEIGHT);
+	std::vector<float4> vertices(knt.depth.size(), make_float4(0, 0, 0, 1));
+	std::vector<float4> normals(knt.depth.size(), make_float4(0, 0, 1, 1));
 
 	knt_cuda_setup(
 		vx_count, vx_size, 
