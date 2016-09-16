@@ -35,7 +35,7 @@
 // globals
 // 
 Timer timer;
-std::string filepath = "../../data/monkey.obj";
+std::string filepath = "../../data/room.knt";
 int vx_count = 256;
 int vx_size = 2;
 
@@ -171,89 +171,12 @@ int volumetric_knt_cuda(int argc, char **argv)
 
 	//export_params("../../data/grid_volume_gpu_params_knt_cuda.txt", grid_voxels_params);
 
-	//export_obj<float>("../../data/knt_frame.obj", &vertices.data()[0].x, vertices.size(), 4);
-	export_obj_with_colors("../../data/knt_frame.obj", vertices, normals);
-
 	timer.print_interval("Exporting volume        : ");
 
 	std::cout << "Cuda cleanup ...         " << std::endl;
 	knt_cuda_free();
 
 	return 0;
-
-	//
-	// setup camera parameters
-	//
-	Eigen::Affine3f camera_to_world = Eigen::Affine3f::Identity();
-	float cam_z = -128; // -512; // (-voxel_count.z() - 1) * vx_size;
-	camera_to_world.translate(Eigen::Vector3f(half_vol_size, half_vol_size, cam_z));
-
-
-	//camera_to_world.translate(Eigen::Vector3f(256, 1024, -512));
-	//camera_to_world.rotate(Eigen::AngleAxisf((float)DegToRad(-45.0f), Eigen::Vector3f::UnitX()));
-
-	Eigen::Vector3f camera_pos = camera_to_world.matrix().col(3).head<3>();
-	float scale = (float)tan(DegToRad(KINECT_V2_FOVY * 0.5f));
-	float aspect_ratio = KINECT_V2_DEPTH_ASPECT_RATIO;
-
-	// 
-	// setup image parameters
-	//
-	unsigned short image_width = KINECT_V2_DEPTH_WIDTH;
-	unsigned short image_height = image_width / aspect_ratio;
-	unsigned char* image_data = new unsigned char[image_width * image_height * 3]{0}; // rgb
-	QImage image(image_data, image_width, image_height, QImage::Format_RGB888);
-	image.fill(Qt::GlobalColor::black);
-
-	//
-	// for each pixel, trace a ray
-	//
-	timer.start();
-	for (int y = 0; y < image_height; ++y)
-	{
-		for (int x = 0; x < image_width; ++x)
-		{
-			// Convert from image space (in pixels) to screen space
-			// Screen Space along X axis = [-aspect ratio, aspect ratio] 
-			// Screen Space along Y axis = [-1, 1]
-			Eigen::Vector3f screen_coord(
-				(2 * (x + 0.5f) / (float)image_width - 1) * aspect_ratio * scale,
-				(1 - 2 * (y + 0.5f) / (float)image_height) * scale,
-				1.0f);
-
-			Eigen::Vector3f direction;
-			multDirMatrix(screen_coord, camera_to_world.matrix(), direction);
-			direction.normalize();
-
-			std::vector<int> voxels_zero_crossing;
-			if (raycast_tsdf_volume<float>(
-				camera_pos,
-				direction,
-				voxel_count.cast<int>(),
-				voxel_size.cast<int>(),
-				grid_voxels_params,
-				voxels_zero_crossing) > 0)
-			{
-				if (voxels_zero_crossing.size() == 2)
-				{
-					image.setPixel(QPoint(x, y), qRgb(128, 128, 0));
-				}
-				else
-				{
-					image.setPixel(QPoint(x, y), qRgb(128, 0, 0));
-				}
-			}
-		}
-	}
-	timer.print_interval("Raycasting to image     : ");
-
-	QApplication app(argc, argv);
-	QImageWidget widget;
-	widget.resize(KINECT_V2_DEPTH_WIDTH, KINECT_V2_DEPTH_HEIGHT);
-	widget.setImage(image);
-	widget.show();
-
-	return app.exec();
 }
 
 
