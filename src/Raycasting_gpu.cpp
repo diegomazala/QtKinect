@@ -40,6 +40,39 @@ int vx_count = 256;
 int vx_size = 2;
 
 
+static void export_debug_buffer(const std::string& filename, const float4* image_data, int width, int height)
+{
+	std::ofstream file;
+	file.open(filename);
+	int i = 0;
+	for (int y = 0; y < height; ++y)
+	{
+		for (int x = 0; x < width; ++x)
+		{
+			file << std::fixed << x << ' ' << y << ' ' << image_data[i].x << ' ' << image_data[i].y << ' ' << image_data[i].z << std::endl;
+			++i;
+		}
+	}
+	file.close();
+}
+
+
+static void export_image_buffer(const std::string& filename, const uchar4* image_data, int width, int height)
+{
+	std::ofstream file;
+	file.open(filename);
+	int i = 0;
+	for (int y = 0; y < height; ++y)
+	{
+		for (int x = 0; x < width; ++x)
+		{
+			file << std::fixed << x << ' ' << y << ' ' << (int)image_data[i].x << ' ' << (int)image_data[i].y << ' ' << (int)image_data[i].z << std::endl;
+			++i;
+		}
+	}
+	file.close();
+}
+
 static void export_obj_with_colors(const std::string& filename, const std::vector<float4>& vertices, const std::vector<float4>& normals)
 {
 	std::ofstream file;
@@ -123,20 +156,26 @@ int volumetric_knt_cuda(int argc, char **argv)
 
 	std::vector<float4> vertices(knt.depth.size(), make_float4(0, 0, 0, 1));
 	std::vector<float4> normals(knt.depth.size(), make_float4(0, 0, 1, 1));
+	std::vector<Eigen::Vector2f> grid_voxels_params(total_voxels);
 
 	// 
 	// setup image parameters
 	//
-	unsigned short image_width = KINECT_V2_DEPTH_WIDTH;
+	unsigned short image_width = KINECT_V2_DEPTH_WIDTH / 4;
 	unsigned short image_height = image_width / aspect_ratio;
-	QImage image(image_width, image_height, QImage::Format_RGB888);
-	image.fill(Qt::GlobalColor::black);
+	uchar4* image_data = new uchar4[image_width * image_height];
+	memset(image_data, 0, image_width * image_height * sizeof(uchar4));
+	float4* debug_buffer = new float4[image_width * image_height];
+	memset(debug_buffer, 0, image_width * image_height * sizeof(float4));
+
+	
 
 	knt_cuda_setup(
 		vx_count, vx_size,
 		grid_matrix.data(),
 		projection.data(),
 		projection_inverse.data(),
+		*grid_voxels_params.data()->data(),
 		KINECT_V2_DEPTH_WIDTH,
 		KINECT_V2_DEPTH_HEIGHT,
 		KINECT_V2_DEPTH_MIN,
@@ -145,7 +184,8 @@ int volumetric_knt_cuda(int argc, char **argv)
 		normals.data()[0],
 		image_width,
 		image_height,
-		(uchar4&)*image.bits()
+		*image_data,
+		*debug_buffer
 		);
 
 	std::cout << "Cuda allocating ...      " << std::endl;
@@ -160,8 +200,7 @@ int volumetric_knt_cuda(int argc, char **argv)
 	knt_cuda_normal_estimation();
 	knt_cuda_update_grid(view_matrix.data());
 
-	std::vector<Eigen::Vector2f> grid_voxels_params(total_voxels);
-	knt_cuda_grid_params_copy_device_to_host(&grid_voxels_params[0][0]);
+	knt_cuda_grid_params_copy_device_to_host();
 
 	std::cout << "Cuda get data from dev..." << std::endl;
 	knt_cuda_copy_device_to_host();
@@ -193,18 +232,23 @@ int volumetric_knt_cuda(int argc, char **argv)
 	camera_to_world.translate(Eigen::Vector3f(half_vol_size, half_vol_size, cam_z));
 	knt_cuda_raycast(KINECT_V2_FOVY, KINECT_V2_DEPTH_ASPECT_RATIO, camera_to_world.matrix().data());
 
+
+	knt_cuda_copy_image_device_to_host();
+
+
 	std::cout << "Cuda cleanup ...         " << std::endl;
 	knt_cuda_free();
 
 
 	
-
-
+#if 1
+	memset(image_data, 0, image_width * image_height * sizeof(uchar4));
+	memset(debug_buffer, 0, image_width * image_height * sizeof(float4));
 	//camera_to_world.translate(Eigen::Vector3f(256, 1024, -512));
 	//camera_to_world.rotate(Eigen::AngleAxisf((float)DegToRad(-45.0f), Eigen::Vector3f::UnitX()));
 
 	Eigen::Vector3f camera_pos = camera_to_world.matrix().col(3).head<3>();
-	float scale = (float)tan(DegToRad(KINECT_V2_FOVY * 0.5f));
+	float fov_scale = (float)tan(DegToRad(KINECT_V2_FOVY * 0.5f));
 	float aspect_ratio = KINECT_V2_DEPTH_ASPECT_RATIO;
 
 
@@ -219,14 +263,31 @@ int volumetric_knt_cuda(int argc, char **argv)
 			// Convert from image space (in pixels) to screen space
 			// Screen Space along X axis = [-aspect ratio, aspect ratio] 
 			// Screen Space along Y axis = [-1, 1]
+			float x_norm = (2.f * float(x) + 0.5f) / (float)image_width;
+			float y_norm = (2.f * float(y) + 0.5f) / (float)image_height;
 			Eigen::Vector3f screen_coord(
-				(2 * (x + 0.5f) / (float)image_width - 1) * aspect_ratio * scale,
-				(1 - 2 * (y + 0.5f) / (float)image_height) * scale,
+				//(2 * (x + 0.5f) / (float)image_width - 1) * aspect_ratio * fov_scale,
+				//(1 - 2 * (y + 0.5f) / (float)image_height) * scale,
+				//1.0f);
+				(x_norm - 1.f) * aspect_ratio * fov_scale,
+				(1.f - y_norm) * fov_scale,
 				1.0f);
+
+			//image.setPixel(QPoint(x, y), qRgb(direction.x() * 255, direction.y() * 255, direction.z() * 255));
+			//image.setPixel(QPoint(x, y), qRgb((uchar)(screen_coord.x() * 255), (uchar)(screen_coord.y() * 255), (uchar)(screen_coord.z() * 255)));
+			//continue;
 
 			Eigen::Vector3f direction;
 			multDirMatrix(screen_coord, camera_to_world.matrix(), direction);
 			direction.normalize();
+
+
+			debug_buffer[y * image_width + x].x = direction.x();
+			debug_buffer[y * image_width + x].y = direction.y();
+			debug_buffer[y * image_width + x].z = direction.z();
+			debug_buffer[y * image_width + x].w = 1.f;
+			continue;
+
 
 			std::vector<int> voxels_zero_crossing;
 			if (raycast_tsdf_volume<float>(	
@@ -239,17 +300,35 @@ int volumetric_knt_cuda(int argc, char **argv)
 			{
 				if (voxels_zero_crossing.size() == 2)
 				{
-					image.setPixel(QPoint(x, y), qRgb(128, 128, 0));
+					//image.setPixel(QPoint(x, y), qRgb(128, 128, 0));
+					image_data[y * image_width + x].x = 128;
+					image_data[y * image_width + x].y = 128;
+					image_data[y * image_width + x].z = 0;
+					image_data[y * image_width + x].w = 255;
 				}
 				else
 				{
-					image.setPixel(QPoint(x, y), qRgb(128, 0, 0));
+					//image.setPixel(QPoint(x, y), qRgb(128, 0, 0));
+					image_data[y * image_width + x].x = 128;
+					image_data[y * image_width + x].y = 0;
+					image_data[y * image_width + x].z = 0;
+					image_data[y * image_width + x].w = 255;
 				}
 			}
 		}
 	}
 	timer.print_interval("Raycasting to image     : ");
+	export_debug_buffer("../../data/cpu_image_data_screen_coord_f4.txt", debug_buffer, image_width, image_height);
+	//export_image_buffer("../../data/cpu_image_data_screen_coord_uc.txt", image_data, image_width, image_height);
+#else
+	export_debug_buffer("../../data/gpu_image_data_screen_coord_f4.txt", debug_buffer, image_width, image_height);
+	//export_image_buffer("../../data/gpu_image_data_screen_coord_uc.txt", image_data, image_width, image_height);
+#endif
 
+	
+
+	QImage image(&image_data[0].x, image_width, image_height, QImage::Format_RGBA8888);
+	//image.fill(Qt::GlobalColor::black);
 	QApplication app(argc, argv);
 	QImageWidget widget;
 	widget.resize(KINECT_V2_DEPTH_WIDTH, KINECT_V2_DEPTH_HEIGHT);

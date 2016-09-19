@@ -42,6 +42,7 @@ extern "C"
 		const float* grid_matrix_16f,
 		const float* projection_matrix_16f,
 		const float* projection_inverse_matrix_16f,
+		float& grid_params_2f_host_ref,
 		ushort depth_width, 
 		ushort depth_height,
 		ushort depth_min_dist,
@@ -50,7 +51,8 @@ extern "C"
 		float4& normal_4f_host_ref,
 		ushort output_image_width,
 		ushort output_image_height,
-		uchar4& output_image_4uc_ref);
+		uchar4& output_image_4uc_ref,
+		float4& debug_float);
 
 	void knt_cuda_allocate();
 	void knt_cuda_free();
@@ -77,7 +79,9 @@ extern "C"
 	void knt_cuda_copy_vertices_device_to_host(void* host_ptr);
 	void knt_cuda_copy_host_to_device();
 	void knt_cuda_copy_device_to_host();
-	void knt_cuda_grid_params_copy_device_to_host(float* grid_params_2f);
+	void knt_cuda_grid_params_copy_device_to_host();
+
+	void knt_cuda_copy_image_device_to_host();
 };
 
 
