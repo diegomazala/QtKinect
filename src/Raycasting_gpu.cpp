@@ -161,7 +161,7 @@ int volumetric_knt_cuda(int argc, char **argv)
 	// 
 	// setup image parameters
 	//
-	unsigned short image_width = KINECT_V2_DEPTH_WIDTH / 4;
+	unsigned short image_width = KINECT_V2_DEPTH_WIDTH;
 	unsigned short image_height = image_width / aspect_ratio;
 	uchar4* image_data = new uchar4[image_width * image_height];
 	memset(image_data, 0, image_width * image_height * sizeof(uchar4));
@@ -241,7 +241,7 @@ int volumetric_knt_cuda(int argc, char **argv)
 
 
 	
-#if 1
+#if 0
 	memset(image_data, 0, image_width * image_height * sizeof(uchar4));
 	memset(debug_buffer, 0, image_width * image_height * sizeof(float4));
 	//camera_to_world.translate(Eigen::Vector3f(256, 1024, -512));
@@ -282,46 +282,54 @@ int volumetric_knt_cuda(int argc, char **argv)
 			direction.normalize();
 
 
-			debug_buffer[y * image_width + x].x = direction.x();
-			debug_buffer[y * image_width + x].y = direction.y();
-			debug_buffer[y * image_width + x].z = direction.z();
-			debug_buffer[y * image_width + x].w = 1.f;
-			continue;
+			//debug_buffer[y * image_width + x].x = direction.x();
+			//debug_buffer[y * image_width + x].y = direction.y();
+			//debug_buffer[y * image_width + x].z = direction.z();
+			//debug_buffer[y * image_width + x].w = 1.f;
+			//continue;
 
 
-			std::vector<int> voxels_zero_crossing;
-			if (raycast_tsdf_volume<float>(	
+			long voxels_zero_crossing[2] = { -1, -1 };
+
+			int hit_count = raycast_tsdf_volume<float>(
 				camera_pos,
 				direction,
 				voxel_count.cast<int>(),
 				voxel_size.cast<int>(),
 				grid_voxels_params,
-				voxels_zero_crossing) > 0)
+				voxels_zero_crossing);
+
+			if (hit_count > 0)
 			{
-				if (voxels_zero_crossing.size() == 2)
+				if (hit_count == 2)
 				{
-					//image.setPixel(QPoint(x, y), qRgb(128, 128, 0));
+					image_data[y * image_width + x].x = 0;
+					image_data[y * image_width + x].y = 128;
+					image_data[y * image_width + x].z = 128;
+					image_data[y * image_width + x].w = 255;
+				}
+				else
+				{
 					image_data[y * image_width + x].x = 128;
 					image_data[y * image_width + x].y = 128;
 					image_data[y * image_width + x].z = 0;
 					image_data[y * image_width + x].w = 255;
 				}
-				else
-				{
-					//image.setPixel(QPoint(x, y), qRgb(128, 0, 0));
-					image_data[y * image_width + x].x = 128;
-					image_data[y * image_width + x].y = 0;
-					image_data[y * image_width + x].z = 0;
-					image_data[y * image_width + x].w = 255;
-				}
+			}
+			else
+			{
+				image_data[y * image_width + x].x = 128;
+				image_data[y * image_width + x].y = 0;
+				image_data[y * image_width + x].z = 0;
+				image_data[y * image_width + x].w = 255;
 			}
 		}
 	}
 	timer.print_interval("Raycasting to image     : ");
-	export_debug_buffer("../../data/cpu_image_data_screen_coord_f4.txt", debug_buffer, image_width, image_height);
+	//export_debug_buffer("../../data/cpu_image_data_screen_coord_f4.txt", debug_buffer, image_width, image_height);
 	//export_image_buffer("../../data/cpu_image_data_screen_coord_uc.txt", image_data, image_width, image_height);
 #else
-	export_debug_buffer("../../data/gpu_image_data_screen_coord_f4.txt", debug_buffer, image_width, image_height);
+	//export_debug_buffer("../../data/gpu_image_data_screen_coord_f4.txt", debug_buffer, image_width, image_height);
 	//export_image_buffer("../../data/gpu_image_data_screen_coord_uc.txt", image_data, image_width, image_height);
 #endif
 

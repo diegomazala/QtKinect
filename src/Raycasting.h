@@ -565,10 +565,8 @@ int raycast_tsdf_volume(
 	const Eigen::Vector3i& voxel_count,
 	const Eigen::Vector3i& voxel_size,
 	const std::vector<Eigen::Matrix<Type, 2, 1>>& params,
-	std::vector<int>& voxels_zero_crossing)
+	long voxels_zero_crossing_indices[2])
 {
-	voxels_zero_crossing.clear();
-
 	int voxel_index = -1;
 	int next_voxel_index = -1;
 	int intersections_count = 0;
@@ -604,9 +602,10 @@ int raycast_tsdf_volume(
 
 				if (!has_same_sign_tsdf(params, voxel_index, next_voxel_index))
 				{
-					voxels_zero_crossing.push_back(voxel_index);
-					voxels_zero_crossing.push_back(next_voxel_index);
+					voxels_zero_crossing_indices[0] = voxel_index;
+					voxels_zero_crossing_indices[1] = next_voxel_index;
 					voxel_index = next_voxel_index;
+					intersections_count = 2;
 					return intersections_count;
 				}
 				else

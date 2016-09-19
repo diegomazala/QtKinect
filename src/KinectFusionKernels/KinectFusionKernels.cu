@@ -1043,7 +1043,6 @@ __device__ int raycast_tsdf_volume(
 	if (face_in == BoxFace::Undefined || voxel_index < 0)
 		return -1;
 
-
 	intersections_count = raycast_face_in_out(ray_origin, ray_direction, voxel_count, voxel_size, face_in, face_out, hit_in, hit_out);
 
 	bool is_inside = intersections_count > 0;
@@ -1068,6 +1067,7 @@ __device__ int raycast_tsdf_volume(
 					voxels_zero_crossing_indices[0] = voxel_index;
 					voxels_zero_crossing_indices[1] = next_voxel_index;
 					voxel_index = next_voxel_index;
+					intersections_count = 2;
 					return intersections_count;
 				}
 				else
@@ -1134,11 +1134,11 @@ __global__ void	raycast_kernel(
 	//out_image[y * image_width + x].z = (uchar)255;
 	//out_image[y * image_width + x].w = 255;
 
-	debug_float[y * image_width + x].x = direction.x;
-	debug_float[y * image_width + x].y = direction.y;
-	debug_float[y * image_width + x].z = direction.z;
-	debug_float[y * image_width + x].w = 1.f;
-	return;
+	//debug_float[y * image_width + x].x = direction.x;
+	//debug_float[y * image_width + x].y = direction.y;
+	//debug_float[y * image_width + x].z = direction.z;
+	//debug_float[y * image_width + x].w = 1.f;
+	//return;
 
 
 	// clear pixel
@@ -1146,22 +1146,28 @@ __global__ void	raycast_kernel(
 
 	long voxels_zero_crossing[2] = { -1, -1 };
 
-	if (raycast_tsdf_volume(
+	int hit_count = raycast_tsdf_volume(
 		camera_pos,
 		direction,
 		voxel_count,
 		voxel_size,
 		grid_voxels_params_2f,
-		voxels_zero_crossing) > 0)
+		voxels_zero_crossing);
+
+	if (hit_count > 0)
 	{
-		//out_image[y * image_width + x] = rgbaFloatToInt(make_float4(0.6f, 0.5f, 0.4f, 1));
-		out_image[y * image_width + x] = (make_uchar4(128, 128, 0, 255));
+		if (voxels_zero_crossing[0] > -1 && voxels_zero_crossing[1] > -1)
+		{
+			out_image[y * image_width + x] = make_uchar4(0, 128, 128, 255);
+		}
+		else
+		{
+			out_image[y * image_width + x] = make_uchar4(128, 128, 0, 255);
+		}
 	}
 	else
 	{
-		//out_image[y * image_width + x] = rgbaFloatToInt(make_float4(0.3f, 0.9f, 0.1f, 1));
 		out_image[y * image_width + x] = make_uchar4(128, 0, 0, 255);
-		
 	}
 
 }
