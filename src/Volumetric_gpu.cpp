@@ -123,24 +123,35 @@ int volumetric_knt_cuda(int argc, char **argv)
 
 	std::vector<float4> vertices(knt.depth.size(), make_float4(0, 0, 0, 1));
 	std::vector<float4> normals(knt.depth.size(), make_float4(0, 0, 1, 1));
+	std::vector<Eigen::Vector2f> grid_voxels_params(total_voxels);
 
-	QImage image(2, 2, QImage::Format_RGB888);
-	image.fill(Qt::GlobalColor::black);
+	// 
+	// setup image parameters
+	//
+	unsigned short image_width = 2;
+	unsigned short image_height = 2;
+	uchar4* image_data = new uchar4[image_width * image_height];
+	memset(image_data, 0, image_width * image_height * sizeof(uchar4));
+	float4* debug_buffer = new float4[image_width * image_height];
+	memset(debug_buffer, 0, image_width * image_height * sizeof(float4));
 
 	knt_cuda_setup(
 		vx_count, vx_size, 
 		grid_matrix.data(), 
 		projection.data(), 
 		projection_inverse.data(),
+		*grid_voxels_params.data()->data(),
 		KINECT_V2_DEPTH_WIDTH, 
 		KINECT_V2_DEPTH_HEIGHT,
 		KINECT_V2_DEPTH_MIN,
 		KINECT_V2_DEPTH_MAX,
 		vertices.data()[0],
 		normals.data()[0],
-		image.width(),
-		image.height(),
-		(uchar4&)*image.bits());
+		image_width,
+		image_height,
+		*image_data,
+		*debug_buffer
+		);
 
 	std::cout << "Cuda allocating ...      " << std::endl;
 	knt_cuda_allocate();
@@ -153,9 +164,8 @@ int volumetric_knt_cuda(int argc, char **argv)
 	knt_cuda_copy_depth_buffer_to_device(knt.depth.data());
 	knt_cuda_normal_estimation();
 	knt_cuda_update_grid(view_matrix.data());
-
-	std::vector<Eigen::Vector2f> grid_voxels_params(total_voxels);
-	knt_cuda_grid_params_copy_device_to_host(&grid_voxels_params[0][0]);
+		
+	knt_cuda_grid_params_copy_device_to_host();
 	
 	std::cout << "Cuda get data from dev..." << std::endl;
 	knt_cuda_copy_device_to_host();
@@ -176,6 +186,7 @@ int volumetric_knt_cuda(int argc, char **argv)
 		grid_affine_2.matrix());
 
 	//export_params("../../data/grid_volume_gpu_params_knt_cuda.txt", grid_voxels_params);
+	export_obj_with_colors("../../data/knt_frame_normals.obj", vertices, normals);
 
 	timer.print_interval("Exporting volume        : ");
 
