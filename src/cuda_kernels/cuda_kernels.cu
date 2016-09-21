@@ -1146,12 +1146,6 @@ extern "C"
 		const float4 vertex_u1v = tex2D(float4Texture, x + 1, y);
 		const float4 vertex_uv1 = tex2D(float4Texture, x, y + 1);
 		
-		if (vertex_uv.z < 0.01 || vertex_u1v.z < 0.01 || vertex_uv1.z < 0.01)
-		{
-			out_normals[y * w + x] = make_float4(0, 0, 1, 1);
-			return;
-		}
-
 		const float4 n1 = vertex_u1v - vertex_uv;
 		const float4 n2 = vertex_uv1 - vertex_uv;
 		const float4 n = cross(n1, n2);
@@ -1190,6 +1184,8 @@ extern "C"
 			thrust::raw_pointer_cast(&d_inverse_projection_mat_16f[0])
 			);
 
+		checkCudaErrors(cudaDeviceSynchronize());
+
 		cudaChannelFormatDesc desc_normal = cudaCreateChannelDesc<float4>();
 		checkCudaErrors(cudaBindTexture2D(0, float4Texture, d_out_vertices_4f, desc_normal, depth_width, depth_height, out_pitch));
 
@@ -1198,6 +1194,7 @@ extern "C"
 			depth_width,
 			depth_height);
 
+		checkCudaErrors(cudaDeviceSynchronize());
 	}
 
 	__device__ float vec4f_magnitude(const float4& v)

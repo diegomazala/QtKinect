@@ -87,8 +87,6 @@ static void multDirMatrix(const Eigen::Vector3f &src, const Eigen::Matrix4f &mat
 int volumetric_knt_cuda(int argc, char **argv)
 {
 	Timer timer;
-	//vx_count = 3;
-	//vx_size = 1;
 	int vol_size = vx_count * vx_size;
 	float half_vol_size = vol_size * 0.5f;
 
@@ -107,7 +105,6 @@ int volumetric_knt_cuda(int argc, char **argv)
 
 	timer.start();
 	KinectFrame knt(filepath);
-	std::cout << "KinectFrame loaded: " << knt.depth.size() << std::endl;
 	timer.print_interval("Importing knt frame : ");
 
 	Eigen::Affine3f grid_affine = Eigen::Affine3f::Identity();
@@ -153,31 +150,38 @@ int volumetric_knt_cuda(int argc, char **argv)
 		*debug_buffer
 		);
 
-	std::cout << "Cuda allocating ...      " << std::endl;
+	timer.start();
 	knt_cuda_allocate();
 	knt_cuda_init_grid();
-
-	std::cout << "Cuda host to device ...  " << std::endl;
-	knt_cuda_copy_host_to_device();
-
-	std::cout << "Cuda update grid ...     " << std::endl;
-	knt_cuda_copy_depth_buffer_to_device(knt.depth.data());
-	knt_cuda_normal_estimation();
-	knt_cuda_update_grid(view_matrix.data());
-		
-	knt_cuda_grid_params_copy_device_to_host();
-	
-	std::cout << "Cuda get data from dev..." << std::endl;
-	knt_cuda_copy_device_to_host();
-
-
-
-	std::cout << "Grid exporting to file..." << std::endl;
-
-	Eigen::Affine3f grid_affine_2 = Eigen::Affine3f::Identity();
-	grid_affine_2.translate(Eigen::Vector3f(-half_vol_size, -half_vol_size, 0));
+	timer.print_interval("Allocating gpu      : ");
 
 	timer.start();
+	knt_cuda_copy_host_to_device();
+	knt_cuda_copy_depth_buffer_to_device(knt.depth.data());
+	timer.print_interval("Copy host to device : ");
+
+	timer.start();
+	knt_cuda_normal_estimation();
+	timer.print_interval("Normal estimation   : ");
+
+	timer.start();
+	knt_cuda_update_grid(view_matrix.data());
+	timer.print_interval("Update grid         : ");
+	
+	timer.start();
+	knt_cuda_grid_params_copy_device_to_host();
+	knt_cuda_copy_device_to_host();
+	timer.print_interval("Copy device to host : ");
+
+	timer.start();
+	knt_cuda_free();
+	timer.print_interval("Cleanup gpu         : ");
+
+
+	timer.start();
+	Eigen::Affine3f grid_affine_2 = Eigen::Affine3f::Identity();
+	grid_affine_2.translate(Eigen::Vector3f(-half_vol_size, -half_vol_size, 0));
+		
 	export_volume(
 		"../../data/grid_volume_gpu_knt.obj", 
 		voxel_count,
@@ -185,13 +189,9 @@ int volumetric_knt_cuda(int argc, char **argv)
 		grid_voxels_params, 
 		grid_affine_2.matrix());
 
-	//export_params("../../data/grid_volume_gpu_params_knt_cuda.txt", grid_voxels_params);
 	export_obj_with_colors("../../data/knt_frame_normals.obj", vertices, normals);
 
-	timer.print_interval("Exporting volume        : ");
-
-	std::cout << "Cuda cleanup ...         " << std::endl;
-	knt_cuda_free();
+	timer.print_interval("Exporting volume    : ");
 
 	return 0;
 }
