@@ -36,3 +36,5 @@ msvc/Debug/
 msvc/src/
 data/room_frames/
 data/
+msvc/QtKinect.v12.suo
+msvc/vc120.pdb
