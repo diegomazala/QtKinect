@@ -183,13 +183,13 @@ int volumetric_knt_cuda(int argc, char **argv)
 	grid_affine_2.translate(Eigen::Vector3f(-half_vol_size, -half_vol_size, 0));
 		
 	export_volume(
-		"../../data/grid_volume_gpu_knt.obj", 
+		"../../data/grid_volume_gpu_knt.obj",
 		voxel_count,
 		voxel_size,
-		grid_voxels_params, 
+		grid_voxels_params,
 		grid_affine_2.matrix());
 
-	export_obj_with_colors("../../data/knt_frame_normals.obj", vertices, normals);
+	export_obj_with_colors("../../data/knt_grid_frame_normals.obj", vertices, normals);
 
 	timer.print_interval("Exporting volume    : ");
 

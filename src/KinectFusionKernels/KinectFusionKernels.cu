@@ -107,9 +107,10 @@ float projection_inverse_matrix_host[16];
 //
 // Gpu typedefs
 //
-texture<ushort, 2, cudaReadModeElementType> ushortTexture;
-texture<float4, 2, cudaReadModeElementType> float4Texture;
-texture<uchar4, 2, cudaReadModeNormalizedFloat> rgbaTexture;
+texture<ushort, 2, cudaReadModeElementType> depthTexture;
+texture<float4, 2, cudaReadModeElementType> vertexTexture;
+texture<float4, 2, cudaReadModeElementType> normalTexture;
+texture<uchar4, 2, cudaReadModeNormalizedFloat> outputTexture;
 
 #define PI 3.14159265359
 __host__ __device__ float deg2rad(float deg) { return deg*PI / 180.0; }
@@ -381,9 +382,11 @@ __global__ void	back_projection_with_normal_estimate_kernel(
 		return;
 	}
 
-	float depth = ((float)tex2D(ushortTexture, x, y)) * 0.1f;
+	float depth = ((float)tex2D(depthTexture, x, y)) * 0.1f;
 	float4 vertex;
 	window_coord_to_3d_kernel_device(&vertex, x, y, depth, inverse_projection_16f, w, h);
+
+	//vertex.z = -vertex.z;
 
 	out_vertices[y * w + x] = vertex;
 }
@@ -399,9 +402,9 @@ __global__ void	normal_estimate_kernel(float4 *out_normals, int w, int h)
 		return;
 	}
 
-	const float4 vertex_uv = tex2D(float4Texture, x, y);
-	const float4 vertex_u1v = tex2D(float4Texture, x + 1, y);
-	const float4 vertex_uv1 = tex2D(float4Texture, x, y + 1);
+	const float4 vertex_uv = tex2D(vertexTexture, x, y);
+	const float4 vertex_u1v = tex2D(vertexTexture, x + 1, y);
+	const float4 vertex_uv1 = tex2D(vertexTexture, x, y + 1);
 
 	const float4 n1 = vertex_u1v - vertex_uv;
 	const float4 n2 = vertex_uv1 - vertex_uv;
@@ -1083,7 +1086,6 @@ __device__ int raycast_tsdf_volume(
 
 __global__ void	raycast_kernel(
 	uchar4* out_image,
-	float4* debug_float,
 	ushort image_width,
 	ushort image_height,
 	ushort3 voxel_count,
@@ -1096,12 +1098,10 @@ __global__ void	raycast_kernel(
 	ulong x = blockIdx.x*blockDim.x + threadIdx.x;
 	ulong y = blockIdx.y*blockDim.y + threadIdx.y;
 
-
 	if (x >= image_width || y >= image_height)
 	{
 		return;
 	}
-
 
 	// Convert from image space (in pixels) to screen space
 	// Screen Space along X axis = [-aspect ratio, aspect ratio] 
@@ -1109,9 +1109,6 @@ __global__ void	raycast_kernel(
 	float x_norm = (2.f * float(x) + 0.5f) / (float)image_width;
 	float y_norm = (2.f * float(y) + 0.5f) / (float)image_height;
 	float3 screen_coord = make_float3(
-		//(2 * (x + 0.5f) / (float)image_width - 1) * aspect_ratio * fov_scale,
-		//(1 - 2 * (y + 0.5f) / (float)image_height) * scale,
-		//1.0f);
 		(x_norm - 1.f) * aspect_ratio * fov_scale,
 		(1.f - y_norm) * fov_scale,
 		1.0f);
@@ -1123,21 +1120,6 @@ __global__ void	raycast_kernel(
 	float3 dir = mul_vec_dir_matrix(camera_to_world_mat4x4, screen_coord);
 	float3 direction = normalize(dir);
 
-	//out_image[y * image_width + x].x = (uchar)(x_norm * 255);// (screen_coord.x * 255.f);
-	//out_image[y * image_width + x].y = (uchar)(screen_coord.y * 255.f);
-	//out_image[y * image_width + x].z = (uchar)255;
-	//out_image[y * image_width + x].w = 255;
-
-	//debug_float[y * image_width + x].x = direction.x;
-	//debug_float[y * image_width + x].y = direction.y;
-	//debug_float[y * image_width + x].z = direction.z;
-	//debug_float[y * image_width + x].w = 1.f;
-	//return;
-
-
-	// clear pixel
-	//out_image[y * image_width + x] = rgbaFloatToInt(make_float4(0.1f, 0.2f, 0.3f, 1));
-
 	long voxels_zero_crossing[2] = { -1, -1 };
 
 	int hit_count = raycast_tsdf_volume(
@@ -1148,11 +1130,17 @@ __global__ void	raycast_kernel(
 		grid_voxels_params_2f,
 		voxels_zero_crossing);
 
+	const float4 normal = tex2D(normalTexture, x, y);
+
 	if (hit_count > 0)
 	{
 		if (voxels_zero_crossing[0] > -1 && voxels_zero_crossing[1] > -1)
 		{
-			out_image[y * image_width + x] = make_uchar4(0, 128, 128, 255);
+			//out_image[y * image_width + x] = make_uchar4(0, 128, 128, 255);
+			out_image[y * image_width + x].x = uchar((normal.x * 0.5f + 0.5f) * 255);
+			out_image[y * image_width + x].y = uchar((normal.y * 0.5f + 0.5f) * 255);
+			out_image[y * image_width + x].z = uchar((normal.z * 0.5f + 0.5f) * 255);
+			out_image[y * image_width + x].x = 255;
 		}
 		else
 		{
@@ -1315,8 +1303,9 @@ extern "C"
 		checkCudaErrors(cudaFree(debug_buffer.dev_ptr));
 		debug_buffer.dev_ptr = nullptr;
 
-		checkCudaErrors(cudaDeviceReset());
+		
 		checkCudaErrors(cudaDeviceSynchronize());
+		checkCudaErrors(cudaDeviceReset());
 	}
 
 	void knt_cuda_init_grid()
@@ -1340,8 +1329,8 @@ extern "C"
 		//	cudaMemcpyHostToDevice
 		//	));
 
-		cudaChannelFormatDesc desc = cudaCreateChannelDesc<ushort>();
-		checkCudaErrors(cudaBindTexture2D(0, ushortTexture, depth_buffer.dev_ptr, desc, depth_buffer.width, depth_buffer.height, depth_buffer.pitch));
+		//cudaChannelFormatDesc desc = cudaCreateChannelDesc<ushort>();
+		//checkCudaErrors(cudaBindTexture2D(0, depthTexture, depth_buffer.dev_ptr, desc, depth_buffer.width, depth_buffer.height, depth_buffer.pitch));
 
 
 		grid_update_kernel << < 1, grid.voxel_count.z >> >(
@@ -1356,6 +1345,7 @@ extern "C"
 			depth_buffer.height
 			);
 
+		//checkCudaErrors(cudaUnbindTexture(depthTexture));
 		checkCudaErrors(cudaDeviceSynchronize());
 	}
 
@@ -1364,9 +1354,15 @@ extern "C"
 	void knt_cuda_normal_estimation()
 	{
 		cudaChannelFormatDesc desc = cudaCreateChannelDesc<ushort>();
-		checkCudaErrors(cudaBindTexture2D(0, ushortTexture, depth_buffer.dev_ptr, desc, depth_buffer.width, depth_buffer.height, depth_buffer.pitch));
+		checkCudaErrors(cudaBindTexture2D(0, depthTexture, depth_buffer.dev_ptr, desc, depth_buffer.width, depth_buffer.height, depth_buffer.pitch));
 
-		const dim3 threads_per_block(32, 32);
+		cudaChannelFormatDesc desc_vertex = cudaCreateChannelDesc<float4>();
+		checkCudaErrors(cudaBindTexture2D(0, vertexTexture, vertex_buffer.dev_ptr, desc_vertex, vertex_buffer.width, vertex_buffer.height, vertex_buffer.pitch));
+
+		cudaChannelFormatDesc desc_normal = cudaCreateChannelDesc<float4>();
+		checkCudaErrors(cudaBindTexture2D(0, normalTexture, normal_buffer.dev_ptr, desc_normal, normal_buffer.width, normal_buffer.height, normal_buffer.pitch));
+
+		const dim3 threads_per_block(16, 16);
 		dim3 num_blocks;
 		num_blocks.x = (depth_buffer.width + threads_per_block.x - 1) / threads_per_block.x;
 		num_blocks.y = (depth_buffer.height + threads_per_block.y - 1) / threads_per_block.y;
@@ -1381,13 +1377,15 @@ extern "C"
 
 		checkCudaErrors(cudaDeviceSynchronize());
 
-		cudaChannelFormatDesc desc_normal = cudaCreateChannelDesc<float4>();
-		checkCudaErrors(cudaBindTexture2D(0, float4Texture, vertex_buffer.dev_ptr, desc_normal, vertex_buffer.width, vertex_buffer.height, normal_buffer.pitch));
-
 		normal_estimate_kernel << <  num_blocks, threads_per_block >> >(
 			normal_buffer.dev_ptr,
 			normal_buffer.width,
 			normal_buffer.height);
+
+		
+		//checkCudaErrors(cudaUnbindTexture(depthTexture));
+		//checkCudaErrors(cudaUnbindTexture(vertexTexture));
+		//checkCudaErrors(cudaUnbindTexture(normalTexture));
 
 		checkCudaErrors(cudaDeviceSynchronize());
 	}
@@ -1409,46 +1407,28 @@ extern "C"
 			cudaMemcpyHostToDevice
 			));
 
-
 		// Bind the array to the texture
-#if 0
-		cudaChannelFormatDesc desc = cudaCreateChannelDesc<uchar4>();
-		checkCudaErrors(
-			cudaBindTexture2D(
-			0, 
-			rgbaTexture, 
-			image_buffer.dev_ptr, 
-			desc, 
-			image_buffer.width, 
-			image_buffer.height, 
-			image_buffer.pitch));
+		//cudaChannelFormatDesc desc_img_out = cudaCreateChannelDesc<uchar4>();
+		//checkCudaErrors(
+		//	cudaBindTexture2D(
+		//	0, 
+		//	outputTexture,
+		//	image_buffer.dev_ptr, 
+		//	desc_img_out,
+		//	image_buffer.width, 
+		//	image_buffer.height, 
+		//	image_buffer.pitch));
+		
+		//cudaChannelFormatDesc desc_normal = cudaCreateChannelDesc<float4>();
+		//checkCudaErrors(cudaBindTexture2D(0, normalTexture, normal_buffer.dev_ptr, desc_normal, normal_buffer.width, normal_buffer.height, normal_buffer.pitch));
 
-		const dim3 threads_per_block(4, 4);
+		const dim3 threads_per_block(16, 16);
 		dim3 num_blocks;
 		num_blocks.x = (image_buffer.width + threads_per_block.x - 1) / threads_per_block.x;
 		num_blocks.y = (image_buffer.height + threads_per_block.y - 1) / threads_per_block.y;
-#else
-		cudaChannelFormatDesc desc = cudaCreateChannelDesc<float4>();
-		checkCudaErrors(
-			cudaBindTexture2D(
-			0,
-			float4Texture,
-			debug_buffer.dev_ptr,
-			desc,
-			debug_buffer.width,
-			debug_buffer.height,
-			debug_buffer.pitch));
-
-		const dim3 threads_per_block(4, 4);
-		dim3 num_blocks;
-		num_blocks.x = (debug_buffer.width + threads_per_block.x - 1) / threads_per_block.x;
-		num_blocks.y = (debug_buffer.height + threads_per_block.y - 1) / threads_per_block.y;
-#endif
-		
 
 		raycast_kernel << <  num_blocks, threads_per_block >> >(
 			image_buffer.dev_ptr,
-			debug_buffer.dev_ptr,
 			image_buffer.width,
 			image_buffer.height,
 			grid.voxel_count,
@@ -1458,6 +1438,8 @@ extern "C"
 			aspect_ratio,
 			camera_to_world_matrix_dev_ptr
 			);
+
+		//checkCudaErrors(cudaUnbindTexture(outputTexture));
 
 		checkCudaErrors(cudaDeviceSynchronize());
 	}

@@ -1171,7 +1171,7 @@ extern "C"
 		checkCudaErrors(cudaBindTexture2D(0, ushortTexture, d_depth_buffer, desc, depth_width, depth_height, in_pitch));
 
 
-		const dim3 threads_per_block(32, 32);
+		const dim3 threads_per_block(16, 16);
 		dim3 num_blocks;
 		num_blocks.x = (depth_width + threads_per_block.x - 1) / threads_per_block.x;
 		num_blocks.y = (depth_height + threads_per_block.y - 1) / threads_per_block.y;
@@ -1282,7 +1282,7 @@ extern "C"
 		cudaChannelFormatDesc desc = cudaCreateChannelDesc<float4>();
 		checkCudaErrors(cudaBindTexture2D(0, float4Texture, d_in_vertices_t0_4f, desc, depth_width, depth_height, vertex_pitch));
 
-		const dim3 threads_per_block(32, 32);
+		const dim3 threads_per_block(16, 16);
 		dim3 num_blocks;
 		num_blocks.x = (depth_width + threads_per_block.x - 1) / threads_per_block.x;
 		num_blocks.y = (depth_height + threads_per_block.y - 1) / threads_per_block.y;
@@ -1433,7 +1433,7 @@ extern "C"
 		//thrust::copy(d_grid_vertices.begin(), d_grid_vertices.end(), &grid_vertices[0]);
 		//thrust::copy(d_grid_params.begin(), d_grid_params.end(), &grid_params[0]);
 
-		const dim3 threads_per_block(32, 32);
+		const dim3 threads_per_block(16, 16);
 		const dim3 num_blocks = dim3(iDivUp(width, threads_per_block.x), iDivUp(height, threads_per_block.y));
 		//num_blocks.x = (width + threads_per_block.x - 1) / threads_per_block.x;
 		//num_blocks.y = (height + threads_per_block.y - 1) / threads_per_block.y;

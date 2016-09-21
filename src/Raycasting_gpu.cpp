@@ -120,8 +120,6 @@ static void multDirMatrix(const Eigen::Vector3f &src, const Eigen::Matrix4f &mat
 int volumetric_knt_cuda(int argc, char **argv)
 {
 	Timer timer;
-	//vx_count = 3;
-	//vx_size = 1;
 	int vol_size = vx_count * vx_size;
 	float half_vol_size = vol_size * 0.5f;
 
@@ -140,7 +138,6 @@ int volumetric_knt_cuda(int argc, char **argv)
 
 	timer.start();
 	KinectFrame knt(filepath);
-	std::cout << "KinectFrame loaded: " << knt.depth.size() << std::endl;
 	timer.print_interval("Importing knt frame : ");
 
 	Eigen::Affine3f grid_affine = Eigen::Affine3f::Identity();
@@ -168,7 +165,7 @@ int volumetric_knt_cuda(int argc, char **argv)
 	float4* debug_buffer = new float4[image_width * image_height];
 	memset(debug_buffer, 0, image_width * image_height * sizeof(float4));
 
-	
+	std::cout << image_width << " " << image_height << std::endl;
 
 	knt_cuda_setup(
 		vx_count, vx_size,
@@ -188,60 +185,53 @@ int volumetric_knt_cuda(int argc, char **argv)
 		*debug_buffer
 		);
 
-	std::cout << "Cuda allocating ...      " << std::endl;
+	timer.start();
 	knt_cuda_allocate();
 	knt_cuda_init_grid();
-
-	std::cout << "Cuda host to device ...  " << std::endl;
-	knt_cuda_copy_host_to_device();
-
-	std::cout << "Cuda update grid ...     " << std::endl;
-	knt_cuda_copy_depth_buffer_to_device(knt.depth.data());
-	knt_cuda_normal_estimation();
-	knt_cuda_update_grid(view_matrix.data());
-
-	knt_cuda_grid_params_copy_device_to_host();
-
-	std::cout << "Cuda get data from dev..." << std::endl;
-	knt_cuda_copy_device_to_host();
-
-
-
-	std::cout << "Grid exporting to file..." << std::endl;
-
-	Eigen::Affine3f grid_affine_2 = Eigen::Affine3f::Identity();
-	grid_affine_2.translate(Eigen::Vector3f(-half_vol_size, -half_vol_size, 0));
+	timer.print_interval("Allocating gpu      : ");
 
 	timer.start();
-	//export_volume(
-	//	"../../data/grid_volume_gpu_knt.obj",
-	//	voxel_count,
-	//	voxel_size,
-	//	grid_voxels_params,
-	//	grid_affine_2.matrix());
-	//export_params("../../data/grid_volume_gpu_params_knt_cuda.txt", grid_voxels_params);
-	//export_obj_with_colors("../../data/knt_frame_normals.obj", vertices, normals);
-	timer.print_interval("Exporting volume        : ");
+	knt_cuda_copy_host_to_device();
+	knt_cuda_copy_depth_buffer_to_device(knt.depth.data());
+	timer.print_interval("Copy host to device : ");
+
+	timer.start();
+	knt_cuda_normal_estimation();
+	timer.print_interval("Normal estimation   : ");
+
+	timer.start();
+	knt_cuda_update_grid(view_matrix.data());
+	timer.print_interval("Update grid         : ");
+
+	timer.start();
+	knt_cuda_grid_params_copy_device_to_host();
+	knt_cuda_copy_device_to_host();
+	timer.print_interval("Copy device to host : ");
+
+
 
 
 	//
 	// setup camera parameters
 	//
+	timer.start();
 	Eigen::Affine3f camera_to_world = Eigen::Affine3f::Identity();
-	float cam_z = -128; // -512; // (-voxel_count.z() - 1) * vx_size;
+	float cam_z = -half_vol_size; // -512; // (-voxel_count.z() - 1) * vx_size;
+	//camera_to_world.rotate(Eigen::AngleAxisf((float)DegToRad(180.0), Eigen::Vector3f::UnitY()));
 	camera_to_world.translate(Eigen::Vector3f(half_vol_size, half_vol_size, cam_z));
-	knt_cuda_raycast(KINECT_V2_FOVY, KINECT_V2_DEPTH_ASPECT_RATIO, camera_to_world.matrix().data());
-
-
-	knt_cuda_copy_image_device_to_host();
-
-
-	std::cout << "Cuda cleanup ...         " << std::endl;
-	knt_cuda_free();
-
-
 	
-#if 0
+	knt_cuda_raycast(KINECT_V2_FOVY, KINECT_V2_DEPTH_ASPECT_RATIO, camera_to_world.matrix().data());
+	timer.print_interval("Raycast             : ");
+
+	timer.start();
+	knt_cuda_copy_image_device_to_host();
+	timer.print_interval("Copy Img to host    : ");
+	
+	timer.start();
+	knt_cuda_free();
+	timer.print_interval("Cleanup gpu         : ");
+
+#if 1
 	memset(image_data, 0, image_width * image_height * sizeof(uchar4));
 	memset(debug_buffer, 0, image_width * image_height * sizeof(float4));
 	//camera_to_world.translate(Eigen::Vector3f(256, 1024, -512));
@@ -303,9 +293,16 @@ int volumetric_knt_cuda(int argc, char **argv)
 			{
 				if (hit_count == 2)
 				{
-					image_data[y * image_width + x].x = 0;
-					image_data[y * image_width + x].y = 128;
-					image_data[y * image_width + x].z = 128;
+					float4 n = normals[y * image_width + x];
+
+					//image_data[y * image_width + x].x = 0;
+					//image_data[y * image_width + x].y = 128;
+					//image_data[y * image_width + x].z = 128;
+					//image_data[y * image_width + x].w = 255;
+					
+					image_data[y * image_width + x].x = uchar((n.x * 0.5f + 0.5f) * 255);
+					image_data[y * image_width + x].y = uchar((n.y * 0.5f + 0.5f) * 255);
+					image_data[y * image_width + x].z = uchar((n.z * 0.5f + 0.5f) * 255);
 					image_data[y * image_width + x].w = 255;
 				}
 				else
