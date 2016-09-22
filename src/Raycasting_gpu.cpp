@@ -238,7 +238,7 @@ int volumetric_knt_cuda(int argc, char **argv)
 	knt_cuda_free();
 	timer.print_interval("Cleanup gpu         : ");
 
-#if 1
+#if 0
 	memset(image_data, 0, image_width * image_height * sizeof(uchar4));
 	memset(debug_buffer, 0, image_width * image_height * sizeof(float4));
 

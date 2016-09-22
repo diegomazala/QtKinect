@@ -1140,7 +1140,7 @@ __global__ void	raycast_kernel(
 			out_image[y * image_width + x].x = uchar((normal.x * 0.5f + 0.5f) * 255);
 			out_image[y * image_width + x].y = uchar((normal.y * 0.5f + 0.5f) * 255);
 			out_image[y * image_width + x].z = uchar((normal.z * 0.5f + 0.5f) * 255);
-			out_image[y * image_width + x].x = 255;
+			out_image[y * image_width + x].w = 255;
 		}
 		else
 		{
@@ -1406,6 +1406,9 @@ extern "C"
 			sizeof(float) * 16,
 			cudaMemcpyHostToDevice
 			));
+
+		cudaChannelFormatDesc desc_normal = cudaCreateChannelDesc<float4>();
+		checkCudaErrors(cudaBindTexture2D(0, normalTexture, normal_buffer.dev_ptr, desc_normal, normal_buffer.width, normal_buffer.height, normal_buffer.pitch));
 
 		// Bind the array to the texture
 		//cudaChannelFormatDesc desc_img_out = cudaCreateChannelDesc<uchar4>();
