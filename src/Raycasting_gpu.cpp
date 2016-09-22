@@ -220,7 +220,7 @@ int volumetric_knt_cuda(int argc, char **argv)
 	float cam_z = -half_vol_size; 
 	camera_to_world.translate(Eigen::Vector3f(half_vol_size, half_vol_size, cam_z));
 #else
-	float cam_z = vol_size * 2;
+	float cam_z = vol_size + half_vol_size;
 	camera_to_world.translate(Eigen::Vector3f(half_vol_size, half_vol_size, cam_z));
 	camera_to_world.rotate(Eigen::AngleAxisf((float)DegToRad(180.0), Eigen::Vector3f::UnitY()));
 #endif
@@ -327,7 +327,7 @@ int volumetric_knt_cuda(int argc, char **argv)
 	//image.fill(Qt::GlobalColor::black);
 	QApplication app(argc, argv);
 	QImageWidget widget;
-	widget.resize(KINECT_V2_DEPTH_WIDTH, KINECT_V2_DEPTH_HEIGHT);
+	widget.resize(KINECT_V2_DEPTH_WIDTH * 2, KINECT_V2_DEPTH_HEIGHT * 2);
 	widget.setImage(image);
 	widget.show();
 

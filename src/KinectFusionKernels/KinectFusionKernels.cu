@@ -125,14 +125,14 @@ __device__ uint rgbaFloatToInt(float4 rgba)
 	rgba.w = __saturatef(fabs(rgba.w));
 	return (uint(rgba.w * 255.0f) << 24) | (uint(rgba.z * 255.0f) << 16) | (uint(rgba.y * 255.0f) << 8) | uint(rgba.x * 255.0f);
 }
-__device__ uint rgbFloatToInt(float3 rgba)
+__device__ uint rgbFloatToInt(float3 rgb)
 {
-	rgba.x = __saturatef(fabs(rgba.x));   // clamp to [0.0, 1.0]
-	rgba.y = __saturatef(fabs(rgba.y));
-	rgba.z = __saturatef(fabs(rgba.z));
-	return (uint(255.0f) << 24) | (uint(rgba.z * 255.0f) << 16) | (uint(rgba.y * 255.0f) << 8) | uint(rgba.x * 255.0f);
+	rgb.x = __saturatef(fabs(rgb.x));   // clamp to [0.0, 1.0]
+	rgb.y = __saturatef(fabs(rgb.y));
+	rgb.z = __saturatef(fabs(rgb.z));
+	return (uint(255.0f) << 24) | (uint(rgb.z * 255.0f) << 16) | (uint(rgb.y * 255.0f) << 8) | uint(rgb.x * 255.0f);
 }
-
+	
 
 
 
@@ -1141,6 +1141,7 @@ __global__ void	raycast_kernel(
 			out_image[y * image_width + x].y = uchar((normal.y * 0.5f + 0.5f) * 255);
 			out_image[y * image_width + x].z = uchar((normal.z * 0.5f + 0.5f) * 255);
 			out_image[y * image_width + x].w = 255;
+
 		}
 		else
 		{
@@ -1406,9 +1407,6 @@ extern "C"
 			sizeof(float) * 16,
 			cudaMemcpyHostToDevice
 			));
-
-		cudaChannelFormatDesc desc_normal = cudaCreateChannelDesc<float4>();
-		checkCudaErrors(cudaBindTexture2D(0, normalTexture, normal_buffer.dev_ptr, desc_normal, normal_buffer.width, normal_buffer.height, normal_buffer.pitch));
 
 		// Bind the array to the texture
 		//cudaChannelFormatDesc desc_img_out = cudaCreateChannelDesc<uchar4>();
