@@ -1,5 +1,7 @@
 
 #include "VolumeRenderWidget.h"
+
+#if 0
 #include "GLModel.h"
 #include "GLQuad.h"
 #include <QMouseEvent>
@@ -430,3 +432,4 @@ void VolumeRenderWidget::keyPressEvent(QKeyEvent* e)
 	if (e->key() == Qt::Key_Q || e->key() == Qt::Key_Escape)
 		close();
 }
+#endif

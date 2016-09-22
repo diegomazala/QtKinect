@@ -2,6 +2,8 @@
 #ifndef _VOLUME_RENDER_WIDGET_H_
 #define _VOLUME_RENDER_WIDGET_H_
 
+#if 0
+
 #include "QOpenGLTrackballWidget.h"
 #include <QOpenGLWidget>
 #include <QOpenGLFunctions>
@@ -53,5 +55,7 @@ private:
 
 	bool cudaInitialized;
 };
+
+#endif
 
 #endif // _VOLUME_RENDER_WIDGET_H_
