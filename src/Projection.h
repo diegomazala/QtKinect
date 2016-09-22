@@ -124,6 +124,27 @@ static Eigen::Matrix<Type, 3, 1> window_coord_to_3d(Eigen::Matrix<Type, 2, 1> pi
 	return p3d_final;
 }
 
+
+template<class Type>
+Eigen::Matrix<Type, 4, 4> lookat_matrix(Eigen::Matrix<Type, 3, 1> const & eye, Eigen::Matrix<Type, 3, 1> const & center, Eigen::Matrix<Type, 3, 1> const & up)
+{
+	typedef Eigen::Matrix<Type, 4, 4> Matrix4;
+	typedef Eigen::Matrix<Type, 3, 1> Vector3;
+
+	Vector3 f = (center - eye).normalized();
+	Vector3 u = up.normalized();
+	Vector3 s = f.cross(u).normalized();
+	u = s.cross(f);
+
+	Matrix4 res;
+	res <<  s.x(),s.y(),s.z(),-s.dot(eye),
+		u.x(),u.y(),u.z(),-u.dot(eye),
+		-f.x(),-f.y(),-f.z(),f.dot(eye),
+		0,0,0,1;
+
+	return res;
+}
+
 #if 0
 static void test_projection()
 {

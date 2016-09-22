@@ -216,11 +216,18 @@ int volumetric_knt_cuda(int argc, char **argv)
 	//
 	timer.start();
 	Eigen::Affine3f camera_to_world = Eigen::Affine3f::Identity();
-	float cam_z = -half_vol_size; // -512; // (-voxel_count.z() - 1) * vx_size;
-	//camera_to_world.rotate(Eigen::AngleAxisf((float)DegToRad(180.0), Eigen::Vector3f::UnitY()));
+#if 0
+	float cam_z = -half_vol_size; 
 	camera_to_world.translate(Eigen::Vector3f(half_vol_size, half_vol_size, cam_z));
+#else
+	float cam_z = vol_size * 2;
+	camera_to_world.translate(Eigen::Vector3f(half_vol_size, half_vol_size, cam_z));
+	camera_to_world.rotate(Eigen::AngleAxisf((float)DegToRad(180.0), Eigen::Vector3f::UnitY()));
+#endif
 	
-	knt_cuda_raycast(KINECT_V2_FOVY, KINECT_V2_DEPTH_ASPECT_RATIO, camera_to_world.matrix().data());
+	Eigen::Matrix4f camera_to_world_matrix = camera_to_world.matrix();
+		
+	knt_cuda_raycast(KINECT_V2_FOVY, KINECT_V2_DEPTH_ASPECT_RATIO, camera_to_world_matrix.data());
 	timer.print_interval("Raycast             : ");
 
 	timer.start();
@@ -234,10 +241,8 @@ int volumetric_knt_cuda(int argc, char **argv)
 #if 1
 	memset(image_data, 0, image_width * image_height * sizeof(uchar4));
 	memset(debug_buffer, 0, image_width * image_height * sizeof(float4));
-	//camera_to_world.translate(Eigen::Vector3f(256, 1024, -512));
-	//camera_to_world.rotate(Eigen::AngleAxisf((float)DegToRad(-45.0f), Eigen::Vector3f::UnitX()));
 
-	Eigen::Vector3f camera_pos = camera_to_world.matrix().col(3).head<3>();
+	Eigen::Vector3f camera_pos = camera_to_world_matrix.col(3).head<3>();
 	float fov_scale = (float)tan(DegToRad(KINECT_V2_FOVY * 0.5f));
 	float aspect_ratio = KINECT_V2_DEPTH_ASPECT_RATIO;
 
@@ -256,28 +261,13 @@ int volumetric_knt_cuda(int argc, char **argv)
 			float x_norm = (2.f * float(x) + 0.5f) / (float)image_width;
 			float y_norm = (2.f * float(y) + 0.5f) / (float)image_height;
 			Eigen::Vector3f screen_coord(
-				//(2 * (x + 0.5f) / (float)image_width - 1) * aspect_ratio * fov_scale,
-				//(1 - 2 * (y + 0.5f) / (float)image_height) * scale,
-				//1.0f);
 				(x_norm - 1.f) * aspect_ratio * fov_scale,
 				(1.f - y_norm) * fov_scale,
 				1.0f);
 
-			//image.setPixel(QPoint(x, y), qRgb(direction.x() * 255, direction.y() * 255, direction.z() * 255));
-			//image.setPixel(QPoint(x, y), qRgb((uchar)(screen_coord.x() * 255), (uchar)(screen_coord.y() * 255), (uchar)(screen_coord.z() * 255)));
-			//continue;
-
 			Eigen::Vector3f direction;
-			multDirMatrix(screen_coord, camera_to_world.matrix(), direction);
+			multDirMatrix(screen_coord, camera_to_world_matrix, direction);
 			direction.normalize();
-
-
-			//debug_buffer[y * image_width + x].x = direction.x();
-			//debug_buffer[y * image_width + x].y = direction.y();
-			//debug_buffer[y * image_width + x].z = direction.z();
-			//debug_buffer[y * image_width + x].w = 1.f;
-			//continue;
-
 
 			long voxels_zero_crossing[2] = { -1, -1 };
 
@@ -326,6 +316,7 @@ int volumetric_knt_cuda(int argc, char **argv)
 	//export_debug_buffer("../../data/cpu_image_data_screen_coord_f4.txt", debug_buffer, image_width, image_height);
 	//export_image_buffer("../../data/cpu_image_data_screen_coord_uc.txt", image_data, image_width, image_height);
 #else
+
 	//export_debug_buffer("../../data/gpu_image_data_screen_coord_f4.txt", debug_buffer, image_width, image_height);
 	//export_image_buffer("../../data/gpu_image_data_screen_coord_uc.txt", image_data, image_width, image_height);
 #endif
