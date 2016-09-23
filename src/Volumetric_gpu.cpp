@@ -186,8 +186,8 @@ int volumetric_knt_cuda(int argc, char **argv)
 		"../../data/grid_volume_gpu_knt.obj",
 		voxel_count,
 		voxel_size,
-		grid_voxels_params,
-		grid_affine_2.matrix());
+		grid_voxels_params);
+		//grid_affine_2.matrix());
 
 	export_obj_with_colors("../../data/knt_grid_frame_normals.obj", vertices, normals);
 

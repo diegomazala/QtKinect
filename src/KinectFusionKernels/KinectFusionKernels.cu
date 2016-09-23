@@ -248,6 +248,9 @@ __global__ void grid_update_kernel(
 			// cast to int 
 			const int2 pixel = { (int)window_coord.x, (int)window_coord.y };
 
+			if (pixel.x < 0 || pixel.y < 0 ||
+				pixel.x > window_width || pixel.y > window_height)
+				continue;
 
 			// compute depth buffer pixel index in the array
 			const int depth_pixel_index = pixel.y * window_width + pixel.x;
@@ -258,7 +261,6 @@ __global__ void grid_update_kernel(
 
 
 			// get depth buffer value
-			//const float Dp = fabs(depth_buffer[depth_pixel_index]) * 0.1f;
 			const float Dp = depth_buffer[depth_pixel_index] * 0.1f;
 
 
@@ -270,7 +272,7 @@ __global__ void grid_update_kernel(
 				pow(ti.w - vg[3], 2));
 
 
-			//// compute signed distance function
+			// compute signed distance function
 			const float sdf = Dp - distance_vertex_camera;
 
 
@@ -358,13 +360,8 @@ __device__ void window_coord_to_3d_kernel_device(
 
 	out_vertex->x = -vertex_proj_inv[0];
 	out_vertex->y = -vertex_proj_inv[1];
-	out_vertex->z = depth;
+	out_vertex->z = -depth;
 	out_vertex->w = 1.0f;
-
-	//out_vertex->x = clip[0];
-	//out_vertex->y = clip[1];
-	//out_vertex->z = clip[2];
-	//out_vertex->w = 1.0f;
 }
 
 
@@ -385,8 +382,6 @@ __global__ void	back_projection_with_normal_estimate_kernel(
 	float depth = ((float)tex2D(depthTexture, x, y)) * 0.1f;
 	float4 vertex;
 	window_coord_to_3d_kernel_device(&vertex, x, y, depth, inverse_projection_16f, w, h);
-
-	vertex.z = -vertex.z;
 
 	out_vertices[y * w + x] = vertex;
 }
@@ -1113,11 +1108,13 @@ __global__ void	raycast_kernel(
 		(1.f - y_norm) * fov_scale,
 		1.0f);
 
+	// ray origin
 	float3 camera_pos = make_float3(camera_to_world_mat4x4[12], camera_to_world_mat4x4[13], camera_to_world_mat4x4[14]);
 
 	// transform vector by matrix (no translation)
 	// multDirMatrix
 	float3 dir = mul_vec_dir_matrix(camera_to_world_mat4x4, screen_coord);
+	// ray direction
 	float3 direction = normalize(dir);
 
 	long voxels_zero_crossing[2] = { -1, -1 };
@@ -1408,21 +1405,7 @@ extern "C"
 			cudaMemcpyHostToDevice
 			));
 
-		// Bind the array to the texture
-		//cudaChannelFormatDesc desc_img_out = cudaCreateChannelDesc<uchar4>();
-		//checkCudaErrors(
-		//	cudaBindTexture2D(
-		//	0, 
-		//	outputTexture,
-		//	image_buffer.dev_ptr, 
-		//	desc_img_out,
-		//	image_buffer.width, 
-		//	image_buffer.height, 
-		//	image_buffer.pitch));
 		
-		//cudaChannelFormatDesc desc_normal = cudaCreateChannelDesc<float4>();
-		//checkCudaErrors(cudaBindTexture2D(0, normalTexture, normal_buffer.dev_ptr, desc_normal, normal_buffer.width, normal_buffer.height, normal_buffer.pitch));
-
 		const dim3 threads_per_block(16, 16);
 		dim3 num_blocks;
 		num_blocks.x = (image_buffer.width + threads_per_block.x - 1) / threads_per_block.x;
@@ -1439,8 +1422,6 @@ extern "C"
 			aspect_ratio,
 			camera_to_world_matrix_dev_ptr
 			);
-
-		//checkCudaErrors(cudaUnbindTexture(outputTexture));
 
 		checkCudaErrors(cudaDeviceSynchronize());
 	}
