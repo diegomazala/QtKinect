@@ -216,9 +216,11 @@ int volumetric_knt_cuda(int argc, char **argv)
 	//
 	timer.start();
 	Eigen::Affine3f camera_to_world = Eigen::Affine3f::Identity();
-#if 0
-	float cam_z = -half_vol_size; 
+#if 1
+	float cam_z = -vol_size - half_vol_size;
+	camera_to_world.scale(Eigen::Vector3f(1, 1, -1));
 	camera_to_world.translate(Eigen::Vector3f(half_vol_size, half_vol_size, cam_z));
+	
 #else
 	float cam_z = vol_size + half_vol_size;
 	camera_to_world.translate(Eigen::Vector3f(half_vol_size, half_vol_size, cam_z));
@@ -327,7 +329,7 @@ int volumetric_knt_cuda(int argc, char **argv)
 	//image.fill(Qt::GlobalColor::black);
 	QApplication app(argc, argv);
 	QImageWidget widget;
-	widget.resize(KINECT_V2_DEPTH_WIDTH * 2, KINECT_V2_DEPTH_HEIGHT * 2);
+	widget.resize(KINECT_V2_DEPTH_WIDTH, KINECT_V2_DEPTH_HEIGHT);
 	widget.setImage(image);
 	widget.show();
 

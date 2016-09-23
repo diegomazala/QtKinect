@@ -109,7 +109,7 @@ int volumetric_knt_cuda(int argc, char **argv)
 
 	Eigen::Affine3f grid_affine = Eigen::Affine3f::Identity();
 	grid_affine.translate(Eigen::Vector3f(0, 0, half_vol_size));
-	grid_affine.scale(Eigen::Vector3f(1, 1, 1));	// z is negative inside of screen
+	grid_affine.scale(Eigen::Vector3f(1, 1, -1));	// z is negative inside of screen
 	Eigen::Matrix4f grid_matrix = grid_affine.matrix();
 
 	float knt_near_plane = 0.1f;
@@ -180,7 +180,7 @@ int volumetric_knt_cuda(int argc, char **argv)
 
 	timer.start();
 	Eigen::Affine3f grid_affine_2 = Eigen::Affine3f::Identity();
-	grid_affine_2.translate(Eigen::Vector3f(-half_vol_size, -half_vol_size, 0));
+	grid_affine_2.translate(Eigen::Vector3f(-half_vol_size, -half_vol_size, -vol_size));
 		
 	export_volume(
 		"../../data/grid_volume_gpu_knt.obj",

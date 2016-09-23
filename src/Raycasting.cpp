@@ -136,10 +136,10 @@ int raycast_and_render_grid(int argc, char* argv[])
 			multDirMatrix(screen_coord, camera_to_world.matrix(), direction);
 			direction.normalize();
 
-			std::vector<int> voxels_zero_crossing;
+			long voxels_zero_crossing[2];
 			if (raycast_tsdf_volume(camera_pos, direction, voxel_count, voxel_size, tsdf, voxels_zero_crossing) > 0)
 			{
-				if (voxels_zero_crossing.size() == 2)
+				if (voxels_zero_crossing[0] > -1 && voxels_zero_crossing[1] > -1)
 				{
 					image.setPixel(QPoint(x, y), qRgb(128, 128, 0));
 				}

@@ -386,7 +386,7 @@ __global__ void	back_projection_with_normal_estimate_kernel(
 	float4 vertex;
 	window_coord_to_3d_kernel_device(&vertex, x, y, depth, inverse_projection_16f, w, h);
 
-	//vertex.z = -vertex.z;
+	vertex.z = -vertex.z;
 
 	out_vertices[y * w + x] = vertex;
 }

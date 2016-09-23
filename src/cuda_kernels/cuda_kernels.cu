@@ -1127,6 +1127,8 @@ extern "C"
 		float4 vertex;
 		window_coord_to_3d_kernel_device(&vertex, x, y, depth, inverse_projection_16f, w, h);
 
+		vertex.z = -vertex.z;
+
 		out_vertices[y * w + x] = vertex;
 	}
 
