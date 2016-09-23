@@ -55,7 +55,7 @@ void QImageWidget::keyReleaseEvent(QKeyEvent *e)
 	if (e->modifiers() == Qt::ControlModifier && e->key() == Qt::Key_S)
 	{
 		const QString& filename = QFileDialog::getSaveFileName(this,
-			tr("Save Image File"), "",
+			tr("Save Image File"), "../../data/",
 			tr("Images (*.png);;Images (*.jpg)"));
 
 		this->save(filename);
