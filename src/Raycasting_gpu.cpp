@@ -165,8 +165,6 @@ int volumetric_knt_cuda(int argc, char **argv)
 	float4* debug_buffer = new float4[image_width * image_height];
 	memset(debug_buffer, 0, image_width * image_height * sizeof(float4));
 
-	std::cout << image_width << " " << image_height << std::endl;
-
 	knt_cuda_setup(
 		vx_count, vx_size,
 		grid_matrix.data(),
@@ -217,14 +215,13 @@ int volumetric_knt_cuda(int argc, char **argv)
 	timer.start();
 	Eigen::Affine3f camera_to_world = Eigen::Affine3f::Identity();
 #if 1
-	float cam_z = -vol_size - half_vol_size;
+	float cam_z = -half_vol_size;
 	camera_to_world.scale(Eigen::Vector3f(1, 1, -1));
 	camera_to_world.translate(Eigen::Vector3f(half_vol_size, half_vol_size, cam_z));
-	
 #else
-	float cam_z = vol_size + half_vol_size;
+	float cam_z = -half_vol_size;
+	//camera_to_world.scale(Eigen::Vector3f(1, 1, -1));
 	camera_to_world.translate(Eigen::Vector3f(half_vol_size, half_vol_size, cam_z));
-	camera_to_world.rotate(Eigen::AngleAxisf((float)DegToRad(180.0), Eigen::Vector3f::UnitY()));
 #endif
 	
 	Eigen::Matrix4f camera_to_world_matrix = camera_to_world.matrix();

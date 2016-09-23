@@ -51,7 +51,8 @@ static void export_obj_with_colors(const std::string& filename, const std::vecto
 		file << std::fixed << "v " 
 			<< v.x << ' ' << v.y << ' ' << v.z 
 			<< '\t' 
-			<< int((c.x * 0.5f + 0.5f) * 255) << ' ' << int((c.y * 0.5f + 0.5f) * 255) << ' ' << int((c.z * 0.5f + 0.5f) * 255)
+			//<< int((c.x * 0.5f + 0.5f) * 255) << ' ' << int((c.y * 0.5f + 0.5f) * 255) << ' ' << int((c.z * 0.5f + 0.5f) * 255)
+			<< int(abs(c.x) * 255) << ' ' << int(abs(c.y) * 255) << ' ' << int(abs(c.z) * 255)
 			<< std::endl;
 	}
 	file.close();

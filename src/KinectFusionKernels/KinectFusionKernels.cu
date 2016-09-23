@@ -1101,11 +1101,11 @@ __global__ void	raycast_kernel(
 	// Convert from image space (in pixels) to screen space
 	// Screen Space along X axis = [-aspect ratio, aspect ratio] 
 	// Screen Space along Y axis = [-1, 1]
-	float x_norm = (2.f * float(x) + 0.5f) / (float)image_width;
-	float y_norm = (2.f * float(y) + 0.5f) / (float)image_height;
+	float x2_norm = (2.f * float(x) + 0.5f) / (float)image_width;
+	float y2_norm = (2.f * float(y) + 0.5f) / (float)image_height;
 	float3 screen_coord = make_float3(
-		(x_norm - 1.f) * aspect_ratio * fov_scale,
-		(1.f - y_norm) * fov_scale,
+		(x2_norm - 1.f) * aspect_ratio * fov_scale,
+		(1.f - y2_norm) * fov_scale,
 		1.0f);
 
 	// ray origin
@@ -1134,11 +1134,10 @@ __global__ void	raycast_kernel(
 		if (voxels_zero_crossing[0] > -1 && voxels_zero_crossing[1] > -1)
 		{
 			//out_image[y * image_width + x] = make_uchar4(0, 128, 128, 255);
-			out_image[y * image_width + x].x = uchar((normal.x * 0.5f + 0.5f) * 255);
-			out_image[y * image_width + x].y = uchar((normal.y * 0.5f + 0.5f) * 255);
-			out_image[y * image_width + x].z = uchar((normal.z * 0.5f + 0.5f) * 255);
+			out_image[y * image_width + x].x = uchar(fabs(normal.x) * 255);
+			out_image[y * image_width + x].y = uchar(fabs(normal.y) * 255);
+			out_image[y * image_width + x].z = uchar(fabs(normal.z) * 255);
 			out_image[y * image_width + x].w = 255;
-
 		}
 		else
 		{

@@ -1100,7 +1100,7 @@ extern "C"
 
 		out_vertex->x = -vertex_proj_inv[0];
 		out_vertex->y = -vertex_proj_inv[1];
-		out_vertex->z = depth;
+		out_vertex->z = -depth;
 		out_vertex->w = 1.0f;
 
 		//out_vertex->x = clip[0];
@@ -1126,8 +1126,6 @@ extern "C"
 		float depth = ((float)tex2D(ushortTexture, x, y)) * 0.1f;
 		float4 vertex;
 		window_coord_to_3d_kernel_device(&vertex, x, y, depth, inverse_projection_16f, w, h);
-
-		vertex.z = -vertex.z;
 
 		out_vertices[y * w + x] = vertex;
 	}
