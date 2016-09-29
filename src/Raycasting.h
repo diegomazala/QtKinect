@@ -25,7 +25,7 @@ enum BoxFace
 };
 
 template <typename Type>
-BoxFace box_face_from_normal(const Eigen::Matrix<Type, 3, 1>& normal)
+static BoxFace box_face_from_normal(const Eigen::Matrix<Type, 3, 1>& normal)
 {
 	if (normal.z() < -0.5f)	
 		return BoxFace::Front;
@@ -48,7 +48,7 @@ BoxFace box_face_from_normal(const Eigen::Matrix<Type, 3, 1>& normal)
 	return BoxFace::Undefined;
 }
 
-std::string box_face_to_string(const BoxFace face)
+static std::string box_face_to_string(const BoxFace face)
 {
 	switch (face)
 	{
@@ -64,7 +64,7 @@ std::string box_face_to_string(const BoxFace face)
 }
 
 
-BoxFace box_face_in_face_out(const BoxFace& face_out)
+static BoxFace box_face_in_face_out(const BoxFace& face_out)
 {
 	switch (face_out)
 	{
@@ -106,7 +106,7 @@ static Eigen::Vector3i index_3d_from_array(
 }
 
 
-Eigen::Vector3f eigen_clamp(Eigen::Vector3f v, float a, float b)
+static Eigen::Vector3f eigen_clamp(Eigen::Vector3f v, float a, float b)
 {
 	return Eigen::Vector3f(
 		std::fmax(a, std::fmin(b, v.x())),

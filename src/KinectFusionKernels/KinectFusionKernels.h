@@ -50,9 +50,7 @@ extern "C"
 		float4& vertex_4f_host_ref,
 		float4& normal_4f_host_ref,
 		ushort output_image_width,
-		ushort output_image_height,
-		uchar4& output_image_4uc_ref,
-		float4& debug_float);
+		ushort output_image_height);
 
 	void knt_cuda_allocate();
 	void knt_cuda_free();
@@ -81,7 +79,7 @@ extern "C"
 	void knt_cuda_copy_device_to_host();
 	void knt_cuda_grid_params_copy_device_to_host();
 
-	void knt_cuda_copy_image_device_to_host();
+	void knt_cuda_copy_image_device_to_host(uchar4& image_host_ptr);
 };
 
 

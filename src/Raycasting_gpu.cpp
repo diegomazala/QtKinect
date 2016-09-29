@@ -21,7 +21,7 @@
 #include <cassert>
 
 #include <QApplication>
-#include "QImageWidget.h"
+#include "RaycastImageWidget.h"
 #include "Timer.h"
 #include "Eigen/Dense"
 #include "Projection.h"
@@ -160,10 +160,11 @@ int volumetric_knt_cuda(int argc, char **argv)
 	//
 	unsigned short image_width = KINECT_V2_DEPTH_WIDTH;
 	unsigned short image_height = image_width / aspect_ratio;
-	uchar4* image_data = new uchar4[image_width * image_height];
-	memset(image_data, 0, image_width * image_height * sizeof(uchar4));
-	float4* debug_buffer = new float4[image_width * image_height];
-	memset(debug_buffer, 0, image_width * image_height * sizeof(float4));
+	QImage img(image_width, image_height, QImage::Format::Format_RGBA8888);
+	img.fill(Qt::GlobalColor::gray);
+	uchar4* image_data = (uchar4*)img.bits();
+	//float4* debug_buffer = new float4[image_width * image_height];
+	//memset(debug_buffer, 0, image_width * image_height * sizeof(float4));
 
 	knt_cuda_setup(
 		vx_count, vx_size,
@@ -178,9 +179,7 @@ int volumetric_knt_cuda(int argc, char **argv)
 		vertices.data()[0],
 		normals.data()[0],
 		image_width,
-		image_height,
-		*image_data,
-		*debug_buffer
+		image_height
 		);
 
 	timer.start();
@@ -214,15 +213,10 @@ int volumetric_knt_cuda(int argc, char **argv)
 	//
 	timer.start();
 	Eigen::Affine3f camera_to_world = Eigen::Affine3f::Identity();
-#if 1
 	float cam_z = -half_vol_size;
 	camera_to_world.scale(Eigen::Vector3f(1, 1, -1));
 	camera_to_world.translate(Eigen::Vector3f(half_vol_size, half_vol_size, cam_z));
-#else
-	float cam_z = -half_vol_size;
-	//camera_to_world.scale(Eigen::Vector3f(1, 1, -1));
-	camera_to_world.translate(Eigen::Vector3f(half_vol_size, half_vol_size, cam_z));
-#endif
+
 	
 	Eigen::Matrix4f camera_to_world_matrix = camera_to_world.matrix();
 		
@@ -230,7 +224,7 @@ int volumetric_knt_cuda(int argc, char **argv)
 	timer.print_interval("Raycast             : ");
 
 	timer.start();
-	knt_cuda_copy_image_device_to_host();
+	knt_cuda_copy_image_device_to_host(*(uchar4*)img.bits());
 	timer.print_interval("Copy Img to host    : ");
 	
 	timer.start();
@@ -322,6 +316,8 @@ int volumetric_knt_cuda(int argc, char **argv)
 
 	
 
+
+
 	QImage image(&image_data[0].x, image_width, image_height, QImage::Format_RGBA8888);
 	//image.fill(Qt::GlobalColor::black);
 	QApplication app(argc, argv);
@@ -359,6 +355,15 @@ int main(int argc, char **argv)
 		vx_size = atoi(argv[3]);
 	}
 
-	return volumetric_knt_cuda(argc, argv);
+	//return volumetric_knt_cuda(argc, argv);
+
+	QApplication app(argc, argv);
+	RaycastImageWidget widget;
+	widget.resize(KINECT_V2_DEPTH_WIDTH, KINECT_V2_DEPTH_HEIGHT);
+	widget.setup(filepath, vx_count, vx_size);
+	widget.computeRaycast();
+	widget.show();
+
+	return app.exec();
 }
 

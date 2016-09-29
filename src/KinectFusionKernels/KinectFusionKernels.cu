@@ -1169,9 +1169,7 @@ extern "C"
 		float4& vertex_4f_host_ref,
 		float4& normal_4f_host_ref,
 		ushort output_image_width,
-		ushort output_image_height,
-		uchar4& output_image_4uc_ref,
-		float4& debug_float)
+		ushort output_image_height)
 	{
 		grid.voxel_count = make_ushort3(vx_count, vx_count, vx_count);
 		grid.voxel_size = make_ushort3(vx_size, vx_size, vx_size);
@@ -1193,11 +1191,9 @@ extern "C"
 
 		image_buffer.width = output_image_width;
 		image_buffer.height = output_image_height;
-		image_buffer.host_ptr = (uchar4*)&output_image_4uc_ref;
 
 		debug_buffer.width = output_image_width;
 		debug_buffer.height = output_image_height;
-		debug_buffer.host_ptr = &debug_float;
 	}
 
 
@@ -1521,11 +1517,10 @@ extern "C"
 			));
 	}
 
-	void knt_cuda_copy_image_device_to_host()
+	void knt_cuda_copy_image_device_to_host(uchar4& image_host_ptr)
 	{
-		if (image_buffer.host_ptr != nullptr)
-			cudaMemcpy2D(
-			image_buffer.host_ptr,
+		cudaMemcpy2D(
+			&image_host_ptr,
 			sizeof(uchar4) * image_buffer.width,
 			image_buffer.dev_ptr,
 			image_buffer.pitch,
@@ -1533,15 +1528,15 @@ extern "C"
 			image_buffer.height,
 			cudaMemcpyDeviceToHost);
 
-		if (debug_buffer.host_ptr != nullptr)
-			cudaMemcpy2D(
-			debug_buffer.host_ptr,
-			sizeof(float4) * debug_buffer.width,
-			debug_buffer.dev_ptr,
-			debug_buffer.pitch,
-			sizeof(float4) * debug_buffer.width,
-			debug_buffer.height,
-			cudaMemcpyDeviceToHost);
+		//if (debug_buffer.host_ptr != nullptr)
+		//	cudaMemcpy2D(
+		//	debug_buffer.host_ptr,
+		//	sizeof(float4) * debug_buffer.width,
+		//	debug_buffer.dev_ptr,
+		//	debug_buffer.pitch,
+		//	sizeof(float4) * debug_buffer.width,
+		//	debug_buffer.height,
+		//	cudaMemcpyDeviceToHost);
 	}
 
 }

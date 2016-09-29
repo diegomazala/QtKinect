@@ -10,12 +10,10 @@
 #include <iostream>
 
 
-// Usage: ./KinectLoadd.exe ../knt_frames/ 5
-// Usage: ./KinectLoadd.exe ../knt_frames/frame_33.knt
+// Usage: ./KinectFusion.exe ../knt_frames/ 5
+// Usage: ./KinectFusion.exe ../knt_frames/frame_33.knt
 int main(int argc, char **argv)
 {
-	//return volumetricRenderTest(argc, argv);
-
 	QString input_path = QDir::currentPath();
 	int fps = 30;
 
@@ -43,18 +41,9 @@ int main(int argc, char **argv)
 	format.setOption(QSurfaceFormat::DebugContext);
 	QSurfaceFormat::setDefaultFormat(format);
 
-	std::string filename = "../../data/monkey_tsdf_float2_33.raw"; // argv[1];
 	size_t vol_width = 33;
 	size_t vol_height = 33;
 	size_t vol_depth = 33;
-#if 0
-	VolumeRenderWidget volumeWidget;
-	volumeWidget.setup(filename, vol_width, vol_height, vol_depth);
-	volumeWidget.setFixedSize(512, 512);
-	volumeWidget.setWindowTitle("Volume Render Widget");
-	volumeWidget.move(1280, 0);
-	volumeWidget.show();
-#endif
 
 
 	QImageWidget colorWidget;
@@ -88,7 +77,6 @@ int main(int argc, char **argv)
 
 	QApplication::connect(&player, SIGNAL(quit()), &depthWidget, SLOT(close()));
 	QApplication::connect(&player, SIGNAL(quit()), &colorWidget, SLOT(close()));
-	//QApplication::connect(&player, SIGNAL(quit()), &volumeWidget, SLOT(close()));
 
 	QApplication::connect(kinectGrabber, SIGNAL(frameUpdated()), &kinectMngr, SLOT(onNewFrame()));
 

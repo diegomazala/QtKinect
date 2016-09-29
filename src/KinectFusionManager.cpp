@@ -30,8 +30,5 @@ void KinectFusionManager::onNewFrame()
 		KinectFrame knt;
 		kinectGrabber->getDepthBuffer(knt.info, knt.depth);
 		std::cout << "onFileInfo: " << knt.info.size() << ", " << knt.depth.size() << std::endl;
-
-
-
 	}
 }

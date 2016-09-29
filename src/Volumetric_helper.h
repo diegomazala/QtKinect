@@ -1,3 +1,6 @@
+#ifndef _VOLUMETRIC_HELPER_H
+#define _VOLUMETRIC_HELPER_H
+
 
 #include "Grid.h"
 #include <iostream>
@@ -30,56 +33,9 @@ const double aspect_ratio = window_width / window_height;
 //std::pair<Eigen::Matrix4d, Eigen::Matrix4d>	T(Eigen::Matrix4d::Zero(), Eigen::Matrix4d::Zero());
 
 typedef std::vector<Eigen::Vector3d> PointCloud;
-std::vector<PointCloud> cloud_array_points;
-std::vector<Eigen::Matrix4d> cloud_array_matrix;
+static std::vector<PointCloud> cloud_array_points;
+static std::vector<Eigen::Matrix4d> cloud_array_matrix;
 
-
-#if 0
-void raycast_volume()
-{
-	timer.start();
-
-	Eigen::Vector3d origin = T.first.col(3).head<3>();
-	Eigen::Vector3d window_coord_norm;
-
-	std::vector<Eigen::Vector3d> output_cloud;
-
-	// Sweep the volume looking for the zero crossing
-	for (int y = 0; y < window_height * 0.1; ++y)
-	{
-		std::cout << "Ray casting to image... " << (double)y / window_height * 100 << "%" << std::endl;
-
-		for (int x = 0; x < window_width * 0.1; ++x)
-		{
-			window_coord_norm.x() = ((double)x / window_width * 2.0) - 1.0;
-			window_coord_norm.y() = ((double)y / window_height * 2.0) - 1.0;
-			window_coord_norm.z() = origin.z() + near_plane;
-			Eigen::Vector3d direction = (window_coord_norm - origin).normalized();
-
-			std::vector<int> intersections = Grid::find_intersections(grid.data, volume_size, voxel_size, grid.transformation, origin, direction, near_plane, far_plane);
-			Grid::sort_intersections(intersections, grid.data, origin);
-
-			for (int i = 1; i < intersections.size(); ++i)
-			{
-				const Voxeld& prev = grid.data.at(i - 1);
-				const Voxeld& curr = grid.data.at(i);
-
-				const bool& same_sign = ((prev.tsdf < 0) == (curr.tsdf < 0));
-
-				if (!same_sign)		// it is a zero-crossing
-				{
-					output_cloud.push_back(curr.point);
-				}
-			}
-		}
-	}
-
-	timer.print_interval("Raycasting volume   : ");
-
-
-	export_obj("../../data/output_cloud.obj", output_cloud);
-}
-#endif
 
 
 
@@ -605,3 +561,5 @@ static void knt_frame_generate_normals(
 		}
 	}
 }
+
+#endif // _VOLUMETRIC_HELPER_H
