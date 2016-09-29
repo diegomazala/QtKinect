@@ -1,0 +1,7 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+  <qresource prefix="/">
+      <file>../resources/shaders/vertices.vert</file>
+      <file>../resources/shaders/vertices.frag</file>
+  </qresource>
+</RCC>
