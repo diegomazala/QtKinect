@@ -14,23 +14,12 @@ __host__ __device__ float deg2rad(float deg) { return deg*PI / 180.0;}
 __host__ __device__ float rad2deg(float rad) { return 180.0*rad / PI; }
 
 
-
-
-
-static int3 get_index_3d_from_array(
-	int array_index,
-	const int3& voxel_count)
+typedef struct
 {
-	return make_int3(
-		int(std::fmod(array_index, voxel_count.x)),
-		int(std::fmod(array_index / voxel_count.y, voxel_count.y)),
-		int(array_index / (voxel_count.x * voxel_count.y)));
-}
+	float4 m[3];
+} float3x4;
 
-inline __host__ __device__ int get_index_from_3d_volume(int3 pt, int3 voxel_count)
-{
-	return pt.z * voxel_count.x * voxel_count.y + pt.y * voxel_count.y + pt.x;
-}
+__constant__ float3x4 c_invViewMatrix;  // inverse view matrix
 
 // 
 // Face Index
@@ -383,89 +372,7 @@ __host__ __device__ int box_intersection(
 
 extern "C"
 {
-	void raycast_one(
-		const float* origin_float3, 
-		const float* direction_float3, 
-		const int* voxel_count_int3, 
-		const int* voxel_size_int3)
-	{
-		float3 origin = make_float3(origin_float3[0], origin_float3[1], origin_float3[2]);
-		float3 direction = make_float3(direction_float3[0], direction_float3[1], direction_float3[2]);
-		int3 voxel_count = make_int3(voxel_count_int3[0], voxel_count_int3[1], voxel_count_int3[2]);
-
-		int3 voxel_size = make_int3(voxel_size_int3[0], voxel_size_int3[1], voxel_size_int3[2]);
-		float3 half_voxel_size = make_float3(
-			voxel_size.x * 0.5f,
-			voxel_size.y * 0.5f,
-			voxel_size.z * 0.5f);
-
-		int3 volume_size = voxel_count * voxel_size;
-		float3 half_volume_size = make_float3(
-			volume_size.x * 0.5f,
-			volume_size.y * 0.5f,
-			volume_size.z * 0.5f);
-
-		int total_voxels = voxel_count.x * voxel_count.y * voxel_count.z;
-
-		float3 hit1;
-		float3 hit2;
-		float3 hit1_normal;
-		float3 hit2_normal;
-
-	//	std::cout << volume_size.x << ' ' << volume_size.y << ' ' << volume_size.z << std::endl;
-
-
-		//
-		// Check intersection with the whole volume
-		//
-		int intersections_count = box_intersection(
-			origin,
-			direction,
-			half_volume_size,	//volume_center,
-			volume_size.x,
-			volume_size.y,
-			volume_size.z,
-			hit1,
-			hit2,
-			hit1_normal,
-			hit2_normal);
-
-		int3 hit_int = make_int3(hit1.x, hit1.y, hit1.z);
-		int voxel_index = get_index_from_3d_volume(hit_int, voxel_count);
-		float3 last_voxel = make_float3(hit_int.x, hit_int.y, hit_int.z);
-
-
-		int loop_count = 0;
-		std::cout << "First Intersected : " << voxel_index << std::endl;
 	
-		// 
-		// Check intersection with each box inside of volume
-		// 
-		while (voxel_index > -1 && voxel_index < (total_voxels - voxel_count.x * voxel_count.y))
-		{
-
-			int face = -1;
-			intersections_count = box_intersection(
-				origin,
-				direction,
-				last_voxel + half_voxel_size,
-				voxel_size.x,
-				voxel_size.y,
-				voxel_size.z,
-				hit1_normal,
-				hit2_normal,
-				face);
-
-
-			voxel_index = get_index_from_box_face(face, voxel_index, voxel_count);
-			int3 last_voxel_index = get_index_3d_from_array(voxel_index, voxel_count);
-			loop_count++;
-
-			std::cout << "Voxel Intersected : " << voxel_index << std::endl;
-		}
-	
-	}
-
 	__device__ float3 mul_vec_dir_matrix(const float* M_3x4, const float3& v)
 	{
 		return make_float3(
@@ -630,6 +537,12 @@ extern "C"
 			);
 
 		thrust::copy(d_image_rgb.begin(), d_image_rgb.end(), (uchar3*)image_rgb_output_uchar3);
+	}
+
+
+	void copyInvViewMatrix(float *invViewMatrix, size_t sizeofMatrix)
+	{
+		checkCudaErrors(cudaMemcpyToSymbol(c_invViewMatrix, invViewMatrix, sizeofMatrix));
 	}
 
 

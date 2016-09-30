@@ -29,6 +29,7 @@ typedef unsigned long ulong;
 #endif
 
 
+
 //static int iDivUp(int a, int b)
 //{
 //	return (a % b != 0) ? (a / b + 1) : (a / b);
@@ -56,6 +57,7 @@ extern "C"
 	void knt_cuda_free();
 
 	void knt_cuda_init_grid();
+	void knt_cuda_grid_sample_test(float* grid_params_2f_host, ushort count);
 
 	void knt_cuda_update_grid(
 		const float* view_matrix_16f);
@@ -74,12 +76,30 @@ extern "C"
 		float aspect_ratio,
 		const float* camera_to_world_matrix_16f);
 
+	void knt_cuda_raycast_gl(
+		uint* image_data_ref,
+		ushort width,
+		ushort height,
+		float fovy,
+		float aspect_ratio,
+		const float* camera_to_world_mat3x4);
+
 	void knt_cuda_copy_vertices_device_to_host(void* host_ptr);
 	void knt_cuda_copy_host_to_device();
 	void knt_cuda_copy_device_to_host();
 	void knt_cuda_grid_params_copy_device_to_host();
 
 	void knt_cuda_copy_image_device_to_host(uchar4& image_host_ptr);
+
+	void raycast_box(
+		uint* image_data_ref,
+		ushort width, 
+		ushort height,
+		float fov_scale,
+		float aspect_ratio,
+		float* camera_to_world_mat3x4,
+		ushort3 box_size
+		);
 };
 
 

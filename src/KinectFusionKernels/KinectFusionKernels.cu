@@ -4,11 +4,42 @@
 #include "KinectFusionKernels.h"
 #include <helper_cuda.h>
 #include <helper_math.h>
+#include <thrust/device_vector.h>
 #include <iostream>
 
 #define MinTruncation 0.5f
 #define MaxTruncation 1.1f
 #define MaxWeight 10.0f
+
+struct Ray
+{
+	float3 origin;   // origin
+	float3 direction;   // direction
+};
+
+// intersect ray with a box
+// http://www.siggraph.org/education/materials/HyperGraph/raytrace/rtinter3.htm
+__device__
+int intersectBox(Ray r, float3 boxmin, float3 boxmax, float *tnear, float *tfar)
+{
+	// compute intersection of ray with all six bbox planes
+	float3 invR = make_float3(1.0f) / r.direction;
+	float3 tbot = invR * (boxmin - r.origin);
+	float3 ttop = invR * (boxmax - r.origin);
+
+	// re-order intersections to find smallest and largest on each axis
+	float3 tmin = fminf(ttop, tbot);
+	float3 tmax = fmaxf(ttop, tbot);
+
+	// find the largest tmin and the smallest tmax
+	float largest_tmin = fmaxf(fmaxf(tmin.x, tmin.y), fmaxf(tmin.x, tmin.z));
+	float smallest_tmax = fminf(fminf(tmax.x, tmax.y), fminf(tmax.x, tmax.z));
+
+	*tnear = largest_tmin;
+	*tfar = smallest_tmax;
+
+	return smallest_tmax > largest_tmin;
+}
 
 struct grid_3d
 {
@@ -117,6 +148,13 @@ __host__ __device__ float deg2rad(float deg) { return deg*PI / 180.0; }
 __host__ __device__ float rad2deg(float rad) { return 180.0*rad / PI; }
 
 
+typedef struct
+{
+	float4 m[3];
+} float3x4;
+__constant__ float3x4 camera_to_world_dev_matrix;  // inverse view matrix
+
+
 __device__ uint rgbaFloatToInt(float4 rgba)
 {
 	rgba.x = __saturatef(fabs(rgba.x));   // clamp to [0.0, 1.0]
@@ -134,6 +172,11 @@ __device__ uint rgbFloatToInt(float3 rgb)
 }
 	
 
+
+static int iDivUp(int a, int b)
+{
+	return (a % b != 0) ? (a / b + 1) : (a / b);
+}
 
 
 __global__ void grid_init_kernel(
@@ -886,7 +929,35 @@ __device__ float3 mul_vec_dir_matrix(const float* M_3x4, const float3& v)
 		dot(v, make_float3(M_3x4[2], M_3x4[6], M_3x4[10])));
 }
 
+__device__ float4 mul_vec_dir_matrix(const float* M_3x4, const float4& v)
+{
+	return make_float4(
+		dot(v, make_float4(M_3x4[0], M_3x4[4], M_3x4[8], M_3x4[12])),
+		dot(v, make_float4(M_3x4[1], M_3x4[5], M_3x4[9], M_3x4[13])),
+		dot(v, make_float4(M_3x4[2], M_3x4[6], M_3x4[10], M_3x4[14])),
+		1.0f);
+}
 
+// transform vector by matrix (no translation)
+__device__ float3 mul(const float3x4 &M, const float3 &v)
+{
+	float3 r;
+	r.x = dot(v, make_float3(M.m[0]));
+	r.y = dot(v, make_float3(M.m[1]));
+	r.z = dot(v, make_float3(M.m[2]));
+	return r;
+}
+
+// transform vector by matrix with translation
+__device__ float4 mul(const float3x4 &M, const float4 &v)
+{
+	float4 r;
+	r.x = dot(v, M.m[0]);
+	r.y = dot(v, M.m[1]);
+	r.z = dot(v, M.m[2]);
+	r.w = 1.0f;
+	return r;
+}
 
 __device__ BoxFace raycast_face_volume(
 	float3 ray_origin,
@@ -1079,6 +1150,87 @@ __device__ int raycast_tsdf_volume(
 
 
 
+__global__ void	raycast_kernel_gl(
+	uint* out_image,
+	ushort image_width,
+	ushort image_height,
+	ushort3 voxel_count,
+	ushort3 voxel_size,
+	float* grid_voxels_params_2f,
+	float fov_scale,
+	float aspect_ratio,
+	float* camera_to_world_mat4x4)
+{
+	ulong x = blockIdx.x*blockDim.x + threadIdx.x;
+	ulong y = blockIdx.y*blockDim.y + threadIdx.y;
+
+	if (x >= image_width || y >= image_height)
+	{
+		return;
+	}
+
+	// Convert from image space (in pixels) to screen space
+	float u = (x / (float)image_width) * 2.0f - 1.0f;
+	float v = (y / (float)image_height) * 2.0f - 1.0f;
+	Ray eye_ray;
+	eye_ray.origin = make_float3(mul(camera_to_world_dev_matrix, make_float4(0.0f, 0.0f, 0.0f, 1.0f)));
+	float3 screen_coord = normalize(make_float3(u, -v, -2.0f));
+	eye_ray.direction = mul(camera_to_world_dev_matrix, screen_coord);
+
+	long voxels_zero_crossing[2] = { -1, -1 };
+
+#if 0
+	//
+	// Check intersection with the whole volume
+	//
+	ushort3 volume_size = make_ushort3(
+		voxel_count.x * voxel_size.x,
+		voxel_count.y * voxel_size.y,
+		voxel_count.z * voxel_size.z);
+	float3 half_volume_size = make_float3(volume_size.x * 0.5f, volume_size.y * 0.5f, volume_size.z * 0.5f);
+	float3 hit1, hit2, hit1_normal, hit2_normal;
+	int hit_count = box_intersection(
+		eye_ray.origin,
+		eye_ray.direction,
+		//make_float3(0, 0, 0),	
+		half_volume_size,	//volume_center,
+		volume_size.x,
+		volume_size.y,
+		volume_size.z,
+		hit1,
+		hit2,
+		hit1_normal,
+		hit2_normal);
+#else
+
+	int hit_count = raycast_tsdf_volume(
+		eye_ray.origin,
+		eye_ray.direction,
+		voxel_count,
+		voxel_size,
+		grid_voxels_params_2f,
+		voxels_zero_crossing);
+#endif
+
+	const float4 normal = tex2D(normalTexture, x, y);
+
+	if (hit_count > 0)
+	{
+		if (voxels_zero_crossing[0] > -1 && voxels_zero_crossing[1] > -1)
+			out_image[y * image_width + x] = rgbaFloatToInt(make_float4(fabs(normal.x), fabs(normal.y), fabs(normal.z), 1.f));
+		else if (voxels_zero_crossing[0] > -1 || voxels_zero_crossing[1] > -1)
+			out_image[y * image_width + x] = rgbaFloatToInt(make_float4(fabs(normal.x), fabs(normal.y), fabs(normal.z), 1.f));
+		else
+			out_image[y * image_width + x] = rgbaFloatToInt(make_float4(0.0f, 0.5f, 0.5f, 1.f));
+	}
+	else
+	{
+		out_image[y * image_width + x] = rgbaFloatToInt(make_float4(0.5f, 0.f, 0.f, 1.f));
+	}
+
+}
+
+
 __global__ void	raycast_kernel(
 	uchar4* out_image,
 	ushort image_width,
@@ -1099,17 +1251,30 @@ __global__ void	raycast_kernel(
 	}
 
 	// Convert from image space (in pixels) to screen space
+	float u = (x / (float)image_width) * 2.0f - 1.0f;
+	float v = (y / (float)image_height) * 2.0f - 1.0f;
+	//Ray eye_ray;
+	//eye_ray.origin = make_float3(mul(camera_to_world_dev_matrix, make_float4(0.0f, 0.0f, 0.0f, 1.0f)));
+	//float3 screen_coord = normalize(make_float3(u, -v, -2.0f));
+	//eye_ray.direction = mul(camera_to_world_dev_matrix, screen_coord);
+
+
+	// Convert from image space (in pixels) to screen space
 	// Screen Space along X axis = [-aspect ratio, aspect ratio] 
 	// Screen Space along Y axis = [-1, 1]
 	float x2_norm = (2.f * float(x) + 0.5f) / (float)image_width;
 	float y2_norm = (2.f * float(y) + 0.5f) / (float)image_height;
 	float3 screen_coord = make_float3(
-		(x2_norm - 1.f) * aspect_ratio * fov_scale,
-		(1.f - y2_norm) * fov_scale,
+		(x2_norm - 1.f), // * aspect_ratio * fov_scale,
+		(1.f - y2_norm), // * fov_scale,
 		1.0f);
 
+	//screen_coord = normalize(make_float3(u, -v, -2.0f));
+	screen_coord = normalize(screen_coord);
+
 	// ray origin
-	float3 camera_pos = make_float3(camera_to_world_mat4x4[12], camera_to_world_mat4x4[13], camera_to_world_mat4x4[14]);
+	float3 camera_pos = make_float3(mul_vec_dir_matrix(camera_to_world_mat4x4, make_float4(0.0f, 0.0f, 0.0f, 1.0f)));
+		//make_float3(camera_to_world_mat4x4[12], camera_to_world_mat4x4[13], camera_to_world_mat4x4[14]);
 
 	// transform vector by matrix (no translation)
 	// multDirMatrix
@@ -1117,11 +1282,18 @@ __global__ void	raycast_kernel(
 	// ray direction
 	float3 direction = normalize(dir);
 
+
+
+
+
+
 	long voxels_zero_crossing[2] = { -1, -1 };
 
 	int hit_count = raycast_tsdf_volume(
 		camera_pos,
 		direction,
+		//eye_ray.origin, //camera_pos,
+		//eye_ray.direction, // direction,
 		voxel_count,
 		voxel_size,
 		grid_voxels_params_2f,
@@ -1149,6 +1321,68 @@ __global__ void	raycast_kernel(
 		out_image[y * image_width + x] = make_uchar4(128, 0, 0, 255);
 	}
 
+}
+
+
+
+__global__ void	raycast_box_kernel(
+	uint* out_image,
+	ushort image_width,
+	ushort image_height,
+	float fov_scale,
+	float aspect_ratio,
+	ushort3 box_size)
+{
+	ulong x = blockIdx.x * blockDim.x + threadIdx.x;
+	ulong y = blockIdx.y * blockDim.y + threadIdx.y;
+
+	if (x >= image_width || y >= image_height)
+		return;
+
+	// Convert from image space (in pixels) to screen space
+	float u = (x / (float)image_width) * 2.0f - 1.0f;
+	float v = (y / (float)image_height) * 2.0f - 1.0f;
+	Ray eye_ray;
+	eye_ray.origin = make_float3(mul(camera_to_world_dev_matrix, make_float4(0.0f, 0.0f, 0.0f, 1.0f)));
+	float3 screen_coord = normalize(make_float3(u, -v, -2.0f));
+	eye_ray.direction = mul(camera_to_world_dev_matrix, screen_coord);
+
+#if 1
+	float3 half_box_size = make_float3(
+		box_size.x * 0.5f,
+		box_size.y * 0.5f,
+		box_size.z * 0.5f);
+	
+	float3 hit1, hit2, hit1_normal, hit2_normal;
+	int hit_count = box_intersection(
+		eye_ray.origin,
+		eye_ray.direction,
+		//half_box_size,	//volume_center,
+		make_float3(0, 0, 0),
+		box_size.x,
+		box_size.y,
+		box_size.z,
+		hit1,
+		hit2,
+		hit1_normal,
+		hit2_normal);
+
+	if (hit_count > 0)
+		out_image[y * image_width + x] = rgbaFloatToInt(make_float4(0.f, 0.5f, 0.5f, 1.f));
+	else
+		out_image[y * image_width + x] = rgbaFloatToInt(make_float4(0.f, 0.0f, 0.0f, 1.f));
+#else
+	// find intersection with box
+	const float3 boxMin = make_float3(-1.0f, -1.0f, -1.0f);
+	const float3 boxMax = make_float3(1.0f, 1.0f, 1.0f);
+	float tnear, tfar;
+	int hit_count = intersectBox(eye_ray, boxMin, boxMax, &tnear, &tfar);
+
+	if (hit_count)
+		out_image[y * image_width + x] = rgbaFloatToInt(make_float4(0.f, 0.5f, 0.5f, 1.f));
+	else
+		out_image[y * image_width + x] = rgbaFloatToInt(make_float4(0.f, 0.0f, 0.0f, 1.f));
+#endif
 }
 
 
@@ -1311,6 +1545,19 @@ extern "C"
 		checkCudaErrors(cudaDeviceSynchronize());
 	}
 
+	void knt_cuda_grid_sample_test(float* grid_params_2f_host, ushort count)
+	{
+		checkCudaErrors(
+			cudaMemcpy(
+			grid.params_dev_ptr,
+			grid_params_2f_host,
+			sizeof(float2) * count,
+			cudaMemcpyHostToDevice
+			));
+
+		checkCudaErrors(cudaDeviceSynchronize());
+	}
+
 	void knt_cuda_update_grid(const float* view_matrix_16f)
 	{
 		// it's identity. So, we are using the deault constructor 
@@ -1385,6 +1632,63 @@ extern "C"
 
 
 
+	void raycast_box(
+		uint* image_data_ref,
+		ushort width,
+		ushort height,
+		float fov_scale,
+		float aspect_ratio,
+		float* camera_to_world_mat3x4,
+		ushort3 box_size)
+	{
+		checkCudaErrors(cudaMemcpyToSymbol(camera_to_world_dev_matrix, camera_to_world_mat3x4, sizeof(float4) * 3));
+
+		const dim3 threads_per_block(16, 16);
+		dim3 num_blocks = dim3(iDivUp(width, threads_per_block.x), iDivUp(height, threads_per_block.y));;
+
+		raycast_box_kernel << < num_blocks, threads_per_block >> >(
+			image_data_ref,
+			width,
+			height,
+			fov_scale,
+			aspect_ratio,
+			box_size
+			);
+
+		checkCudaErrors(cudaDeviceSynchronize());
+	}
+
+	void knt_cuda_raycast_gl(
+		uint* image_data_ref,
+		ushort width,
+		ushort height,
+		float fovy,
+		float aspect_ratio,
+		const float* camera_to_world_mat3x4)
+	{
+		checkCudaErrors(cudaMemcpyToSymbol(camera_to_world_dev_matrix, camera_to_world_mat3x4, sizeof(float4) * 3));
+
+		float fov_scale = tan(deg2rad(fovy * 0.5f));
+
+		const dim3 threads_per_block(16, 16);
+		dim3 num_blocks = dim3(iDivUp(width, threads_per_block.x), iDivUp(height, threads_per_block.y));;
+
+		raycast_kernel_gl << <  num_blocks, threads_per_block >> >(
+			image_data_ref,
+			image_buffer.width,
+			image_buffer.height,
+			grid.voxel_count,
+			grid.voxel_size,
+			grid.params_dev_ptr,
+			fov_scale,
+			aspect_ratio,
+			camera_to_world_matrix_dev_ptr
+			);
+
+		checkCudaErrors(cudaDeviceSynchronize());
+	}
+
+
 	void knt_cuda_raycast(
 		float fovy,
 		float aspect_ratio,
@@ -1400,11 +1704,8 @@ extern "C"
 			cudaMemcpyHostToDevice
 			));
 
-		
 		const dim3 threads_per_block(16, 16);
-		dim3 num_blocks;
-		num_blocks.x = (image_buffer.width + threads_per_block.x - 1) / threads_per_block.x;
-		num_blocks.y = (image_buffer.height + threads_per_block.y - 1) / threads_per_block.y;
+		dim3 num_blocks = dim3(iDivUp(image_buffer.width, threads_per_block.x), iDivUp(image_buffer.height, threads_per_block.y));;
 
 		raycast_kernel << <  num_blocks, threads_per_block >> >(
 			image_buffer.dev_ptr,
@@ -1538,7 +1839,8 @@ extern "C"
 		//	debug_buffer.height,
 		//	cudaMemcpyDeviceToHost);
 	}
-
+	
+	
 }
 
 #endif // #ifndef _KINECT_CUDA_KERNELS_CU_

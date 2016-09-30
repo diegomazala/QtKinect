@@ -5,6 +5,7 @@
 #include "QOpenGLTrackballWidget.h"
 #include <QOpenGLWidget>
 #include <QOpenGLFunctions>
+#include <QOpenGLBuffer>
 #include <QMatrix4x4>
 #include <QQuaternion>
 #include <QVector2D>
@@ -13,6 +14,7 @@
 #include <QOpenGLTexture>
 
 class GLModel;
+class GLQuad;
 
 
 class GLRaycastTextureWidget : public QOpenGLTrackballWidget, protected QOpenGLFunctions
@@ -23,11 +25,8 @@ public:
     explicit GLRaycastTextureWidget(QWidget *parent = 0);
     ~GLRaycastTextureWidget();
 
-	void setModel(GLModel* gl_model);
-
 	void setup(const std::string& filepath, ushort vx_count, ushort vx_size);
 	void cleanup();
-	void computeRaycast();
 
 protected:
 
@@ -36,16 +35,21 @@ protected:
     void paintGL() Q_DECL_OVERRIDE;
 
     void initShaders();
+	void initPixelBuffer();
+
+	void cudaRender();
 
 private:
+
     QOpenGLShaderProgram program;
-    GLModel* model;
+
+	QOpenGLBuffer*	pixelBuf;
+	QOpenGLTexture*  texture;
+	GLQuad* quad;
 
     QMatrix4x4 projection;
 
-
 	QImage raycastImage;
-	float cam_z_coord;
 	float fov;
 	ushort voxel_count;
 	ushort voxel_size;

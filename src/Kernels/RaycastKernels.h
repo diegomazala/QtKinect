@@ -20,13 +20,6 @@ typedef unsigned short	ushort;
 
 extern "C"
 {
-	void raycast_one(
-		const float* origin_float3, 
-		const float* direction_float3, 
-		const int* voxel_count_int3, 
-		const int* voxel_size_int3);
-
-
 	void raycast_box(
 		void* image_rgb_output_uchar3, 
 		uint width, 

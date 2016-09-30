@@ -214,7 +214,7 @@ int volumetric_knt_cuda(int argc, char **argv)
 	//
 	timer.start();
 	Eigen::Affine3f camera_to_world = Eigen::Affine3f::Identity();
-	float cam_z = -256; // -half_vol_size;
+	float cam_z = -half_vol_size;
 	camera_to_world.scale(Eigen::Vector3f(1, 1, -1));
 	camera_to_world.translate(Eigen::Vector3f(half_vol_size, half_vol_size, cam_z));
 
@@ -359,17 +359,14 @@ int main(int argc, char **argv)
 	//return volumetric_knt_cuda(argc, argv);
 
 	QApplication app(argc, argv);
-	//RaycastImageWidget widget;
-	//widget.resize(KINECT_V2_DEPTH_WIDTH, KINECT_V2_DEPTH_HEIGHT);
-	//widget.setup(filepath, vx_count, vx_size);
-	//widget.computeRaycast();
-	//widget.show();
 
 	GLRaycastTextureWidget glwidget;
+	glwidget.setWindowTitle("GL Widget");
 	glwidget.resize(KINECT_V2_DEPTH_WIDTH, KINECT_V2_DEPTH_HEIGHT);
 	glwidget.setup(filepath, vx_count, vx_size);
-	glwidget.computeRaycast();
 	glwidget.show();
+
+	
 
 	return app.exec();
 }

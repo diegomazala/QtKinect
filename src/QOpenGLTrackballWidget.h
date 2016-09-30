@@ -15,7 +15,7 @@ public:
 	~QOpenGLTrackballWidget();
 
 	void setWeelSpeed(float weel_speed){ weelSpeed = weel_speed; }
-	void setDistance(float dist){ distance = dist; }
+	void setPosition(float x, float y, float z){ position = QVector3D(x, y, z); }
 
 	void setPerspective(float fov_y, float near_plane, float far_plane)
 	{ 
@@ -38,7 +38,7 @@ protected:
 	QVector3D rotationAxis;
 	qreal angularSpeed;
 	QQuaternion rotation;
-	float distance;
+	QVector3D position;
 	float weelSpeed;
 	float fovy;
 	float nearPlane;

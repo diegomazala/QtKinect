@@ -7,7 +7,6 @@
 QOpenGLTrackballWidget::QOpenGLTrackballWidget(QWidget *parent) :
 	QOpenGLWidget(parent),
 	angularSpeed(0),
-	distance(0.0),
 	fovy(60.0f),
 	nearPlane(0.1f),
 	farPlane(1024.f)
@@ -59,7 +58,7 @@ void QOpenGLTrackballWidget::mouseReleaseEvent(QMouseEvent *e)
 
 void QOpenGLTrackballWidget::wheelEvent(QWheelEvent* event)
 {
-	distance -= event->delta() * weelSpeed;
+	position.setZ( position.z() - event->delta() * weelSpeed);
 
 	//if (distance < 0.5f)
 	//	distance = 0.5f;
