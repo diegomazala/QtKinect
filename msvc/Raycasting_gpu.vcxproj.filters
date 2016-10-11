@@ -71,6 +71,9 @@
     <ClCompile Include="GeneratedFiles\Release\moc_GLRaycastTextureWidget.cpp">
       <Filter>Generated Files\Release</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\QRaycastImageWidget.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="..\src\QImageWidget.h">
@@ -94,6 +97,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\src\GLModel.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\QRaycastImageWidget.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

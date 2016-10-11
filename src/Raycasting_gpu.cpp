@@ -21,7 +21,7 @@
 #include <cassert>
 
 #include <QApplication>
-#include "RaycastImageWidget.h"
+#include "QRaycastImageWidget.h"
 #include "GLRaycastTextureWidget.h"
 #include "Timer.h"
 #include "Eigen/Dense"
@@ -360,12 +360,19 @@ int main(int argc, char **argv)
 
 	QApplication app(argc, argv);
 
+#if 0
 	GLRaycastTextureWidget glwidget;
 	glwidget.setWindowTitle("GL Widget");
 	glwidget.resize(KINECT_V2_DEPTH_WIDTH, KINECT_V2_DEPTH_HEIGHT);
 	glwidget.setup(filepath, vx_count, vx_size);
 	glwidget.show();
-
+#else
+	QRaycastImageWidget widget;
+	widget.setWindowTitle("Raycast Widget");
+	widget.resize(KINECT_V2_DEPTH_WIDTH, KINECT_V2_DEPTH_HEIGHT);
+	widget.setup(filepath, vx_count, vx_size);
+	widget.show();
+#endif
 	
 
 	return app.exec();

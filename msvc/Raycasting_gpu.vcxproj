@@ -17,6 +17,7 @@
     <ClCompile Include="..\src\KinectFrame.cpp" />
     <ClCompile Include="..\src\QImageWidget.cpp" />
     <ClCompile Include="..\src\QOpenGLTrackballWidget.cpp" />
+    <ClCompile Include="..\src\QRaycastImageWidget.cpp" />
     <ClCompile Include="..\src\Raycasting_gpu.cpp" />
     <ClCompile Include="GeneratedFiles\Debug\moc_GLRaycastTextureWidget.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
@@ -57,6 +58,7 @@
   <ItemGroup>
     <ClInclude Include="..\src\GLModel.h" />
     <ClInclude Include="..\src\GLQuad.h" />
+    <ClInclude Include="..\src\QRaycastImageWidget.h" />
     <CustomBuild Include="..\src\GLRaycastTextureWidget.h">
       <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(QTDIR)\bin\moc.exe;%(FullPath)</AdditionalInputs>
       <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Moc%27ing GLRaycastTextureWidget.h...</Message>

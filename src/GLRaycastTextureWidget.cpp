@@ -20,14 +20,11 @@
 #include <vector_functions.h>
 #include <driver_functions.h>
 
-// CUDA utilities
-#include <helper_cuda.h>
-#include <helper_cuda_gl.h>
-
 // Helper functions
 #include <helper_cuda.h>
 #include <helper_functions.h>
 #include <helper_timer.h>
+#include <helper_cuda_gl.h>
 
 static Timer ttimer;
 struct cudaGraphicsResource *cuda_pixel_buffer; // CUDA Graphics Resource (to transfer PBO)

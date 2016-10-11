@@ -1,6 +1,6 @@
 
 #include <QApplication>
-#include "QImageWidget.h"
+#include "QRaycastImageWidget.h"
 #include "Raycasting.h"
 #include "KinectSpecs.h"
 
@@ -152,7 +152,7 @@ int raycast_and_render_grid(int argc, char* argv[])
 	}
 
 	QApplication app(argc, argv);
-	QImageWidget widget;
+	QRaycastImageWidget widget;
 	widget.setImage(image);
 	widget.show();
 
