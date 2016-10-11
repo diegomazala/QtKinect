@@ -565,7 +565,8 @@ __device__ bool triangle_intersection(
 	const float3& v0,
 	const float3& v1,
 	const float3& v2,
-	float3& hit)
+	float3& hit,
+	float3& hit_normal)
 {
 	float a, f, u, v;
 	const float3 e1 = v1 - v0;
@@ -595,6 +596,7 @@ __device__ bool triangle_intersection(
 	if (t > 0.00001f) // ray intersection
 	{
 		hit = p + (d * t);
+		hit_normal = compute_normal(v0, v1, v2);
 		return true;
 	}
 	else
@@ -608,10 +610,11 @@ __device__ bool quad_intersection(
 	const float3& p2,
 	const float3& p3,
 	const float3& p4,
-	float3& hit)
+	float3& hit,
+	float3& hit_normal)
 {
-	return (triangle_intersection(p, d, p1, p2, p3, hit)
-		|| triangle_intersection(p, d, p3, p4, p1, hit));
+	return (triangle_intersection(p, d, p1, p2, p3, hit, hit_normal)
+		|| triangle_intersection(p, d, p3, p4, p1, hit, hit_normal));
 }
 
 
@@ -655,48 +658,42 @@ __device__ int box_intersection(
 	int hitCount = 0;
 
 	// check top
-	if (quad_intersection(p, dir, p1, p2, p3, p4, hit[hitCount]))
+	if (quad_intersection(p, dir, p1, p2, p3, p4, hit[hitCount], hitNormal[hitCount]))
 	{
-		hitNormal[hitCount] = compute_normal(p1, p2, p3);
 		hitCount++;
 	}
 
 	// check bottom
-	if (quad_intersection(p, dir, p5, p8, p7, p6, hit[hitCount]))
+	if (quad_intersection(p, dir, p5, p8, p7, p6, hit[hitCount], hitNormal[hitCount]))
 	{
-		hitNormal[hitCount] = compute_normal(p5, p8, p7);
 		hitCount++;
 	}
 
 	// check front
 	if (hitCount < 2 && quad_intersection(p, dir, p4, p3, p7, p8,
-		hit[hitCount]))
+		hit[hitCount], hitNormal[hitCount]))
 	{
-		hitNormal[hitCount] = compute_normal(p4, p3, p7);
 		hitCount++;
 	}
 
 	// check back
 	if (hitCount < 2 && quad_intersection(p, dir, p1, p5, p6, p2,
-		hit[hitCount]))
+		hit[hitCount], hitNormal[hitCount]))
 	{
-		hitNormal[hitCount] = compute_normal(p1, p5, p6);
 		hitCount++;
 	}
 
 	// check left
 	if (hitCount < 2 && quad_intersection(p, dir, p1, p4, p8, p5,
-		hit[hitCount]))
+		hit[hitCount], hitNormal[hitCount]))
 	{
-		hitNormal[hitCount] = compute_normal(p1, p4, p8);
 		hitCount++;
 	}
 
 	// check right
 	if (hitCount < 2 && quad_intersection(p, dir, p2, p6, p7, p3,
-		hit[hitCount]))
+		hit[hitCount], hitNormal[hitCount]))
 	{
-		hitNormal[hitCount] = compute_normal(p2, p6, p7);
 		hitCount++;
 	}
 
@@ -734,10 +731,11 @@ struct FaceData
 {
 	BoxFace face;
 	float3 hit;
+	float3 normal;
 	int voxel_index;
 	float dist;
 	__device__ FaceData(){}
-	__device__ FaceData(BoxFace f, float3 ht, int vx, float ds) : face(f), hit(ht), voxel_index(vx), dist(ds){}
+	__device__ FaceData(BoxFace f, float3 ht, float3 n, int vx, float ds) : face(f), hit(ht), normal(n), voxel_index(vx), dist(ds){}
 };
 
 
@@ -751,10 +749,12 @@ __device__ int face_intersections(
 	float3 hit_in,
 	BoxFace& face_out,
 	float3& hit_out,
+	float3& hit_normal,
 	int& next_voxel_index)
 {
 
 	float3 hit;
+	
 	ushort3 ind_3d = index_3d_from_array(voxel_index, voxel_count, voxel_size);
 	float3 voxel_pos = make_float3(ind_3d.x, ind_3d.y, ind_3d.z);
 	//voxel_pos += (voxel_size * 0.5f);	// only if using the center of face
@@ -769,7 +769,7 @@ __device__ int face_intersections(
 		float3 v2 = v1 + make_float3(voxel_size.x, 0, 0);
 		float3 v3 = v1 + make_float3(voxel_size.x, 0, voxel_size.z);
 		float3 v4 = v1 + make_float3(0, 0, voxel_size.z);
-		if (quad_intersection(ray_origin, ray_direction, v1, v2, v3, v4, hit) && face != face_in)
+		if (quad_intersection(ray_origin, ray_direction, v1, v2, v3, v4, hit, hit_normal) && face != face_in)
 		{
 			face_out = face;
 			hit_out = hit;
@@ -780,7 +780,7 @@ __device__ int face_intersections(
 				next_voxel_index = voxel_index + voxel_count.y;
 
 			float dist = length(hit_out - hit_in);
-			face_list[face_list_size] = FaceData(face, hit, next_voxel_index, dist);
+			face_list[face_list_size] = FaceData(face, hit, hit_normal, next_voxel_index, dist);
 			face_list_size++;
 			//return true;
 		}
@@ -792,7 +792,7 @@ __device__ int face_intersections(
 		float3 v2 = v1 + make_float3(voxel_size.x, 0, 0);
 		float3 v3 = v1 + make_float3(voxel_size.x, 0, voxel_size.z);
 		float3 v4 = v1 + make_float3(0, 0, voxel_size.z);
-		if (quad_intersection(ray_origin, ray_direction, v1, v2, v3, v4, hit) && face != face_in)
+		if (quad_intersection(ray_origin, ray_direction, v1, v2, v3, v4, hit, hit_normal) && face != face_in)
 		{
 			face_out = face;
 			hit_out = hit;
@@ -803,7 +803,7 @@ __device__ int face_intersections(
 				next_voxel_index = voxel_index - voxel_count.y;
 
 			float dist = length(hit_out - hit_in);
-			face_list[face_list_size] = FaceData(face, hit, next_voxel_index, dist);
+			face_list[face_list_size] = FaceData(face, hit, hit_normal, next_voxel_index, dist);
 			face_list_size++;
 			//return true;
 		}
@@ -815,7 +815,7 @@ __device__ int face_intersections(
 		float3 v2 = v1 + make_float3(voxel_size.x, 0, 0);
 		float3 v3 = v1 + make_float3(voxel_size.x, voxel_size.y, 0);
 		float3 v4 = v1 + make_float3(0, voxel_size.y, 0);
-		if (quad_intersection(ray_origin, ray_direction, v1, v2, v3, v4, hit) && face != face_in)
+		if (quad_intersection(ray_origin, ray_direction, v1, v2, v3, v4, hit, hit_normal) && face != face_in)
 		{
 			face_out = face;
 			hit_out = hit;
@@ -826,7 +826,7 @@ __device__ int face_intersections(
 				next_voxel_index = voxel_index - voxel_count.x * voxel_count.y;
 
 			float dist = length(hit_out - hit_in);
-			face_list[face_list_size] = FaceData(face, hit, next_voxel_index, dist);
+			face_list[face_list_size] = FaceData(face, hit, hit_normal, next_voxel_index, dist);
 			face_list_size++;
 			//return true;
 		}
@@ -838,7 +838,7 @@ __device__ int face_intersections(
 		float3 v2 = v1 + make_float3(voxel_size.x, 0, 0);
 		float3 v3 = v1 + make_float3(voxel_size.x, voxel_size.y, 0);
 		float3 v4 = v1 + make_float3(0, voxel_size.y, 0);
-		if (quad_intersection(ray_origin, ray_direction, v1, v2, v3, v4, hit) && face != face_in)
+		if (quad_intersection(ray_origin, ray_direction, v1, v2, v3, v4, hit, hit_normal) && face != face_in)
 		{
 			face_out = face;
 			hit_out = hit;
@@ -849,7 +849,7 @@ __device__ int face_intersections(
 				next_voxel_index = voxel_index + voxel_count.x * voxel_count.y;
 
 			float dist = length(hit_out - hit_in);
-			face_list[face_list_size] = FaceData(face, hit, next_voxel_index, dist);
+			face_list[face_list_size] = FaceData(face, hit, hit_normal, next_voxel_index, dist);
 			face_list_size++;
 			//return true;
 		}
@@ -861,7 +861,7 @@ __device__ int face_intersections(
 		float3 v2 = v1 + make_float3(0, 0, voxel_size.z);
 		float3 v3 = v1 + make_float3(0, voxel_size.y, voxel_size.z);
 		float3 v4 = v1 + make_float3(0, voxel_size.y, 0);
-		if (quad_intersection(ray_origin, ray_direction, v1, v2, v3, v4, hit) && face != face_in)
+		if (quad_intersection(ray_origin, ray_direction, v1, v2, v3, v4, hit, hit_normal) && face != face_in)
 		{
 			face_out = face;
 			hit_out = hit;
@@ -872,7 +872,7 @@ __device__ int face_intersections(
 				next_voxel_index = voxel_index - 1;
 
 			float dist = length(hit_out - hit_in);
-			face_list[face_list_size] = FaceData(face, hit, next_voxel_index, dist);
+			face_list[face_list_size] = FaceData(face, hit, hit_normal, next_voxel_index, dist);
 			face_list_size++;
 			//return true;
 		}
@@ -884,7 +884,7 @@ __device__ int face_intersections(
 		float3 v2 = v1 + make_float3(0, 0, voxel_size.z);
 		float3 v3 = v1 + make_float3(0, voxel_size.y, voxel_size.z);
 		float3 v4 = v1 + make_float3(0, voxel_size.y, 0);
-		if (quad_intersection(ray_origin, ray_direction, v1, v2, v3, v4, hit) && face != face_in)
+		if (quad_intersection(ray_origin, ray_direction, v1, v2, v3, v4, hit, hit_normal) && face != face_in)
 		{
 			face_out = face;
 			hit_out = hit;
@@ -895,7 +895,7 @@ __device__ int face_intersections(
 				next_voxel_index = voxel_index + 1;
 
 			float dist = length(hit_out - hit_in);
-			face_list[face_list_size] = FaceData(face, hit, next_voxel_index, dist);
+			face_list[face_list_size] = FaceData(face, hit, hit_normal, next_voxel_index, dist);
 			face_list_size++;
 			//return true;
 		}
@@ -911,6 +911,7 @@ __device__ int face_intersections(
 			{
 				face_out = d.face;
 				hit_out = d.hit;
+				hit_normal = d.normal;
 				next_voxel_index = d.voxel_index;
 				max_dist = d.dist;
 			}
@@ -1019,7 +1020,9 @@ __device__ int raycast_face_in_out(
 	BoxFace& face_in,
 	BoxFace& face_out,
 	float3& hit_in,
-	float3& hit_out)
+	float3& hit_out,
+	float3& hit_in_normal,
+	float3& hit_out_normal)
 {
 
 	ushort3 volume_size = make_ushort3(
@@ -1065,11 +1068,16 @@ __device__ int raycast_face_in_out(
 
 		hit_in = hit1;
 		hit_out = hit2;
+		
+		hit_in_normal = hit1_normal;
+		hit_out_normal = hit2_normal;
 	}
 	else if (intersections_count == 1)
 	{
 		face_in = face_out = box_face_from_normal(hit1_normal);
 		hit_in = hit_out = hit1;
+
+		hit_in_normal = hit1_normal;
 	}
 	else
 	{
@@ -1086,7 +1094,8 @@ __device__ int raycast_tsdf_volume(
 	ushort3 voxel_count,
 	ushort3 voxel_size,
 	float* grid_voxels_params_2f,
-	long voxels_zero_crossing_indices[2])
+	long voxels_zero_crossing_indices[2],
+	float3& hit_normal)
 {
 	voxels_zero_crossing_indices[0] = voxels_zero_crossing_indices[1] = -1;
 
@@ -1097,6 +1106,8 @@ __device__ int raycast_tsdf_volume(
 	int intersections_count = 0;
 	float3 hit_in;
 	float3 hit_out;
+	float3 hit_in_normal;
+	float3 hit_out_normal;
 	BoxFace face_in = BoxFace::Undefined;
 	BoxFace face_out = BoxFace::Undefined;
 
@@ -1106,13 +1117,18 @@ __device__ int raycast_tsdf_volume(
 	if (face_in == BoxFace::Undefined || voxel_index < 0)
 		return -1;
 
-	intersections_count = raycast_face_in_out(ray_origin, ray_direction, voxel_count, voxel_size, face_in, face_out, hit_in, hit_out);
-
+	intersections_count = raycast_face_in_out(ray_origin, ray_direction, voxel_count, voxel_size, face_in, face_out, hit_in, hit_out, hit_in_normal, hit_out_normal);
+	//hit_normal = hit_in_normal;
 	bool is_inside = intersections_count > 0;
 
 	while (is_inside)
 	{
-		if (face_intersections(ray_origin, ray_direction, voxel_count, voxel_size, voxel_index, face_in, hit_in, face_out, hit_out, next_voxel_index))
+		if (face_intersections(
+			ray_origin, ray_direction, 
+			voxel_count, voxel_size, voxel_index,
+			face_in, hit_in, face_out, 
+			hit_out, hit_in_normal,
+			next_voxel_index))
 		{
 			if (next_voxel_index < 0)
 			{
@@ -1130,6 +1146,7 @@ __device__ int raycast_tsdf_volume(
 					voxels_zero_crossing_indices[0] = voxel_index;
 					voxels_zero_crossing_indices[1] = next_voxel_index;
 					voxel_index = next_voxel_index;
+					hit_normal = hit_in_normal;
 					intersections_count = 2;
 					return intersections_count;
 				}
@@ -1202,14 +1219,15 @@ __global__ void	raycast_kernel_gl(
 		hit1_normal,
 		hit2_normal);
 #else
-
+	float3 hit_normal;
 	int hit_count = raycast_tsdf_volume(
 		eye_ray.origin,
 		eye_ray.direction,
 		voxel_count,
 		voxel_size,
 		grid_voxels_params_2f,
-		voxels_zero_crossing);
+		voxels_zero_crossing,
+		hit_normal);
 #endif
 
 	const float4 normal = tex2D(normalTexture, x, y);
@@ -1265,8 +1283,8 @@ __global__ void	raycast_kernel(
 	float x2_norm = (2.f * float(x) + 0.5f) / (float)image_width;
 	float y2_norm = (2.f * float(y) + 0.5f) / (float)image_height;
 	float3 screen_coord = make_float3(
-		(x2_norm - 1.f), // * aspect_ratio * fov_scale,
-		(1.f - y2_norm), // * fov_scale,
+		(x2_norm - 1.f) * aspect_ratio * fov_scale,
+		(1.f - y2_norm) * fov_scale,
 		1.0f);
 
 	//screen_coord = normalize(make_float3(u, -v, -2.0f));
@@ -1288,7 +1306,7 @@ __global__ void	raycast_kernel(
 
 
 	long voxels_zero_crossing[2] = { -1, -1 };
-
+	float3 hit_normal;
 	int hit_count = raycast_tsdf_volume(
 		camera_pos,
 		direction,
@@ -1297,9 +1315,12 @@ __global__ void	raycast_kernel(
 		voxel_count,
 		voxel_size,
 		grid_voxels_params_2f,
-		voxels_zero_crossing);
+		voxels_zero_crossing,
+		hit_normal);
 
-	const float4 normal = tex2D(normalTexture, x, y);
+	const float4 normal = 
+		//make_float4(hit_normal.x, hit_normal.y, hit_normal.z, 1.f);
+	 tex2D(normalTexture, x, y);
 
 	if (hit_count > 0)
 	{

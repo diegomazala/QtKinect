@@ -94,11 +94,11 @@ void QRaycastImageWidget::computeRaycast()
 
 	knt_cuda_raycast(KINECT_V2_FOVY, KINECT_V2_DEPTH_ASPECT_RATIO, camera_to_world_matrix.data());
 	//knt_cuda_raycast(KINECT_V2_FOVY, KINECT_V2_DEPTH_ASPECT_RATIO, view_matrix_inv.data());
-	ttimer.print_interval("Raycast             : ");
+	//ttimer.print_interval("Raycast             : ");
 
 	ttimer.start();
 	knt_cuda_copy_image_device_to_host(*(uchar4*)raycastImage.bits());
-	ttimer.print_interval("Copy Img to host    : ");
+	//ttimer.print_interval("Copy Img to host    : ");
 }
 
 
@@ -315,7 +315,7 @@ void QRaycastImageWidget::wheelEvent(QWheelEvent* event)
 void QRaycastImageWidget::timerEvent(QTimerEvent *)
 {
 	// Decrease angular speed (friction)
-	angularSpeed *= 0.95;
+	angularSpeed *= 0.5;
 
 	// Stop rotation when speed goes below threshold
 	if (angularSpeed < 0.01) 
