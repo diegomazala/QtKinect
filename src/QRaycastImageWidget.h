@@ -56,7 +56,7 @@ protected:
 	QVector3D lightRotationAxis;
 	QQuaternion lightRotation;
 	QVector3D lightDirection;
-	float lightPower;
+	float lightSpecPower;
 	
 	float weelSpeed;
 	float fovy;

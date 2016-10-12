@@ -37,6 +37,9 @@ typedef unsigned long ulong;
 
 extern "C"
 {
+	void knt_set_light(float4 light_data);
+	void knt_set_normal_matrix(float* normal_matrix_3x3f);
+
 	void knt_cuda_setup(
 		ushort vx_count,
 		ushort vx_size,
@@ -57,7 +60,7 @@ extern "C"
 	void knt_cuda_free();
 
 	void knt_cuda_init_grid();
-	void knt_cuda_grid_sample_test(float* grid_params_2f_host, ushort count);
+	void knt_cuda_grid_sample_test(float* grid_params_2f_host, size_t count);
 
 	void knt_cuda_update_grid(
 		const float* view_matrix_16f);

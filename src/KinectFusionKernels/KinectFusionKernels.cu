@@ -155,6 +155,8 @@ typedef struct
 __constant__ float3x4 camera_to_world_dev_matrix;  // inverse view matrix
 
 __constant__ float4 lightData;  // xyz = direction, w = power
+__constant__ float normal_matrix_dev[9];  // normal matrix
+
 
 __device__ uint rgbaFloatToInt(float4 rgba)
 {
@@ -1303,7 +1305,7 @@ __global__ void	raycast_kernel(
 	
 	long voxels_zero_crossing[2] = { -1, -1 };
 
-
+	float3 hit_normal;
 #if 0
 	//
 	// Check intersection with the whole volume
@@ -1327,10 +1329,11 @@ __global__ void	raycast_kernel(
 		hit1_normal,
 		hit2_normal);
 
-	float3 N = hit2_normal;
+	hit_normal = hit1_normal;
+		
 #else
 
-	float3 hit_normal;
+	
 	int hit_count = raycast_tsdf_volume(
 		camera_pos,
 		direction,
@@ -1341,18 +1344,22 @@ __global__ void	raycast_kernel(
 		hit_normal);
 
 	const float4 normal = tex2D(normalTexture, x, y);
-	float3 N = hit_normal;
+	
+	
 #endif
-	
 
+	//
+	// transforming normal
+	//
+	float3 N;
+	matrix_mul_mat_vec_kernel_device(normal_matrix_dev, &hit_normal.x, &N.x, 3);
+	N = normalize(N);
 	
-	//float3 diff_color = make_float3(1.f, 1.f, 1.f);
-	float3 diff_color = make_float3(fabs(N.x), fabs(N.y), fabs(N.z));
-	//float3 diff_color = make_float3(fabs(normal.x), fabs(normal.y), fabs(normal.z));
+	
+	float3 diff_color = fabs(hit_normal);
 	float3 spec_color = make_float3(1.f, 1.f, 1.f);
-	float spec_shininess = 1.0f;
+	float spec_shininess = lightData.w;
 	float3 E = direction;								// view direction
-	//float3 L = normalize(make_float3(0.0f, -1.f, -1.f));	// light direction
 	float3 L = normalize(make_float3(lightData.x, lightData.y, lightData.z));	// light direction
 	float3 R = normalize(-reflect(L, N));
 	float3 diff = diff_color * saturate(dot(N, L));
@@ -1363,11 +1370,6 @@ __global__ void	raycast_kernel(
 	{
 		if (voxels_zero_crossing[0] > -1 && voxels_zero_crossing[1] > -1)
 		{
-			//out_image[y * image_width + x] = make_uchar4(0, 128, 128, 255);
-			//out_image[y * image_width + x].x = uchar(fabs(N.x) * 255);
-			//out_image[y * image_width + x].y = uchar(fabs(N.y) * 255);
-			//out_image[y * image_width + x].z = uchar(fabs(N.z) * 255);
-			
 			out_image[y * image_width + x].x = uchar(color.x * 255);
 			out_image[y * image_width + x].y = uchar(color.y * 255);
 			out_image[y * image_width + x].z = uchar(color.z * 255);
@@ -1454,6 +1456,11 @@ extern "C"
 	void knt_set_light(float4 light_data)
 	{
 		checkCudaErrors(cudaMemcpyToSymbol(lightData, &light_data, sizeof(float4)));
+	}
+
+	void knt_set_normal_matrix(float* normal_matrix_3x3f)
+	{
+		checkCudaErrors(cudaMemcpyToSymbol(normal_matrix_dev, normal_matrix_3x3f, sizeof(float) * 9));
 	}
 
 	void knt_cuda_setup(
