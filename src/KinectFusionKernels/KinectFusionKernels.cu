@@ -1360,7 +1360,7 @@ __global__ void	raycast_kernel(
 		//make_float3(fabs(normalTex.x), fabs(normalTex.y), fabs(normalTex.z));
 	float3 spec_color = make_float3(1.f, 1.f, 1.f);
 	float spec_shininess = lightData.w;
-	float3 E = normalize(direction);								// view direction
+	float3 E = normalize(-camera_pos);								// view direction
 	float3 L = normalize(make_float3(lightData.x, lightData.y, lightData.z));	// light direction
 	float3 R = normalize(-reflect(L, N));
 	float3 diff = diff_color * saturate(dot(N, L));
