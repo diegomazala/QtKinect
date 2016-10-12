@@ -1371,11 +1371,17 @@ __global__ void	raycast_kernel(
 	{
 		if (voxels_zero_crossing[0] > -1 && voxels_zero_crossing[1] > -1)
 		{
+#if 1
 			out_image[y * image_width + x].x = uchar(color.x * 255);
 			out_image[y * image_width + x].y = uchar(color.y * 255);
 			out_image[y * image_width + x].z = uchar(color.z * 255);
-
 			out_image[y * image_width + x].w = 255;
+#else
+			out_image[y * image_width + x].x = uchar(fabs(normalTex.x) * 255);
+			out_image[y * image_width + x].y = uchar(fabs(normalTex.y) * 255);
+			out_image[y * image_width + x].z = uchar(fabs(normalTex.z) * 255);
+			out_image[y * image_width + x].w = 255;
+#endif
 		}
 		else
 		{
