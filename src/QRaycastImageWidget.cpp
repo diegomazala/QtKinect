@@ -84,7 +84,9 @@ void QRaycastImageWidget::computeRaycast()
 	Eigen::Matrix3f normal_matrix = mdv_inv_trasp.block(0, 0, 3, 3);
 	knt_set_normal_matrix(normal_matrix.data());
 
-	lightDirection = (lightRotation * QVector3D(0, -1, -1)).normalized();
+	if (altPressed)
+		lightDirection = (lightRotation * QVector3D(0, -1, -1)).normalized();
+
 	float4 lightData = make_float4(lightDirection.x(), lightDirection.y(), lightDirection.z(), lightSpecPower);
 	knt_set_light(lightData);
 	
@@ -191,7 +193,7 @@ void QRaycastImageWidget::setup(const std::string& filepath, ushort vx_count, us
 	cameraPosition.setY(-vol_size * 0.5f);
 	cameraPosition.setZ(0);
 
-#if 1
+#if 0
 	//
 	// use this with vx_count = 3 and vx_size = 1 to debug
 	// 
@@ -335,14 +337,6 @@ void QRaycastImageWidget::wheelEvent(QWheelEvent* event)
 	else
 		lightSpecPower = fmax(0.f, fmin(1.0, (lightSpecPower - event->delta() * 0.0001f)));
 
-	std::cout << event->delta() << "  " << weelSpeed << "  " << event->delta() * 0.0001f << std::endl;
-
-	//if (distance < 0.5f)
-	//	distance = 0.5f;
-
-	//if (distance > 10240.f)
-	//	distance = 10240.f;
-
 	event->accept();
 
 	update();
@@ -423,11 +417,42 @@ void QRaycastImageWidget::keyReleaseEvent(QKeyEvent *e)
 			cameraPosition.setX(cameraPosition.x() - vol_size * 0.05f);
 			break;
 		}
+		case Qt::Key_Left:
+		{
+			lightDirection = QVector3D(-1, -1, 0);
+			break;
+		}
+		case Qt::Key_Right:
+		{
+			lightDirection = QVector3D(1, -1, 0);
+			break;
+		}
+		case Qt::Key_Up:
+		{
+			lightDirection = QVector3D(0, -1, -1);
+			break;
+		}
+		case Qt::Key_Down:
+		{
+			lightDirection = QVector3D(0, -1, 1);
+			break;
+		}
+		case Qt::Key_Insert:
+		{
+			lightDirection = QVector3D(0, 1, -1);
+			break;
+		}
+		case Qt::Key_Delete:
+		{
+			lightDirection = QVector3D(0, 1, 1);
+			break;
+		}
 		default:
 		{
 			e->ignore(); // let the base class handle this event
 		}
 	}
+	qDebug() << "Light dir: " << lightDirection;
 }
 
 

@@ -1343,7 +1343,7 @@ __global__ void	raycast_kernel(
 		voxels_zero_crossing,
 		hit_normal);
 
-	const float4 normal = tex2D(normalTexture, x, y);
+	const float4 normalTex = tex2D(normalTexture, x, y);
 	
 	
 #endif
@@ -1357,9 +1357,10 @@ __global__ void	raycast_kernel(
 	
 	
 	float3 diff_color = fabs(hit_normal);
+		//make_float3(fabs(normalTex.x), fabs(normalTex.y), fabs(normalTex.z));
 	float3 spec_color = make_float3(1.f, 1.f, 1.f);
 	float spec_shininess = lightData.w;
-	float3 E = direction;								// view direction
+	float3 E = normalize(direction);								// view direction
 	float3 L = normalize(make_float3(lightData.x, lightData.y, lightData.z));	// light direction
 	float3 R = normalize(-reflect(L, N));
 	float3 diff = diff_color * saturate(dot(N, L));
@@ -1378,12 +1379,12 @@ __global__ void	raycast_kernel(
 		}
 		else
 		{
-			out_image[y * image_width + x] = make_uchar4(64, 0, 0, 255);
+			out_image[y * image_width + x] = make_uchar4(64, 64, 0, 255);
 		}
 	}
 	else
 	{
-		out_image[y * image_width + x] = make_uchar4(32, 16, 0, 255);
+		out_image[y * image_width + x] = make_uchar4(32, 32, 0, 255);
 	}
 
 }
