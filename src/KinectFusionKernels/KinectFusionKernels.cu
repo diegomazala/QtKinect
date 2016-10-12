@@ -154,6 +154,7 @@ typedef struct
 } float3x4;
 __constant__ float3x4 camera_to_world_dev_matrix;  // inverse view matrix
 
+__constant__ float4 lightData;  // xyz = direction, w = power
 
 __device__ uint rgbaFloatToInt(float4 rgba)
 {
@@ -1118,7 +1119,7 @@ __device__ int raycast_tsdf_volume(
 		return -1;
 
 	intersections_count = raycast_face_in_out(ray_origin, ray_direction, voxel_count, voxel_size, face_in, face_out, hit_in, hit_out, hit_in_normal, hit_out_normal);
-	//hit_normal = hit_in_normal;
+	
 	bool is_inside = intersections_count > 0;
 
 	while (is_inside)
@@ -1299,47 +1300,88 @@ __global__ void	raycast_kernel(
 	float3 dir = mul_vec_dir_matrix(camera_to_world_mat4x4, screen_coord);
 	// ray direction
 	float3 direction = normalize(dir);
-
-
-
-
-
-
+	
 	long voxels_zero_crossing[2] = { -1, -1 };
+
+
+#if 0
+	//
+	// Check intersection with the whole volume
+	//
+	ushort3 volume_size = make_ushort3(
+		voxel_count.x * voxel_size.x,
+		voxel_count.y * voxel_size.y,
+		voxel_count.z * voxel_size.z);
+	float3 half_volume_size = make_float3(volume_size.x * 0.5f, volume_size.y * 0.5f, volume_size.z * 0.5f);
+	float3 hit1, hit2, hit1_normal, hit2_normal;
+	int hit_count = box_intersection(
+		camera_pos,
+		direction,
+		make_float3(0, 0, 0),	
+		//half_volume_size,	//volume_center,
+		volume_size.x,
+		volume_size.y,
+		volume_size.z,
+		hit1,
+		hit2,
+		hit1_normal,
+		hit2_normal);
+
+	float3 N = hit2_normal;
+#else
+
 	float3 hit_normal;
 	int hit_count = raycast_tsdf_volume(
 		camera_pos,
 		direction,
-		//eye_ray.origin, //camera_pos,
-		//eye_ray.direction, // direction,
 		voxel_count,
 		voxel_size,
 		grid_voxels_params_2f,
 		voxels_zero_crossing,
 		hit_normal);
 
-	const float4 normal = 
-		//make_float4(hit_normal.x, hit_normal.y, hit_normal.z, 1.f);
-	 tex2D(normalTexture, x, y);
+	const float4 normal = tex2D(normalTexture, x, y);
+	float3 N = hit_normal;
+#endif
+	
+
+	
+	//float3 diff_color = make_float3(1.f, 1.f, 1.f);
+	float3 diff_color = make_float3(fabs(N.x), fabs(N.y), fabs(N.z));
+	//float3 diff_color = make_float3(fabs(normal.x), fabs(normal.y), fabs(normal.z));
+	float3 spec_color = make_float3(1.f, 1.f, 1.f);
+	float spec_shininess = 1.0f;
+	float3 E = direction;								// view direction
+	//float3 L = normalize(make_float3(0.0f, -1.f, -1.f));	// light direction
+	float3 L = normalize(make_float3(lightData.x, lightData.y, lightData.z));	// light direction
+	float3 R = normalize(-reflect(L, N));
+	float3 diff = diff_color * saturate(dot(N, L));
+	float3 spec = spec_color * pow(saturate(dot(R, E)), spec_shininess);
+	float3 color = clamp(diff + spec, 0.f, 1.f);
 
 	if (hit_count > 0)
 	{
 		if (voxels_zero_crossing[0] > -1 && voxels_zero_crossing[1] > -1)
 		{
 			//out_image[y * image_width + x] = make_uchar4(0, 128, 128, 255);
-			out_image[y * image_width + x].x = uchar(fabs(normal.x) * 255);
-			out_image[y * image_width + x].y = uchar(fabs(normal.y) * 255);
-			out_image[y * image_width + x].z = uchar(fabs(normal.z) * 255);
+			//out_image[y * image_width + x].x = uchar(fabs(N.x) * 255);
+			//out_image[y * image_width + x].y = uchar(fabs(N.y) * 255);
+			//out_image[y * image_width + x].z = uchar(fabs(N.z) * 255);
+			
+			out_image[y * image_width + x].x = uchar(color.x * 255);
+			out_image[y * image_width + x].y = uchar(color.y * 255);
+			out_image[y * image_width + x].z = uchar(color.z * 255);
+
 			out_image[y * image_width + x].w = 255;
 		}
 		else
 		{
-			out_image[y * image_width + x] = make_uchar4(128, 128, 0, 255);
+			out_image[y * image_width + x] = make_uchar4(64, 0, 0, 255);
 		}
 	}
 	else
 	{
-		out_image[y * image_width + x] = make_uchar4(128, 0, 0, 255);
+		out_image[y * image_width + x] = make_uchar4(32, 16, 0, 255);
 	}
 
 }
@@ -1409,6 +1451,10 @@ __global__ void	raycast_box_kernel(
 
 extern "C"
 {
+	void knt_set_light(float4 light_data)
+	{
+		checkCudaErrors(cudaMemcpyToSymbol(lightData, &light_data, sizeof(float4)));
+	}
 
 	void knt_cuda_setup(
 		ushort vx_count,
@@ -1426,6 +1472,8 @@ extern "C"
 		ushort output_image_width,
 		ushort output_image_height)
 	{
+		knt_set_light(make_float4(0.f, -1.f, -1.f, 1.f));
+
 		grid.voxel_count = make_ushort3(vx_count, vx_count, vx_count);
 		grid.voxel_size = make_ushort3(vx_size, vx_size, vx_size);
 		grid.params_host_ptr = &grid_params_2f_host_ref;
@@ -1566,7 +1614,7 @@ extern "C"
 		checkCudaErrors(cudaDeviceSynchronize());
 	}
 
-	void knt_cuda_grid_sample_test(float* grid_params_2f_host, ushort count)
+	void knt_cuda_grid_sample_test(float* grid_params_2f_host, size_t count)
 	{
 		checkCudaErrors(
 			cudaMemcpy(
@@ -1689,7 +1737,7 @@ extern "C"
 	{
 		checkCudaErrors(cudaMemcpyToSymbol(camera_to_world_dev_matrix, camera_to_world_mat3x4, sizeof(float4) * 3));
 
-		float fov_scale = tan(deg2rad(fovy * 0.5f));
+		float fov_scale = -tan(deg2rad(fovy * 0.5f));
 
 		const dim3 threads_per_block(16, 16);
 		dim3 num_blocks = dim3(iDivUp(width, threads_per_block.x), iDivUp(height, threads_per_block.y));;
@@ -1716,6 +1764,8 @@ extern "C"
 		const float* camera_to_world_matrix_16f)
 	{
 		float fov_scale = tan(deg2rad(fovy * 0.5f));
+
+		checkCudaErrors(cudaMemcpyToSymbol(camera_to_world_dev_matrix, camera_to_world_matrix_16f, sizeof(float4) * 3));
 
 		checkCudaErrors(
 			cudaMemcpy(

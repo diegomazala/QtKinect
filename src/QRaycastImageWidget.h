@@ -15,7 +15,7 @@ public:
 	~QRaycastImageWidget();
 
 	void setWeelSpeed(float weel_speed){ weelSpeed = weel_speed; }
-	void setPosition(float x, float y, float z){ position = QVector3D(x, y, z); }
+	void setPosition(float x, float y, float z){ cameraPosition = QVector3D(x, y, z); }
 
 	void setPerspective(float fov_y, float near_plane, float far_plane)
 	{ 
@@ -31,6 +31,7 @@ public slots:
 
 protected:
 	virtual void paintEvent(QPaintEvent *) Q_DECL_OVERRIDE;
+	virtual void keyPressEvent(QKeyEvent *) Q_DECL_OVERRIDE;
 	virtual void keyReleaseEvent(QKeyEvent *) Q_DECL_OVERRIDE;
 	virtual void mousePressEvent(QMouseEvent *e) Q_DECL_OVERRIDE;
 	virtual void mouseMoveEvent(QMouseEvent *e) Q_DECL_OVERRIDE;
@@ -44,10 +45,19 @@ protected:
 
 	QBasicTimer timer;
 	QVector2D mousePressPosition;
-	QVector3D rotationAxis;
+	bool altPressed;
+	
 	qreal angularSpeed;
-	QQuaternion rotation;
-	QVector3D position;
+	
+	QVector3D cameraRotationAxis;
+	QQuaternion cameraRotation;
+	QVector3D cameraPosition;
+
+	QVector3D lightRotationAxis;
+	QQuaternion lightRotation;
+	QVector3D lightDirection;
+	float lightPower;
+	
 	float weelSpeed;
 	float fovy;
 	float nearPlane;

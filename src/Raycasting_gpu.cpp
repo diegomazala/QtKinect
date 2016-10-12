@@ -346,8 +346,8 @@ int main(int argc, char **argv)
 			<< std::endl;
 
 		filepath = "../../data/room.knt";
-		vx_count = 3;
-		vx_size = 1;
+		vx_count = 32;
+		vx_size = 32;
 	}
 	else
 	{
