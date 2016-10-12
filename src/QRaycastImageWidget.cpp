@@ -66,37 +66,29 @@ void QRaycastImageWidget::setImage(const QImage& image)
 
 void QRaycastImageWidget::computeRaycast()
 {
-	int vol_size = voxel_count * voxel_size;
 	float half_vol_size = vol_size * 0.5f;
 	unsigned short image_width = g_width;
 	unsigned short image_height = image_width / aspect_ratio;
 
-	raycastImage = QImage(image_width, image_height, QImage::Format::Format_RGBA8888);
-	raycastImage.fill(Qt::GlobalColor::gray);
-
 	ttimer.start();
 	Eigen::Affine3f camera_to_world = Eigen::Affine3f::Identity();
-	float cam_z = -half_vol_size;
-	camera_to_world.scale(Eigen::Vector3f(1, 1, -1));
-	//camera_to_world.translate(Eigen::Vector3f(half_vol_size, half_vol_size, cam_z));
-	camera_to_world.translate(Eigen::Vector3f(-position.x(), -position.y(), position.z()));
+	camera_to_world.scale(Eigen::Vector3f(-1, -1, 1));
+	camera_to_world.translate(Eigen::Vector3f(position.x(), position.y(), position.z()));
 	camera_to_world.rotate(Eigen::Quaternionf(rotation.scalar(), rotation.x(), rotation.y(), rotation.z()));
-	Eigen::Matrix4f camera_to_world_matrix = camera_to_world.matrix();
+	Eigen::Matrix4f camera_to_world_matrix = camera_to_world.matrix().inverse();
 
-	QMatrix4x4 view_matrix;
-	view_matrix.scale(1, 1, -1);
-	view_matrix.translate(half_vol_size, half_vol_size, cam_z);
+	//qDebug() << position;
+	//QMatrix4x4 view_matrix;
 	//view_matrix.translate(position);
 	//view_matrix.rotate(rotation);
-	QMatrix4x4 view_matrix_inv = view_matrix.transposed().inverted();
+	//QMatrix4x4 view_matrix_inv = view_matrix.transposed().inverted();
 
 	
-
 	knt_cuda_raycast(KINECT_V2_FOVY, KINECT_V2_DEPTH_ASPECT_RATIO, camera_to_world_matrix.data());
 	//knt_cuda_raycast(KINECT_V2_FOVY, KINECT_V2_DEPTH_ASPECT_RATIO, view_matrix_inv.data());
 	//ttimer.print_interval("Raycast             : ");
 
-	ttimer.start();
+	//ttimer.start();
 	knt_cuda_copy_image_device_to_host(*(uchar4*)raycastImage.bits());
 	//ttimer.print_interval("Copy Img to host    : ");
 }
@@ -106,12 +98,14 @@ void QRaycastImageWidget::computeRaycast()
 
 void QRaycastImageWidget::setup(const std::string& filepath, ushort vx_count, ushort vx_size)
 {
-	int vol_size = vx_count * vx_size;
+	vol_size = vx_count * vx_size;
 	float half_vol_size = vol_size * 0.5f;
 
-	position.setX(-vol_size * 0.5f);
-	position.setY(-vol_size * 0.5f);
-	position.setZ(-vol_size * 0.5f);
+	weelSpeed = vx_size * 0.01f;
+
+	position.setX(0);
+	position.setY(0);
+	position.setZ(0);
 
 	this->voxel_count = vx_count;
 	this->voxel_size = vx_size;
@@ -176,7 +170,7 @@ void QRaycastImageWidget::setup(const std::string& filepath, ushort vx_count, us
 	ttimer.print_interval("Allocating gpu      : ");
 
 
-#if 0
+#if 1
 	//
 	// use this with vx_count = 3 and vx_size = 1 to debug
 	// 
@@ -186,17 +180,10 @@ void QRaycastImageWidget::setup(const std::string& filepath, ushort vx_count, us
 	{
 		for (int x = 0; x < vx_count; ++x)
 		{
-			tsdf.at(vx_count * vx_count + x)[0] = -1.f;
+			tsdf.at(z * vx_count * vx_count + x)[0] = -1.f;
 		}
 	}
-
-	tsdf.at(0)[0] = tsdf.at(1)[0] = tsdf.at(2)[0] =
-		tsdf.at(9)[0] = tsdf.at(10)[0] = tsdf.at(11)[0] =
-		tsdf.at(18)[0] = tsdf.at(19)[0] = tsdf.at(20)[0] = -1.f;
-	//tsdf.at(13)[0] = 
-	//tsdf.at(22)[0] = 
-	//tsdf.at(18)[0] = 
-	//tsdf.at(26)[0] = -1.0f;
+	tsdf.at(vx_count*vx_count*vx_count - 1)[0] = -1.f;
 	knt_cuda_grid_sample_test(tsdf.data()->data(), tsdf.size());
 #else
 	ttimer.start();
@@ -214,23 +201,21 @@ void QRaycastImageWidget::setup(const std::string& filepath, ushort vx_count, us
 #endif
 
 	raycastImage = QImage(image_width, image_height, QImage::Format::Format_RGBA8888);
-	raycastImage.fill(Qt::GlobalColor::gray);
 
-	ttimer.start();
-	Eigen::Affine3f camera_to_world = Eigen::Affine3f::Identity();
-	float cam_z = -half_vol_size;
-	camera_to_world.scale(Eigen::Vector3f(1, 1, -1));
-	camera_to_world.translate(Eigen::Vector3f(half_vol_size, half_vol_size, cam_z));
+	////ttimer.start();
+	//Eigen::Affine3f camera_to_world = Eigen::Affine3f::Identity();
+	//float cam_z = -half_vol_size;
+	//camera_to_world.scale(Eigen::Vector3f(1, 1, -1));
+	//camera_to_world.translate(Eigen::Vector3f(half_vol_size, half_vol_size, cam_z));
 
+	//Eigen::Matrix4f camera_to_world_matrix = camera_to_world.matrix().inverse();
 
-	Eigen::Matrix4f camera_to_world_matrix = camera_to_world.matrix();
+	//knt_cuda_raycast(KINECT_V2_FOVY, KINECT_V2_DEPTH_ASPECT_RATIO, camera_to_world_matrix.data());
+	////ttimer.print_interval("Raycast             : ");
 
-	knt_cuda_raycast(KINECT_V2_FOVY, KINECT_V2_DEPTH_ASPECT_RATIO, camera_to_world_matrix.data());
-	ttimer.print_interval("Raycast             : ");
-
-	ttimer.start();
-	knt_cuda_copy_image_device_to_host(*(uchar4*)raycastImage.bits());
-	ttimer.print_interval("Copy Img to host    : ");
+	////ttimer.start();
+	//knt_cuda_copy_image_device_to_host(*(uchar4*)raycastImage.bits());
+	////ttimer.print_interval("Copy Img to host    : ");
 }
 
 
@@ -276,7 +261,7 @@ void QRaycastImageWidget::mouseMoveEvent(QMouseEvent *e)
 	QVector3D n = QVector3D(diff.y(), diff.x(), 0.0).normalized();
 
 	// Accelerate angular speed relative to the length of the mouse sweep
-	qreal acc = diff.length() / 100.0;
+	qreal acc = diff.length() / 50.0;
 
 	// Calculate new rotation axis as weighted sum
 	//rotationAxis = (rotationAxis * angularSpeed + n * acc).normalized();
@@ -335,10 +320,42 @@ void QRaycastImageWidget::timerEvent(QTimerEvent *)
 
 void QRaycastImageWidget::keyReleaseEvent(QKeyEvent *e)
 {
-	if (e->key() == Qt::Key_Q || e->key() == Qt::Key_Escape)
-		this->close();
-	else
-		e->ignore(); // let the base class handle this event
+	switch (e->key())
+	{
+		case Qt::Key_Q:
+		case Qt::Key_Escape:
+		{
+			this->close();
+			break;
+		}
+
+		case Qt::Key_W:
+		{
+			position.setY(position.y() - vol_size * 0.05f);
+			break;
+		}
+
+		case Qt::Key_S:
+		{
+			position.setY(position.y() + vol_size * 0.05f);
+			break;
+		}
+
+		case Qt::Key_A:
+		{
+			position.setX(position.x() + vol_size * 0.05f);
+			break;
+		}
+		case Qt::Key_D:
+		{
+			position.setX(position.x() - vol_size * 0.05f);
+			break;
+		}
+		default:
+		{
+			e->ignore(); // let the base class handle this event
+		}
+	}
 }
 
 

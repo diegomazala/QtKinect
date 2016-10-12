@@ -57,6 +57,7 @@ protected:
 	QImage raycastImage;
 	ushort voxel_count;
 	ushort voxel_size;
+	int vol_size;
 };
 
 
