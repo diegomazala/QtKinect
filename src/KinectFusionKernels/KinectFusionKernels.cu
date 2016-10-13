@@ -155,8 +155,9 @@ typedef struct
 __constant__ float3x4 camera_to_world_dev_matrix;  // inverse view matrix
 
 __constant__ float4 lightData;  // xyz = direction, w = power
+__constant__ float light_matrix_dev[16];  // light matrix
 __constant__ float normal_matrix_dev[9];  // normal matrix
-
+__constant__ float3 cameraPosition;  
 
 __device__ uint rgbaFloatToInt(float4 rgba)
 {
@@ -377,7 +378,8 @@ __device__ void matrix_mul_mat_vec_kernel_device(
 	for (int i = 0; i < m; i++)
 		for (int j = 0; j < k; j++)
 			c[j] += a[i * m + j] * b[i];		// col major
-	//c[i] += a[i * m + j] * b[j];		// row major
+			//c[i] += a[i * m + j] * b[j];		// row major
+
 }
 
 
@@ -508,11 +510,23 @@ __device__ BoxFace box_face_in_face_out(BoxFace face_out)
 }
 
 
+inline __device__ bool is_negative(
+	const float* voxels_params_2f,
+	ulong voxel_params_count,
+	long voxel_index)
+{
+	if (voxel_index < 0 || voxel_index > voxel_params_count * 2 - 1)
+		return false;
+
+	return (voxels_params_2f[voxel_index * 2] > 0 && voxels_params_2f[voxel_index * 2] > 0);
+}
+
+
 inline __device__ bool has_same_sign_tsdf(
 	const float* voxels_params_2f, 
 	ulong voxel_params_count,
-	int prev_voxel_index, 
-	int next_voxel_index)
+	long prev_voxel_index, 
+	long next_voxel_index)
 {
 	if (prev_voxel_index < 0 || prev_voxel_index > voxel_params_count * 2 - 1 ||
 		next_voxel_index < 0 || next_voxel_index > voxel_params_count * 2 - 1)
@@ -742,6 +756,7 @@ struct FaceData
 };
 
 
+// test ray against 6 faces of a box
 __device__ int face_intersections(
 	float3 ray_origin,
 	float3 ray_direction,
@@ -1294,8 +1309,15 @@ __global__ void	raycast_kernel(
 	screen_coord = normalize(screen_coord);
 
 	// ray origin
-	float3 camera_pos = make_float3(mul_vec_dir_matrix(camera_to_world_mat4x4, make_float4(0.0f, 0.0f, 0.0f, 1.0f)));
+	float3 camera_pos = 
+		cameraPosition;
+		//make_float3(mul_vec_dir_matrix(camera_to_world_mat4x4, make_float4(0.0f, 0.0f, 0.0f, 1.0f)));
 		//make_float3(camera_to_world_mat4x4[12], camera_to_world_mat4x4[13], camera_to_world_mat4x4[14]);
+
+	//float4 cam;
+	//float4 vec_null = make_float4(0, 0, 0, 1);
+	//matrix_mul_mat_vec_kernel_device(camera_to_world_mat4x4, &vec_null.x, &cam.x, 4);
+	//camera_pos = make_float3(cam.x, cam.y, cam.z);
 
 	// transform vector by matrix (no translation)
 	// multDirMatrix
@@ -1354,18 +1376,32 @@ __global__ void	raycast_kernel(
 	float3 N;
 	matrix_mul_mat_vec_kernel_device(normal_matrix_dev, &hit_normal.x, &N.x, 3);
 	N = normalize(N);
+
+	float4 light_dir;
+	float4 forward = make_float4(0, 0, 1, 0);
+	matrix_mul_mat_vec_kernel_device(light_matrix_dev, &forward.x, &light_dir.x, 4);
 	
 	
-	float3 diff_color = fabs(hit_normal);
-		//make_float3(fabs(normalTex.x), fabs(normalTex.y), fabs(normalTex.z));
-	float3 spec_color = make_float3(1.f, 1.f, 1.f);
-	float spec_shininess = lightData.w;
-	float3 E = normalize(-camera_pos);								// view direction
-	float3 L = normalize(make_float3(lightData.x, lightData.y, lightData.z));	// light direction
-	float3 R = normalize(-reflect(L, N));
-	float3 diff = diff_color * saturate(dot(N, L));
-	float3 spec = spec_color * pow(saturate(dot(R, E)), spec_shininess);
-	float3 color = clamp(diff + spec, 0.f, 1.f);
+	float3 diff_color		= fabs(hit_normal);
+	float3 spec_color		= make_float3(0.0f, 0.0f, 0.0f);
+	float spec_shininess	= lightData.w;
+
+	
+	//float3 E				= normalize(-camera_pos);
+	//float3 L				= normalize(make_float3(light_dir.x, light_dir.y, light_dir.z));
+	//float3 R				= normalize(reflect(-L, N));
+	
+	//float3 diff				= diff_color * 0.4f * fmax(dot(L, N), 0.f);
+	//float3 spec				= spec_color * pow(fmax(dot(R, E), spec_shininess), 0.f);
+	//float3 color			= ambient + diff + spec;
+
+	float3 E				= normalize(-direction);
+	float3 L				= E; // normalize(make_float3(lightData.x, lightData.y, lightData.z));
+	float3 R				= normalize(-reflect(L, N));
+	float3 diff				= diff_color * saturate(fabs(dot(N, L)));
+	float3 ambient			= diff_color * 0.3f;
+	float3 spec				= spec_color * pow(saturate(dot(R, E)), spec_shininess);
+	float3 color			= clamp(diff + spec + ambient, 0.f, 1.f);
 
 	if (hit_count > 0)
 	{
@@ -1383,6 +1419,10 @@ __global__ void	raycast_kernel(
 			out_image[y * image_width + x].w = 255;
 #endif
 		}
+		//if (hit_count == 1)
+		//{
+		//	out_image[y * image_width + x] = make_uchar4(255, 255, 255, 255);
+		//}
 		else
 		{
 			out_image[y * image_width + x] = make_uchar4(64, 64, 0, 255);
@@ -1460,12 +1500,19 @@ __global__ void	raycast_box_kernel(
 
 extern "C"
 {
-	void knt_set_light(float4 light_data)
+	void knt_set_camera_pos(float3 cam_pos)
 	{
-		checkCudaErrors(cudaMemcpyToSymbol(lightData, &light_data, sizeof(float4)));
+		checkCudaErrors(cudaMemcpyToSymbol(cameraPosition, &cam_pos, sizeof(float3)));
 	}
 
-	void knt_set_normal_matrix(float* normal_matrix_3x3f)
+
+	void knt_set_light(float4 light_data, const float* light_matrix_4x4f)
+	{
+		checkCudaErrors(cudaMemcpyToSymbol(lightData, &light_data, sizeof(float4)));
+		checkCudaErrors(cudaMemcpyToSymbol(light_matrix_dev, &light_matrix_4x4f, sizeof(float) * 16));
+	}
+
+	void knt_set_normal_matrix(const float* normal_matrix_3x3f)
 	{
 		checkCudaErrors(cudaMemcpyToSymbol(normal_matrix_dev, normal_matrix_3x3f, sizeof(float) * 9));
 	}
@@ -1486,7 +1533,7 @@ extern "C"
 		ushort output_image_width,
 		ushort output_image_height)
 	{
-		knt_set_light(make_float4(0.f, -1.f, -1.f, 1.f));
+		knt_set_light(make_float4(0.f, -1.f, -1.f, 1.f), &matrix_identity[0]);
 
 		grid.voxel_count = make_ushort3(vx_count, vx_count, vx_count);
 		grid.voxel_size = make_ushort3(vx_size, vx_size, vx_size);
