@@ -101,6 +101,10 @@ void QRaycastImageWidget::computeRaycast()
 	//knt_set_light(lightData, light_matrix.data());
 	
 
+	QVector3D fw(0, 0, 1);
+	qDebug() << fw << " -> " << cameraRotation.rotatedVector(fw);
+	//qDebug() << "c: " << cameraPosition << '\t' << cameraRotationAxis;
+
 
 	//system("CLS");
 	//std::cout << view_matrix << std::endl << std::endl;
@@ -416,24 +420,24 @@ void QRaycastImageWidget::keyReleaseEvent(QKeyEvent *e)
 
 		case Qt::Key_W:
 		{
-			cameraPosition.setY(cameraPosition.y() - vol_size * 0.05f);
+			cameraPosition += cameraRotation.rotatedVector(QVector3D(0, 0, 1)) * vol_size * 0.05f;
 			break;
 		}
 
 		case Qt::Key_S:
 		{
-			cameraPosition.setY(cameraPosition.y() + vol_size * 0.05f);
+			cameraPosition += cameraRotation.rotatedVector(QVector3D(0, 0, -1)) * vol_size * 0.05f;
 			break;
 		}
 
 		case Qt::Key_A:
 		{
-			cameraPosition.setX(cameraPosition.x() + vol_size * 0.05f);
+			cameraPosition += cameraRotation.rotatedVector(QVector3D(-1, 0, 0)) * vol_size * 0.05f;
 			break;
 		}
 		case Qt::Key_D:
 		{
-			cameraPosition.setX(cameraPosition.x() - vol_size * 0.05f);
+			cameraPosition += cameraRotation.rotatedVector(QVector3D(1, 0, 0)) * vol_size * 0.05f;
 			break;
 		}
 		case Qt::Key_L:
