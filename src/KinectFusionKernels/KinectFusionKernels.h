@@ -39,7 +39,6 @@ extern "C"
 {
 	void knt_set_light(float4 light_data, const float* light_matrix_4x4f);
 	void knt_set_normal_matrix(const float* normal_matrix_3x3f);
-	void knt_set_camera_pos(float3 cam_pos);
 
 	void knt_cuda_setup(
 		ushort vx_count,

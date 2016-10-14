@@ -1,6 +1,6 @@
 
 #include <QApplication>
-#include "QRaycastImageWidget.h"
+#include "QImageWidget.h"
 #include "Raycasting.h"
 #include "KinectSpecs.h"
 
@@ -80,8 +80,8 @@ int raycast_and_render_grid(int argc, char* argv[])
 	//tsdf.at(18)[0] = 
 	//tsdf.at(26)[0] = -1.0f;
 	tsdf.at(0)[0] = -1.0f;
-	tsdf.at(tsdf.size() - voxel_count.x())[0] =
-	tsdf.at(tsdf.size() - 1)[0] = -1.0f;
+	//tsdf.at(tsdf.size() - voxel_count.x())[0] =
+	//tsdf.at(tsdf.size() - 1)[0] = -1.0f;
 
 	//
 	// setup camera parameters
@@ -136,23 +136,32 @@ int raycast_and_render_grid(int argc, char* argv[])
 			multDirMatrix(screen_coord, camera_to_world.matrix(), direction);
 			direction.normalize();
 
+			Eigen::Vector3f hit_normal;
 			long voxels_zero_crossing[2];
-			if (raycast_tsdf_volume(camera_pos, direction, voxel_count, voxel_size, tsdf, voxels_zero_crossing) > 0)
+			int hit_count = raycast_tsdf_volume(camera_pos, direction, voxel_count, voxel_size, tsdf, hit_normal, voxels_zero_crossing);
+			if (hit_count > 0)
 			{
-				if (voxels_zero_crossing[0] > -1 && voxels_zero_crossing[1] > -1)
+				//if (voxels_zero_crossing[0] > -1 && voxels_zero_crossing[1] > -1)
+				//if (voxels_zero_crossing[0] > -1 || voxels_zero_crossing[1] > -1)
+				if (hit_count == 2)
+				{
+					Eigen::Vector3i rgb = (hit_normal.cwiseAbs() * 255).cast<int>();
+					image.setPixel(QPoint(x, y), qRgb(rgb.x(), rgb.y(), rgb.z()));
+				}
+				else 
 				{
 					image.setPixel(QPoint(x, y), qRgb(128, 128, 0));
 				}
-				else
-				{
-					image.setPixel(QPoint(x, y), qRgb(128, 0, 0));
-				}
+			}
+			else
+			{
+				image.setPixel(QPoint(x, y), qRgb(128, 0, 0));
 			}
 		}
 	}
 
 	QApplication app(argc, argv);
-	QRaycastImageWidget widget;
+	QImageWidget widget;
 	widget.setImage(image);
 	widget.show();
 

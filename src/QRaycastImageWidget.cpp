@@ -80,11 +80,8 @@ void QRaycastImageWidget::computeRaycast()
 	Eigen::Affine3f view_affine = Eigen::Affine3f::Identity();
 	view_affine.translate(Eigen::Vector3f(cameraPosition.x(), cameraPosition.y(), cameraPosition.z()));
 	view_affine.rotate(Eigen::Quaternionf(cameraRotation.scalar(), cameraRotation.x(), cameraRotation.y(), cameraRotation.z()));
-	
 	Eigen::Matrix4f view_matrix = view_affine.matrix();
 
-	Eigen::Vector3f cam_pos = (view_matrix * Eigen::Vector4f(0, 0, 0, 1)).head(3);
-	knt_set_camera_pos(make_float3(cam_pos[0], cam_pos[1], cam_pos[2]));
 	//
 	Eigen::Matrix4f mdv_inv_trasp = view_matrix.inverse().transpose();
 	Eigen::Matrix3f normal_matrix = mdv_inv_trasp.block(0, 0, 3, 3);
@@ -93,22 +90,21 @@ void QRaycastImageWidget::computeRaycast()
 	//
 	// light matrix
 	//
-	Eigen::Affine3f light_affine = Eigen::Affine3f::Identity();
-	light_affine.rotate(Eigen::Quaternionf(lightRotation.scalar(), lightRotation.x(), lightRotation.y(), lightRotation.z()));
-	Eigen::Matrix4f light_matrix = light_affine.matrix().inverse();
-	//
-	if (altPressed)
-		lightDirection = (lightRotation * QVector3D(0, -1, -1)).normalized();
-	float4 lightData = make_float4(lightDirection.x(), lightDirection.y(), lightDirection.z(), lightSpecPower);
-	//
-	knt_set_light(lightData, light_matrix.data());
+	//Eigen::Affine3f light_affine = Eigen::Affine3f::Identity();
+	//light_affine.rotate(Eigen::Quaternionf(lightRotation.scalar(), lightRotation.x(), lightRotation.y(), lightRotation.z()));
+	//Eigen::Matrix4f light_matrix = light_affine.matrix().inverse();
+	////
+	//if (altPressed)
+	//	lightDirection = (lightRotation * QVector3D(0, -1, -1)).normalized();
+	//float4 lightData = make_float4(lightDirection.x(), lightDirection.y(), lightDirection.z(), lightSpecPower);
+	////
+	//knt_set_light(lightData, light_matrix.data());
 	
-
 
 
 	//system("CLS");
 	//std::cout << view_matrix << std::endl << std::endl;
-	//qDebug() << "c: " << cameraPosition << '\t' << cameraRotationAxis << "  l: " << lightRotationAxis << " : " << lightSpecPower;
+	//qDebug() << "c: " << cameraPosition << '\t' << cameraRotation;
 	//QMatrix4x4 view_matrix;
 	//view_matrix.translate(cameraPosition);
 	//view_matrix.rotate(cameraRotation);
@@ -209,12 +205,17 @@ void QRaycastImageWidget::setup(const std::string& filepath, ushort vx_count, us
 	//cameraPosition.setY(-vol_size * 0.5f);
 	//cameraPosition.setZ(0);
 
+	//cameraPosition = QVector3D(10.2f, 9.6f, -16.18f);
+	//cameraRotation = QQuaternion(0.97f, 0.046f, -0.231f, 0.0028f);
+	//cameraPosition = QVector3D(3.2f, 2.0f, -2.98f);
+	//cameraRotation = QQuaternion(0.97f, 0.046f, -0.231f, 0.0028f);
+
 #if 0
 	//
 	// use this with vx_count = 3 and vx_size = 1 to debug
 	// 
 	std::vector<Eigen::Vector2f> tsdf(total_voxels, Eigen::Vector2f::Ones());
-#if 1
+
 	// bottom face
 	for (ulong z = 0; z < vx_count; ++z)
 	{
@@ -242,12 +243,11 @@ void QRaycastImageWidget::setup(const std::string& filepath, ushort vx_count, us
 			tsdf.at(i)[0] = -1.f;
 		}
 	}
-#endif
-
 	// last voxel
-	//tsdf.at(vx_count*vx_count*vx_count - 1)[0] = -1.f;
-
+	tsdf.at(vx_count*vx_count*vx_count - 1)[0] = -1.f;
+	// first voxel
 	tsdf.at(0)[0] = -1.f;
+	//tsdf.at(1)[0] = -1.f;
 
 	knt_cuda_grid_sample_test(tsdf.data()->data(), tsdf.size());
 #else
@@ -436,34 +436,9 @@ void QRaycastImageWidget::keyReleaseEvent(QKeyEvent *e)
 			cameraPosition.setX(cameraPosition.x() - vol_size * 0.05f);
 			break;
 		}
-		case Qt::Key_Left:
+		case Qt::Key_L:
 		{
-			lightDirection = QVector3D(-1, -1, 0);
-			break;
-		}
-		case Qt::Key_Right:
-		{
-			lightDirection = QVector3D(1, -1, 0);
-			break;
-		}
-		case Qt::Key_Up:
-		{
-			lightDirection = QVector3D(0, -1, -1);
-			break;
-		}
-		case Qt::Key_Down:
-		{
-			lightDirection = QVector3D(0, -1, 1);
-			break;
-		}
-		case Qt::Key_Insert:
-		{
-			lightDirection = QVector3D(0, 1, -1);
-			break;
-		}
-		case Qt::Key_Delete:
-		{
-			lightDirection = QVector3D(0, 1, 1);
+			lightRotation = cameraRotation;
 			break;
 		}
 		default:

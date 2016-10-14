@@ -364,7 +364,8 @@ BoxFace raycast_face_volume(
 	const Eigen::Vector3i& voxel_count,
 	const Eigen::Vector3i& voxel_size,
 	int& voxel_index,
-	Eigen::Matrix<Type, 3, 1>& hit)
+	Eigen::Matrix<Type, 3, 1>& hit,
+	Eigen::Matrix<Type, 3, 1>& hit_normal)
 {
 	
 	Eigen::Vector3i volume_size(
@@ -377,9 +378,7 @@ BoxFace raycast_face_volume(
 
 	Eigen::Matrix<Type, 3, 1> half_voxel_size = voxel_size.cast<Type>() * (Type)0.5;
 
-	Eigen::Matrix<Type, 3, 1> hit1;
 	Eigen::Matrix<Type, 3, 1> hit2;
-	Eigen::Matrix<Type, 3, 1> hit1_normal;
 	Eigen::Matrix<Type, 3, 1> hit2_normal;
 
 	//
@@ -393,15 +392,15 @@ BoxFace raycast_face_volume(
 		volume_size.x(),
 		volume_size.y(),
 		volume_size.z(),
-		hit1,
+		hit,
 		hit2,
-		hit1_normal,
+		hit_normal,
 		hit2_normal);
 
 	if (intersections_count > 0)
 	{
-		voxel_index = get_index_from_3d(hit1, voxel_count, voxel_size);
-		return box_face_from_normal<float>(hit1_normal);
+		voxel_index = get_index_from_3d(hit, voxel_count, voxel_size);
+		return box_face_from_normal<float>(hit_normal);
 	}
 	else
 	{
@@ -424,7 +423,9 @@ int raycast_face_in_out(
 	BoxFace& face_in,
 	BoxFace& face_out,
 	Eigen::Matrix<Type, 3, 1>& hit_in,
-	Eigen::Matrix<Type, 3, 1>& hit_out)
+	Eigen::Matrix<Type, 3, 1>& hit_out,
+	Eigen::Matrix<Type, 3, 1>& hit_in_normal,
+	Eigen::Matrix<Type, 3, 1>& hit_out_normal)
 {
 
 	Eigen::Vector3i volume_size(
@@ -439,8 +440,6 @@ int raycast_face_in_out(
 
 	Eigen::Matrix<Type, 3, 1> hit1;
 	Eigen::Matrix<Type, 3, 1> hit2;
-	Eigen::Matrix<Type, 3, 1> hit1_normal;
-	Eigen::Matrix<Type, 3, 1> hit2_normal;
 
 	//
 	// Check intersection with the whole volume
@@ -455,20 +454,20 @@ int raycast_face_in_out(
 		volume_size.z(),
 		hit1,
 		hit2,
-		hit1_normal,
-		hit2_normal);
+		hit_in_normal,
+		hit_out_normal);
 
 	if (intersections_count == 2)
 	{
-		face_in = box_face_from_normal<float>(hit1_normal);
-		face_out = box_face_from_normal<float>(hit2_normal);
+		face_in = box_face_from_normal<float>(hit_in_normal);
+		face_out = box_face_from_normal<float>(hit_out_normal);
 
 		hit_in = hit1;
 		hit_out = hit2;
 	}
 	else if (intersections_count == 1)
 	{
-		face_in = face_out = box_face_from_normal<float>(hit1_normal);
+		face_in = face_out = box_face_from_normal<float>(hit_in_normal);
 		hit_in = hit_out = hit1;
 	}
 	else
@@ -496,16 +495,18 @@ int raycast_volume(
 	int intersections_count = 0;
 	Eigen::Matrix<Type, 3, 1> hit_in;
 	Eigen::Matrix<Type, 3, 1> hit_out;
+	Eigen::Matrix<Type, 3, 1> hit_in_normal;
+	Eigen::Matrix<Type, 3, 1> hit_out_normal;
 	BoxFace face_in = BoxFace::Undefined;
 	BoxFace face_out = BoxFace::Undefined;
 
-	face_in = raycast_face_volume(ray_origin, ray_direction, voxel_count, voxel_size, voxel_index, hit_in);
+	face_in = raycast_face_volume(ray_origin, ray_direction, voxel_count, voxel_size, voxel_index, hit_in, hit_in_normal);
 
 	// the ray does not hits the volume
 	if (face_in == BoxFace::Undefined || voxel_index < 0)
 		return -1;
 
-	intersections_count = raycast_face_in_out(ray_origin, ray_direction, voxel_count, voxel_size, face_in, face_out, hit_in, hit_out);
+	intersections_count = raycast_face_in_out(ray_origin, ray_direction, voxel_count, voxel_size, face_in, face_out, hit_in, hit_out, hit_in_normal, hit_out_normal);
 
 	bool is_inside = intersections_count > 0;
 
@@ -565,6 +566,7 @@ int raycast_tsdf_volume(
 	const Eigen::Vector3i& voxel_count,
 	const Eigen::Vector3i& voxel_size,
 	const std::vector<Eigen::Matrix<Type, 2, 1>>& params,
+	Eigen::Matrix<Type, 3, 1>& hit_normal,
 	long voxels_zero_crossing_indices[2])
 {
 	int voxel_index = -1;
@@ -572,16 +574,18 @@ int raycast_tsdf_volume(
 	int intersections_count = 0;
 	Eigen::Matrix<Type, 3, 1> hit_in;
 	Eigen::Matrix<Type, 3, 1> hit_out;
+	Eigen::Matrix<Type, 3, 1> hit_in_normal;
+	Eigen::Matrix<Type, 3, 1> hit_out_normal;
 	BoxFace face_in = BoxFace::Undefined;
 	BoxFace face_out = BoxFace::Undefined;
 
-	face_in = raycast_face_volume(ray_origin, ray_direction, voxel_count, voxel_size, voxel_index, hit_in);
+	face_in = raycast_face_volume(ray_origin, ray_direction, voxel_count, voxel_size, voxel_index, hit_in, hit_in_normal);
 
 	// the ray does not hits the volume
 	if (face_in == BoxFace::Undefined || voxel_index < 0)
 		return -1;
 
-	intersections_count = raycast_face_in_out(ray_origin, ray_direction, voxel_count, voxel_size, face_in, face_out, hit_in, hit_out);
+	intersections_count = raycast_face_in_out(ray_origin, ray_direction, voxel_count, voxel_size, face_in, face_out, hit_in, hit_out, hit_in_normal, hit_out_normal);
 
 	bool is_inside = intersections_count > 0;
 
@@ -606,6 +610,7 @@ int raycast_tsdf_volume(
 					voxels_zero_crossing_indices[1] = next_voxel_index;
 					voxel_index = next_voxel_index;
 					intersections_count = 2;
+					//hit_normal = hit_
 					return intersections_count;
 				}
 				else

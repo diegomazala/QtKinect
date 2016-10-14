@@ -157,7 +157,6 @@ __constant__ float3x4 camera_to_world_dev_matrix;  // inverse view matrix
 __constant__ float4 lightData;  // xyz = direction, w = power
 __constant__ float light_matrix_dev[16];  // light matrix
 __constant__ float normal_matrix_dev[9];  // normal matrix
-__constant__ float3 cameraPosition;  
 
 __device__ uint rgbaFloatToInt(float4 rgba)
 {
@@ -518,7 +517,7 @@ inline __device__ bool is_negative(
 	if (voxel_index < 0 || voxel_index > voxel_params_count * 2 - 1)
 		return false;
 
-	return (voxels_params_2f[voxel_index * 2] > 0 && voxels_params_2f[voxel_index * 2] > 0);
+	return (voxels_params_2f[voxel_index * 2] < 0);
 }
 
 
@@ -749,26 +748,28 @@ struct FaceData
 	BoxFace face;
 	float3 hit;
 	float3 normal;
-	int voxel_index;
+	long voxel_index;
 	float dist;
 	__device__ FaceData(){}
 	__device__ FaceData(BoxFace f, float3 ht, float3 n, int vx, float ds) : face(f), hit(ht), normal(n), voxel_index(vx), dist(ds){}
 };
 
 
+//
 // test ray against 6 faces of a box
+// 
 __device__ int face_intersections(
 	float3 ray_origin,
 	float3 ray_direction,
 	ushort3 voxel_count,
 	ushort3 voxel_size,
-	int voxel_index,
+	long voxel_index,
 	BoxFace face_in,
 	float3 hit_in,
 	BoxFace& face_out,
 	float3& hit_out,
 	float3& hit_normal,
-	int& next_voxel_index)
+	long& next_voxel_index)
 {
 
 	float3 hit;
@@ -782,143 +783,147 @@ __device__ int face_intersections(
 	int face_list_size = 0;
 
 	face = BoxFace::Top;
+	if (face != face_in)
 	{
-		float3 v1 = voxel_pos + make_float3(0, voxel_size.y, 0);
-		float3 v2 = v1 + make_float3(voxel_size.x, 0, 0);
-		float3 v3 = v1 + make_float3(voxel_size.x, 0, voxel_size.z);
-		float3 v4 = v1 + make_float3(0, 0, voxel_size.z);
-		if (quad_intersection(ray_origin, ray_direction, v1, v2, v3, v4, hit, hit_normal) && face != face_in)
+		const float3 v1 = voxel_pos + make_float3(0, voxel_size.y, 0);
+		const float3 v2 = v1 + make_float3(voxel_size.x, 0, 0);
+		const float3 v3 = v1 + make_float3(voxel_size.x, 0, voxel_size.z);
+		const float3 v4 = v1 + make_float3(0, 0, voxel_size.z);
+		if (quad_intersection(ray_origin, ray_direction, v1, v2, v3, v4, hit, hit_normal) )
 		{
 			face_out = face;
 			hit_out = hit;
-			float half_voxel_y = voxel_size.y * 0.5f;
+			const float half_voxel_y = voxel_size.y * 0.5f;
 			if (hit.y > voxel_count.y * voxel_size.y - half_voxel_y)
 				next_voxel_index = -1;
 			else
 				next_voxel_index = voxel_index + voxel_count.y;
 
-			float dist = length(hit_out - hit_in);
+			const float dist = length(hit_out - hit_in);
 			face_list[face_list_size] = FaceData(face, hit, hit_normal, next_voxel_index, dist);
 			face_list_size++;
-			//return true;
 		}
 	}
 
 	face = BoxFace::Bottom;
+	if (face != face_in)
 	{
-		float3 v1 = voxel_pos;
-		float3 v2 = v1 + make_float3(voxel_size.x, 0, 0);
-		float3 v3 = v1 + make_float3(voxel_size.x, 0, voxel_size.z);
-		float3 v4 = v1 + make_float3(0, 0, voxel_size.z);
-		if (quad_intersection(ray_origin, ray_direction, v1, v2, v3, v4, hit, hit_normal) && face != face_in)
+		const float3 v1 = voxel_pos;
+		const float3 v2 = v1 + make_float3(voxel_size.x, 0, 0);
+		const float3 v3 = v1 + make_float3(voxel_size.x, 0, voxel_size.z);
+		const float3 v4 = v1 + make_float3(0, 0, voxel_size.z);
+		if (quad_intersection(ray_origin, ray_direction, v1, v2, v3, v4, hit, hit_normal))
 		{
 			face_out = face;
 			hit_out = hit;
-			float half_voxel_y = voxel_size.y * 0.5f;
+			const float half_voxel_y = voxel_size.y * 0.5f;
 			if (hit.y < half_voxel_y)
 				next_voxel_index = -1;
 			else
 				next_voxel_index = voxel_index - voxel_count.y;
 
-			float dist = length(hit_out - hit_in);
+			const float dist = length(hit_out - hit_in);
 			face_list[face_list_size] = FaceData(face, hit, hit_normal, next_voxel_index, dist);
 			face_list_size++;
-			//return true;
 		}
 	}
 
 	face = BoxFace::Front;
+	if (face != face_in)
 	{
-		float3 v1 = voxel_pos;
-		float3 v2 = v1 + make_float3(voxel_size.x, 0, 0);
-		float3 v3 = v1 + make_float3(voxel_size.x, voxel_size.y, 0);
-		float3 v4 = v1 + make_float3(0, voxel_size.y, 0);
-		if (quad_intersection(ray_origin, ray_direction, v1, v2, v3, v4, hit, hit_normal) && face != face_in)
+		const float3 v1 = voxel_pos;
+		const float3 v2 = v1 + make_float3(voxel_size.x, 0, 0);
+		const float3 v3 = v1 + make_float3(voxel_size.x, voxel_size.y, 0);
+		const float3 v4 = v1 + make_float3(0, voxel_size.y, 0);
+		if (quad_intersection(ray_origin, ray_direction, v1, v2, v3, v4, hit, hit_normal))
 		{
 			face_out = face;
 			hit_out = hit;
-			float half_voxel_z = voxel_size.z * 0.5f;
+			const float half_voxel_z = voxel_size.z * 0.5f;
 			if (hit.z < half_voxel_z)
 				next_voxel_index = -1;
 			else
 				next_voxel_index = voxel_index - voxel_count.x * voxel_count.y;
 
-			float dist = length(hit_out - hit_in);
+			const float dist = length(hit_out - hit_in);
 			face_list[face_list_size] = FaceData(face, hit, hit_normal, next_voxel_index, dist);
 			face_list_size++;
-			//return true;
 		}
 	}
 
 	face = BoxFace::Rear;
+	if (face != face_in)
 	{
-		float3 v1 = voxel_pos + make_float3(0, 0, voxel_size.z);
-		float3 v2 = v1 + make_float3(voxel_size.x, 0, 0);
-		float3 v3 = v1 + make_float3(voxel_size.x, voxel_size.y, 0);
-		float3 v4 = v1 + make_float3(0, voxel_size.y, 0);
-		if (quad_intersection(ray_origin, ray_direction, v1, v2, v3, v4, hit, hit_normal) && face != face_in)
+		const float3 v1 = voxel_pos + make_float3(0, 0, voxel_size.z);
+		const float3 v2 = v1 + make_float3(voxel_size.x, 0, 0);
+		const float3 v3 = v1 + make_float3(voxel_size.x, voxel_size.y, 0);
+		const float3 v4 = v1 + make_float3(0, voxel_size.y, 0);
+		if (quad_intersection(ray_origin, ray_direction, v1, v2, v3, v4, hit, hit_normal))
 		{
 			face_out = face;
 			hit_out = hit;
-			float half_voxel_z = voxel_size.z * 0.5f;
+			const float half_voxel_z = voxel_size.z * 0.5f;
 			if (hit.z > voxel_count.z * voxel_size.z - half_voxel_z)
 				next_voxel_index = -1;
 			else
 				next_voxel_index = voxel_index + voxel_count.x * voxel_count.y;
 
-			float dist = length(hit_out - hit_in);
+			const float dist = length(hit_out - hit_in);
 			face_list[face_list_size] = FaceData(face, hit, hit_normal, next_voxel_index, dist);
 			face_list_size++;
-			//return true;
 		}
 	}
 
 	face = BoxFace::Left;
+	if (face != face_in)
 	{
-		float3 v1 = voxel_pos;
-		float3 v2 = v1 + make_float3(0, 0, voxel_size.z);
-		float3 v3 = v1 + make_float3(0, voxel_size.y, voxel_size.z);
-		float3 v4 = v1 + make_float3(0, voxel_size.y, 0);
-		if (quad_intersection(ray_origin, ray_direction, v1, v2, v3, v4, hit, hit_normal) && face != face_in)
+		const float3 v1 = voxel_pos;
+		const float3 v2 = v1 + make_float3(0, 0, voxel_size.z);
+		const float3 v3 = v1 + make_float3(0, voxel_size.y, voxel_size.z);
+		const float3 v4 = v1 + make_float3(0, voxel_size.y, 0);
+		if (quad_intersection(ray_origin, ray_direction, v1, v2, v3, v4, hit, hit_normal))
 		{
 			face_out = face;
 			hit_out = hit;
-			float half_voxel_x = voxel_size.x * 0.5f;
+			const float half_voxel_x = voxel_size.x * 0.5f;
 			if (hit.x < half_voxel_x)
 				next_voxel_index = -1;
 			else
 				next_voxel_index = voxel_index - 1;
 
-			float dist = length(hit_out - hit_in);
+			const float dist = length(hit_out - hit_in);
 			face_list[face_list_size] = FaceData(face, hit, hit_normal, next_voxel_index, dist);
 			face_list_size++;
-			//return true;
 		}
 	}
 
 	face = BoxFace::Right;
+	if (face != face_in)
 	{
-		float3 v1 = voxel_pos + make_float3(voxel_size.x, 0, 0);
-		float3 v2 = v1 + make_float3(0, 0, voxel_size.z);
-		float3 v3 = v1 + make_float3(0, voxel_size.y, voxel_size.z);
-		float3 v4 = v1 + make_float3(0, voxel_size.y, 0);
-		if (quad_intersection(ray_origin, ray_direction, v1, v2, v3, v4, hit, hit_normal) && face != face_in)
+		const float3 v1 = voxel_pos + make_float3(voxel_size.x, 0, 0);
+		const float3 v2 = v1 + make_float3(0, 0, voxel_size.z);
+		const float3 v3 = v1 + make_float3(0, voxel_size.y, voxel_size.z);
+		const float3 v4 = v1 + make_float3(0, voxel_size.y, 0);
+		if (quad_intersection(ray_origin, ray_direction, v1, v2, v3, v4, hit, hit_normal))
 		{
 			face_out = face;
 			hit_out = hit;
-			float half_voxel_x = voxel_size.x * 0.5f;
+			const float half_voxel_x = voxel_size.x * 0.5f;
 			if (hit.x > voxel_count.x * voxel_size.x - half_voxel_x)
 				next_voxel_index = -1;
 			else
 				next_voxel_index = voxel_index + 1;
 
-			float dist = length(hit_out - hit_in);
+			const float dist = length(hit_out - hit_in);
 			face_list[face_list_size] = FaceData(face, hit, hit_normal, next_voxel_index, dist);
 			face_list_size++;
-			//return true;
 		}
 	}
 
+	//
+	// check which hit has the bigger distance
+	// this is needed when the hit enters/leaves by the box edge
+	// 
 	if (face_list_size > 1)
 	{
 		float max_dist = -1;
@@ -984,7 +989,8 @@ __device__ BoxFace raycast_face_volume(
 	ushort3 voxel_count,
 	ushort3 voxel_size,
 	long& voxel_index,
-	float3& hit)
+	float3& hit, 
+	float3& hit_normal)
 {
 	ushort3 volume_size = make_ushort3(
 		voxel_count.x * voxel_size.x,
@@ -1018,6 +1024,7 @@ __device__ BoxFace raycast_face_volume(
 
 	if (intersections_count > 0)
 	{
+		hit_normal = hit1_normal;
 		voxel_index = get_index_from_3d(hit1, voxel_count, voxel_size);
 		return box_face_from_normal(hit1_normal);
 	}
@@ -1117,154 +1124,67 @@ __device__ int raycast_tsdf_volume(
 {
 	voxels_zero_crossing_indices[0] = voxels_zero_crossing_indices[1] = -1;
 
-	ulong total_voxels = voxel_count.x * voxel_count.y * voxel_count.z;
+	long total_voxels = voxel_count.x * voxel_count.y * voxel_count.z;
 
 	long voxel_index = -1;
-	int next_voxel_index = -1;
+	long next_voxel_index = -1;
 	int intersections_count = 0;
 	float3 hit_in;
 	float3 hit_out;
-	float3 hit_in_normal;
-	float3 hit_out_normal;
 	BoxFace face_in = BoxFace::Undefined;
 	BoxFace face_out = BoxFace::Undefined;
 
-	face_in = raycast_face_volume(ray_origin, ray_direction, voxel_count, voxel_size, voxel_index, hit_in);
+	face_in = raycast_face_volume(ray_origin, ray_direction, voxel_count, voxel_size, voxel_index, hit_in, hit_normal);
 
 	// the ray does not hits the volume
 	if (face_in == BoxFace::Undefined || voxel_index < 0)
-		return -1;
+		return 0;
 
-	intersections_count = raycast_face_in_out(ray_origin, ray_direction, voxel_count, voxel_size, face_in, face_out, hit_in, hit_out, hit_in_normal, hit_out_normal);
+	//
+	// check if the first voxel hit has a negative value
+	// 
+	if (is_negative(grid_voxels_params_2f, total_voxels, voxel_index))
+	{
+		//voxels_zero_crossing_indices[0] = voxel_index;
+		//voxels_zero_crossing_indices[1] = voxel_index;
+		return 2;
+	}
+
+	bool is_inside = true;
 	
-	bool is_inside = intersections_count > 0;
-
 	while (is_inside)
 	{
-		if (face_intersections(
-			ray_origin, ray_direction, 
+		// 
+		// check intersections against voxel faces
+		// 
+		const int faces_hit = 
+			face_intersections(
+			ray_origin, ray_direction,
 			voxel_count, voxel_size, voxel_index,
-			face_in, hit_in, face_out, 
-			hit_out, hit_in_normal,
-			next_voxel_index))
-		{
-			if (next_voxel_index < 0)
-			{
-				is_inside = false;
-			}
-			else
-			{
-				intersections_count++;
+			face_in, hit_in, face_out,
+			hit_out, hit_normal,
+			next_voxel_index);
 
-				face_in = box_face_in_face_out(face_out);
-				hit_in = hit_out;
-
-				if (!has_same_sign_tsdf(grid_voxels_params_2f, total_voxels, voxel_index, next_voxel_index))
-				{
-					voxels_zero_crossing_indices[0] = voxel_index;
-					voxels_zero_crossing_indices[1] = next_voxel_index;
-					voxel_index = next_voxel_index;
-					hit_normal = hit_in_normal;
-					intersections_count = 2;
-					return intersections_count;
-				}
-				else
-				{
-					voxel_index = next_voxel_index;
-				}
-			}
-		}
-		else
+		if (faces_hit < 1 || next_voxel_index < 0 || next_voxel_index > total_voxels)
 		{
+			// border voxels
 			is_inside = false;
+			return 1;
 		}
+		else if (is_negative(grid_voxels_params_2f, total_voxels, next_voxel_index))
+		{
+			return 2;
+		}
+
+		face_in = box_face_in_face_out(face_out);
+		hit_in = hit_out;
+		voxel_index = next_voxel_index;
 	}
 
-	return intersections_count;	// return hit count
+	return 1;
 }
 
 
-
-__global__ void	raycast_kernel_gl(
-	uint* out_image,
-	ushort image_width,
-	ushort image_height,
-	ushort3 voxel_count,
-	ushort3 voxel_size,
-	float* grid_voxels_params_2f,
-	float fov_scale,
-	float aspect_ratio,
-	float* camera_to_world_mat4x4)
-{
-	ulong x = blockIdx.x*blockDim.x + threadIdx.x;
-	ulong y = blockIdx.y*blockDim.y + threadIdx.y;
-
-	if (x >= image_width || y >= image_height)
-	{
-		return;
-	}
-
-	// Convert from image space (in pixels) to screen space
-	float u = (x / (float)image_width) * 2.0f - 1.0f;
-	float v = (y / (float)image_height) * 2.0f - 1.0f;
-	Ray eye_ray;
-	eye_ray.origin = make_float3(mul(camera_to_world_dev_matrix, make_float4(0.0f, 0.0f, 0.0f, 1.0f)));
-	float3 screen_coord = normalize(make_float3(u, -v, -2.0f));
-	eye_ray.direction = mul(camera_to_world_dev_matrix, screen_coord);
-
-	long voxels_zero_crossing[2] = { -1, -1 };
-
-#if 0
-	//
-	// Check intersection with the whole volume
-	//
-	ushort3 volume_size = make_ushort3(
-		voxel_count.x * voxel_size.x,
-		voxel_count.y * voxel_size.y,
-		voxel_count.z * voxel_size.z);
-	float3 half_volume_size = make_float3(volume_size.x * 0.5f, volume_size.y * 0.5f, volume_size.z * 0.5f);
-	float3 hit1, hit2, hit1_normal, hit2_normal;
-	int hit_count = box_intersection(
-		eye_ray.origin,
-		eye_ray.direction,
-		//make_float3(0, 0, 0),	
-		half_volume_size,	//volume_center,
-		volume_size.x,
-		volume_size.y,
-		volume_size.z,
-		hit1,
-		hit2,
-		hit1_normal,
-		hit2_normal);
-#else
-	float3 hit_normal;
-	int hit_count = raycast_tsdf_volume(
-		eye_ray.origin,
-		eye_ray.direction,
-		voxel_count,
-		voxel_size,
-		grid_voxels_params_2f,
-		voxels_zero_crossing,
-		hit_normal);
-#endif
-
-	const float4 normal = tex2D(normalTexture, x, y);
-
-	if (hit_count > 0)
-	{
-		if (voxels_zero_crossing[0] > -1 && voxels_zero_crossing[1] > -1)
-			out_image[y * image_width + x] = rgbaFloatToInt(make_float4(fabs(normal.x), fabs(normal.y), fabs(normal.z), 1.f));
-		else if (voxels_zero_crossing[0] > -1 || voxels_zero_crossing[1] > -1)
-			out_image[y * image_width + x] = rgbaFloatToInt(make_float4(fabs(normal.x), fabs(normal.y), fabs(normal.z), 1.f));
-		else
-			out_image[y * image_width + x] = rgbaFloatToInt(make_float4(0.0f, 0.5f, 0.5f, 1.f));
-	}
-	else
-	{
-		out_image[y * image_width + x] = rgbaFloatToInt(make_float4(0.5f, 0.f, 0.f, 1.f));
-	}
-
-}
 
 
 __global__ void	raycast_kernel(
@@ -1287,15 +1207,6 @@ __global__ void	raycast_kernel(
 	}
 
 	// Convert from image space (in pixels) to screen space
-	float u = (x / (float)image_width) * 2.0f - 1.0f;
-	float v = (y / (float)image_height) * 2.0f - 1.0f;
-	//Ray eye_ray;
-	//eye_ray.origin = make_float3(mul(camera_to_world_dev_matrix, make_float4(0.0f, 0.0f, 0.0f, 1.0f)));
-	//float3 screen_coord = normalize(make_float3(u, -v, -2.0f));
-	//eye_ray.direction = mul(camera_to_world_dev_matrix, screen_coord);
-
-
-	// Convert from image space (in pixels) to screen space
 	// Screen Space along X axis = [-aspect ratio, aspect ratio] 
 	// Screen Space along Y axis = [-1, 1]
 	float x2_norm = (2.f * float(x) + 0.5f) / (float)image_width;
@@ -1309,15 +1220,7 @@ __global__ void	raycast_kernel(
 	screen_coord = normalize(screen_coord);
 
 	// ray origin
-	float3 camera_pos = 
-		cameraPosition;
-		//make_float3(mul_vec_dir_matrix(camera_to_world_mat4x4, make_float4(0.0f, 0.0f, 0.0f, 1.0f)));
-		//make_float3(camera_to_world_mat4x4[12], camera_to_world_mat4x4[13], camera_to_world_mat4x4[14]);
-
-	//float4 cam;
-	//float4 vec_null = make_float4(0, 0, 0, 1);
-	//matrix_mul_mat_vec_kernel_device(camera_to_world_mat4x4, &vec_null.x, &cam.x, 4);
-	//camera_pos = make_float3(cam.x, cam.y, cam.z);
+	float3 camera_pos = make_float3(camera_to_world_mat4x4[12], camera_to_world_mat4x4[13], camera_to_world_mat4x4[14]);
 
 	// transform vector by matrix (no translation)
 	// multDirMatrix
@@ -1377,9 +1280,9 @@ __global__ void	raycast_kernel(
 	matrix_mul_mat_vec_kernel_device(normal_matrix_dev, &hit_normal.x, &N.x, 3);
 	N = normalize(N);
 
-	float4 light_dir;
-	float4 forward = make_float4(0, 0, 1, 0);
-	matrix_mul_mat_vec_kernel_device(light_matrix_dev, &forward.x, &light_dir.x, 4);
+	//float4 light_dir;
+	//float4 forward = make_float4(0, 0, 1, 0);
+	//matrix_mul_mat_vec_kernel_device(light_matrix_dev, &forward.x, &light_dir.x, 4);
 	
 	
 	float3 diff_color		= fabs(hit_normal);
@@ -1387,16 +1290,8 @@ __global__ void	raycast_kernel(
 	float spec_shininess	= lightData.w;
 
 	
-	//float3 E				= normalize(-camera_pos);
-	//float3 L				= normalize(make_float3(light_dir.x, light_dir.y, light_dir.z));
-	//float3 R				= normalize(reflect(-L, N));
-	
-	//float3 diff				= diff_color * 0.4f * fmax(dot(L, N), 0.f);
-	//float3 spec				= spec_color * pow(fmax(dot(R, E), spec_shininess), 0.f);
-	//float3 color			= ambient + diff + spec;
-
 	float3 E				= normalize(-direction);
-	float3 L				= E; // normalize(make_float3(lightData.x, lightData.y, lightData.z));
+	float3 L				= E; 
 	float3 R				= normalize(-reflect(L, N));
 	float3 diff				= diff_color * saturate(fabs(dot(N, L)));
 	float3 ambient			= diff_color * 0.3f;
@@ -1405,7 +1300,8 @@ __global__ void	raycast_kernel(
 
 	if (hit_count > 0)
 	{
-		if (voxels_zero_crossing[0] > -1 && voxels_zero_crossing[1] > -1)
+		if (hit_count == 2 ) 
+		//if (voxels_zero_crossing[0] > -1 && voxels_zero_crossing[1] > -1)
 		{
 #if 1
 			out_image[y * image_width + x].x = uchar(color.x * 255);
@@ -1419,10 +1315,10 @@ __global__ void	raycast_kernel(
 			out_image[y * image_width + x].w = 255;
 #endif
 		}
-		//if (hit_count == 1)
-		//{
-		//	out_image[y * image_width + x] = make_uchar4(255, 255, 255, 255);
-		//}
+		else if (hit_count == 9999)
+		{
+			out_image[y * image_width + x] = make_uchar4(255, 255, 255, 255);
+		}
 		else
 		{
 			out_image[y * image_width + x] = make_uchar4(64, 64, 0, 255);
@@ -1498,14 +1394,9 @@ __global__ void	raycast_box_kernel(
 }
 
 
+
 extern "C"
 {
-	void knt_set_camera_pos(float3 cam_pos)
-	{
-		checkCudaErrors(cudaMemcpyToSymbol(cameraPosition, &cam_pos, sizeof(float3)));
-	}
-
-
 	void knt_set_light(float4 light_data, const float* light_matrix_4x4f)
 	{
 		checkCudaErrors(cudaMemcpyToSymbol(lightData, &light_data, sizeof(float4)));
@@ -1796,6 +1687,7 @@ extern "C"
 		float aspect_ratio,
 		const float* camera_to_world_mat3x4)
 	{
+#if 0
 		checkCudaErrors(cudaMemcpyToSymbol(camera_to_world_dev_matrix, camera_to_world_mat3x4, sizeof(float4) * 3));
 
 		float fov_scale = -tan(deg2rad(fovy * 0.5f));
@@ -1816,6 +1708,7 @@ extern "C"
 			);
 
 		checkCudaErrors(cudaDeviceSynchronize());
+#endif
 	}
 
 
