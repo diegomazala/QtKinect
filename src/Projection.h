@@ -96,7 +96,7 @@ static Eigen::Matrix<Type, 3, 1> window_coord_to_3d(Eigen::Matrix<Type, 2, 1> pi
 	Eigen::Matrix<Type, 3, 1> p3d_final;
 	p3d_final.x() = -vertex_proj_inv.x();
 	p3d_final.y() = -vertex_proj_inv.y();
-	p3d_final.z() = depth;
+	p3d_final.z() = -depth;
 
 	return p3d_final;
 }

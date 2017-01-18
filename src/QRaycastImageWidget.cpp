@@ -101,8 +101,8 @@ void QRaycastImageWidget::computeRaycast()
 	//knt_set_light(lightData, light_matrix.data());
 	
 
-	QVector3D fw(0, 0, 1);
-	qDebug() << fw << " -> " << cameraRotation.rotatedVector(fw);
+	//QVector3D fw(0, 0, 1);
+	//qDebug() << fw << " -> " << cameraRotation.rotatedVector(fw);
 	//qDebug() << "c: " << cameraPosition << '\t' << cameraRotationAxis;
 
 
@@ -205,9 +205,9 @@ void QRaycastImageWidget::setup(const std::string& filepath, ushort vx_count, us
 	//
 	// use this for volume
 	// 
-	//cameraPosition.setX(-vol_size * 0.5f);
-	//cameraPosition.setY(-vol_size * 0.5f);
-	//cameraPosition.setZ(0);
+	cameraPosition.setX(vol_size * 0.5f);
+	cameraPosition.setY(vol_size * 0.5f);
+	cameraPosition.setZ(0);
 
 	//cameraPosition = QVector3D(10.2f, 9.6f, -16.18f);
 	//cameraRotation = QQuaternion(0.97f, 0.046f, -0.231f, 0.0028f);

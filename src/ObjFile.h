@@ -234,7 +234,7 @@ static void export_obj_with_colors(const std::string& filename, const std::vecto
 	{
 		const auto& v = vertices[i];
 		const auto& c = rgb[i];
-		file << std::fixed << "v " << v.transpose() << '\t' << c.transpose() << std::endl;
+		file << std::fixed << "v " << v.transpose().head<3>() << '\t' << c.transpose() << std::endl;
 	}
 	file.close();
 }
