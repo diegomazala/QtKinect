@@ -55,6 +55,14 @@ int main(int argc, char **argv)
 		kinect_frame = new QKinectFrame(input_path);
 		colorWidget.setImage(kinect_frame->convertColorToImage());
 		depthWidget.setImage(kinect_frame->convertDepthToImage());
+
+		std::cout
+			<< std::endl
+			<< "Kinect Frame Info: " << std::endl
+			<< "\tColor Buffer  :" << kinect_frame->color_width() << ", " << kinect_frame->color_height() << std::endl
+			<< "\tDepth Buffer  :" << kinect_frame->depth_width() << ", " << kinect_frame->depth_height() << std::endl
+			<< "\tDepth Min/Max :" << kinect_frame->depth_min_distance() << ", " << kinect_frame->depth_max_distance() << std::endl
+			<< std::endl;
 	}
 
 
