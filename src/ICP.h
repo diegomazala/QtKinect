@@ -146,29 +146,82 @@ public:
 	static bool align_iteration(
 		const std::vector<Eigen::Matrix<Type, 4, 1>>& points_src,
 		const std::vector<Eigen::Matrix<Type, 4, 1>>& points_dst,
+		const int filter_width,
+		const Type max_distance,
+		const int frame_width,
+		const int frame_height,
 		Eigen::Matrix<Type, 3, 3>& R,
 		Eigen::Matrix<Type, 3, 1>& t)
 	{
-		std::vector<Eigen::Matrix<Type, 4, 1>> points_match;
+		Type sum_distances = 0;
+		const int numCols = frame_width;
+		const int numRows = frame_height;
 
+		const int half_fw = filter_width / 2;
+
+		std::vector<Eigen::Matrix<Type, 4, 1>> points_match_src;
+		std::vector<Eigen::Matrix<Type, 4, 1>> points_match_dst;
+
+		int i = 0;
 		for (const Eigen::Matrix<Type, 4, 1>& p1 : points_src)
 		{
-			Eigen::Matrix<Type, 4, 1> closer = points_dst[0];
-			Type min_distance = distance_point_to_point(p1, points_dst[0]);
+			Eigen::Matrix<Type, 4, 1> closer;
 
-			for (const Eigen::Matrix<Type, 4, 1>& p2 : points_dst)
+			if (!p1.isZero(0.001f))
 			{
-				Type dist = distance_point_to_point(p1, p2);
-				if (dist < min_distance)
+				Type min_distance = (Type)FLT_MAX;
+				Type dist = (Type)FLT_MAX;
+
+				int x = i % numCols;
+				int y = i / numCols;
+
+				// x filter borders 
+				int x_begin = std::max(x - half_fw, 0);
+				int x_end = std::min(x + half_fw, numCols - 1);
+
+				// y filter borders 
+				int y_begin = std::max(y - half_fw, 0);
+				int y_end = std::min(y + half_fw, numRows - 1);
+
+
+				// computing neighbours
+				for (int yy = y_begin; yy <= y_end; ++yy)
 				{
-					closer = p2;
-					min_distance = dist;
+					for (int xx = x_begin; xx <= x_end; ++xx)
+					{
+						const Eigen::Matrix<Type, 4, 1>& p2 = points_dst[yy * numCols + xx];
+
+						dist = distance_point_to_point(p1, p2);
+
+						if (dist < min_distance)
+						{
+							closer = p2;
+							min_distance = dist;
+						}
+					}
+				}
+
+				if (min_distance < max_distance)
+				{
+					points_match_src.push_back(points_src[i]);
+					points_match_dst.push_back(closer);
+
+					sum_distances += min_distance;
 				}
 			}
-			points_match.push_back(closer);
+			++i;
 		}
 
-		return computeRigidTransform(points_src, points_match, R, t);
+
+		std::cout << "Size of points match      : " << points_match_dst.size() << std::endl;
+		std::cout << "Sum of distances          : " << sum_distances << std::endl;
+		std::cout << "Max distance allowed      : " << max_distance << std::endl;
+
+
+		//export_obj("../match_src.obj", points_match_src);
+		//export_obj("../match_dst.obj", points_match_dst);
+
+		return computeRigidTransform(points_match_src, points_match_dst, R, t);
 	}
 
 	static bool align_iteration(
