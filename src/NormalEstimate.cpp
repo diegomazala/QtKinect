@@ -40,10 +40,18 @@ int main(int argc, char **argv)
 		KinectFrame::load(input_filename, frame);
 		timer.print_interval("Importing kinect frame    : ");
 
-		const float fovy = KINECT_V2_FOVY; 
-		const float aspect_ratio = KINECT_V2_DEPTH_ASPECT_RATIO;
-		const float near_plane = KINECT_V2_DEPTH_MIN;
-		const float far_plane = KINECT_V2_DEPTH_MAX;
+		float fovy = KINECT_V2_FOVY; 
+		float aspect_ratio = KINECT_V2_DEPTH_ASPECT_RATIO;
+		float near_plane = KINECT_V2_DEPTH_MIN;
+		float far_plane = KINECT_V2_DEPTH_MAX;
+
+		if (frame.depth_width() != 512)	// it is not kinect version 2. It is version 1
+		{
+			fovy = KINECT_V1_FOVY;
+			aspect_ratio = KINECT_V1_ASPECT_RATIO;
+			near_plane = KINECT_V1_DEPTH_MIN;
+			far_plane = KINECT_V1_DEPTH_MAX;
+		}
 
 		std::vector<Eigen::Vector3f> vertices(frame.depth.size(), Eigen::Vector3f(0, 0, 0));
 		std::vector<Eigen::Vector3f> normals(frame.depth.size(), Eigen::Vector3f(0, 0, 1));
