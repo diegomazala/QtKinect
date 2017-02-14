@@ -5,13 +5,13 @@
     <LocalDebuggerWorkingDirectory>$(OutDir)</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerEnvironment>PATH=$(QTDIR)\bin%3b"$(QTDIR)\bin%3b$(PATH)</LocalDebuggerEnvironment>
-    <QTDIR>D:\Programs\Qt\Qt_58\5.8\msvc2013_64</QTDIR>
+    <QTDIR>D:\Programs\Qt\Qt_58\5.8\msvc2015_64</QTDIR>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LocalDebuggerCommandArguments>../../data/room.knt 256 2 </LocalDebuggerCommandArguments>
     <LocalDebuggerWorkingDirectory>$(OutDir)</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerEnvironment>PATH=$(QTDIR)\bin%3b"$(QTDIR)\bin%3b$(PATH)</LocalDebuggerEnvironment>
-    <QTDIR>D:\Programs\Qt\Qt_58\5.8\msvc2013_64</QTDIR>
+    <QTDIR>D:\Programs\Qt\Qt_58\5.8\msvc2015_64</QTDIR>
   </PropertyGroup>
 </Project>
