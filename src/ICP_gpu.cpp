@@ -571,7 +571,7 @@ int main(int argc, char **argv)
 	glwidget.addPointCloud(cloud_1);
 
 	glwidget.setWeelSpeed(0.1f);
-	glwidget.setDistance(-0.5f);
+	glwidget.setPosition(0, 0, -0.5f);
 
 	
 	

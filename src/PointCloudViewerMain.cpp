@@ -68,7 +68,7 @@ int main(int argc, char **argv)
 	}
 
 	glwidget.setWeelSpeed(0.01);
-	glwidget.setDistance(-5);
+	glwidget.setPosition(0, 0, -5);
 
 	return app.exec();
 }

@@ -146,9 +146,7 @@ int volumetric_knt_cuda(int argc, char **argv)
 		vertices.data()[0],
 		normals.data()[0],
 		image_width,
-		image_height,
-		*image_data,
-		*debug_buffer
+		image_height
 		);
 
 	timer.start();

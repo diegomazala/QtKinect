@@ -5,8 +5,8 @@
 #include "KinectSpecs.h"
 
 
-#define DegToRad(angle_degrees) (angle_degrees * M_PI / 180.0)		// Converts degrees to radians.
-#define RadToDeg(angle_radians) (angle_radians * 180.0 / M_PI)		// Converts radians to degrees.
+#define DegToRad(angle_degrees) (angle_degrees * 3.14159265359 / 180.0)		// Converts degrees to radians.
+#define RadToDeg(angle_radians) (angle_radians * 180.0 / 3.14159265359)		// Converts radians to degrees.
 
 static void multDirMatrix(const Eigen::Vector3f &src, const Eigen::Matrix4f &mat, Eigen::Vector3f &dst)
 {

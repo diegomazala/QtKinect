@@ -26,7 +26,7 @@ void exportKinectFrame2Obj(const std::string& kinect_file_name, const std::strin
 	const float far_plane = frame.depth_max_distance();
 	const float fovy = 43.0f;
 	const float aspect_ratio = window_width / window_height;
-	const float y_scale = (float)1.0 / tan((fovy / 2.0)*(M_PI / 180.0));
+	const float y_scale = (float)1.0 / tan((fovy / 2.0)*(3.14159265359 / 180.0));
 	const float x_scale = y_scale / aspect_ratio;
 	const float depth_length = far_plane - near_plane;
 	const  Eigen::Matrix4f projection_inverse = perspective_matrix_inverse(fovy, aspect_ratio, near_plane, far_plane);

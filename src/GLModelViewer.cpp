@@ -84,7 +84,7 @@ void GLModelViewer::renderModel(QOpenGLShaderProgram* program, GLModel* cloud)
 
 	// Calculate model view transformation
 	QMatrix4x4 view;
-	view.translate(0, 0, distance);
+	view.translate(position);
 	view.rotate(rotation);
 
 	int projection_matrix_location = program->uniformLocation("projectionMatrix");

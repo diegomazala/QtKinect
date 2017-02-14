@@ -21,8 +21,8 @@ using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 #include "RayIntersection.h"
 #include "Eigen/Eigen"
 
-#define DegToRad(angle_degrees) (angle_degrees * M_PI / 180.0)		// Converts degrees to radians.
-#define RadToDeg(angle_radians) (angle_radians * 180.0 / M_PI)		// Converts radians to degrees.
+#define DegToRad(angle_degrees) (angle_degrees * 3.14159265359 / 180.0)		// Converts degrees to radians.
+#define RadToDeg(angle_radians) (angle_radians * 180.0 / 3.14159265359)		// Converts radians to degrees.
 
 
 static bool import_obj(const std::string& filename, std::vector<float>& points3d, int max_point_count = INT_MAX)
@@ -230,7 +230,7 @@ namespace TestQtKinect
 
 			float fovy = 70.0f;
 			float aspect_ratio = 512.0f / 424.0f;
-			float y_scale = (float)1.0 / tan((fovy / 2.0)*(M_PI / 180.0));
+			float y_scale = (float)1.0 / tan((fovy / 2.0)*(3.14159265359 / 180.0));
 			float x_scale = y_scale / aspect_ratio;
 
 			Eigen::MatrixXf K = Eigen::MatrixXf(3, 4);
@@ -274,7 +274,7 @@ namespace TestQtKinect
 			const float far_plane = 100.0f;
 			const float fovy = 60.0f;
 			const float aspect_ratio = window_width / window_height;
-			const float y_scale = (float)1.0 / tan((fovy / 2.0)*(M_PI / 180.0));
+			const float y_scale = (float)1.0 / tan((fovy / 2.0)*(3.14159265359 / 180.0));
 			const float x_scale = y_scale / aspect_ratio;
 
 			Eigen::Matrix4f Mdv = Eigen::Matrix4f::Identity();
@@ -307,7 +307,7 @@ namespace TestQtKinect
 			float far_plane = 100.0f;
 			float fovy = 60.0f;
 			float aspect_ratio = window_width / window_height;
-			float y_scale = (float)1.0 / tan((fovy / 2.0)*(M_PI / 180.0));
+			float y_scale = (float)1.0 / tan((fovy / 2.0)*(3.14159265359 / 180.0));
 			float x_scale = y_scale / aspect_ratio;
 
 			Eigen::Vector3f ndc;
@@ -334,7 +334,7 @@ namespace TestQtKinect
 			float far_plane = 100.0f;
 			float fovy = 70.0f;
 			float aspect_ratio = window_width / window_height;
-			float y_scale = (float)1.0 / tan((fovy / 2.0)*(M_PI / 180.0));
+			float y_scale = (float)1.0 / tan((fovy / 2.0)*(3.14159265359 / 180.0));
 			float x_scale = y_scale / aspect_ratio;
 
 			Eigen::Affine3f Mdv = Eigen::Affine3f::Identity();

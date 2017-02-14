@@ -96,7 +96,7 @@ void GLKinectWidget::paintGL()
 
     // Calculate model view transformation
     QMatrix4x4 matrix;
-	matrix.translate(0, 0, distance);
+	matrix.translate(position);
     matrix.rotate(rotation);
 	
 	QMatrix4x4 model;

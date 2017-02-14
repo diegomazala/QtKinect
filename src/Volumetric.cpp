@@ -227,7 +227,7 @@ int main(int argc, char **argv)
 	glwidget.move(320, 0);
 	glwidget.setWindowTitle("Point Cloud");
 	glwidget.setWeelSpeed(0.1f);
-	glwidget.setDistance(-0.5f);
+	glwidget.setPosition(0, 0, -0.5f);
 	glwidget.show();
 
 	
